@@ -18,8 +18,8 @@ export class ArenalRoute extends CentreRoute {
   this.nativeRoads=[road];this.nativeObstacles=[];this.nativeEdges=[];CathedralRoute.prototype.collectNative.call(this,sim.mapColliders,postigoPoint,5);
   this.obstacles.push(...this.nativeObstacles);const root=sim.mapGraph.root,a=POSTIGO_MODULE.rotation*Math.PI/180;root.position=[...postigoPoint(root.position),0];root.rotation=[0,0,Math.sin(a/2),Math.cos(a/2)];
   for(const n of sim.mapGraph.nodes.values())if(n.path.includes('/zonaInter')||n.path.includes('/zonaParada'))n.active=false;
-  // A square joining footprint matches the painted street; no hidden rounded limits.
-  this.walkable=this.walkable.map(p=>p.length===24?rect(bounds(p)):p);
+  // Keep the original rounded joining footprints: no artificially squared turn bays.
+  // The same polygons drive collision testing and the visible pavement.
   this.nativeObstacles=this.nativeObstacles.filter(o=>o.rect[1]<36.5);
   this.obstacles=this.obstacles.filter(o=>o.kind!=='native'||this.nativeObstacles.includes(o));this.nativeEdges=this.nativeEdges.filter(e=>e.a[1]<36.5||e.b[1]<36.5);
   // The original Arfe graph ends here. Clip unused Postigo roofs from NEW streets.
@@ -41,7 +41,7 @@ export class ArenalRoute extends CentreRoute {
  spriteFilter(graph){return graph===this.sim.mapGraph?'brightness('+(1-this.scene.ambient.darkness*.55)+')':'none';}
  spriteClip(graph){return graph===this.sim.mapGraph?this.nativeKeep:null;}
  buildAudience(){
-  for(const p of this.people)this.graph.nodes.delete(p.id);this.people=[];this.audienceBands=[];
+  for(const p of this.people)this.graph.nodes.delete(p.id);this.people=[];this.audienceBands=[];this.cornerAudience=[];
   const keys=[...new Set(Object.entries(this.sim.resources.animation.graphs).filter(([name])=>/^mapa\d+$/.test(name)).flatMap(([,g])=>g.nodes.filter(n=>n.sprite&&n.path.includes('/publico/')&&!/pierna|mano|brazo/.test(n.path)).map(n=>n.sprite.key)))];
   for(const key of [...keys,'sharedassets2.assets:509','sharedassets2.assets:606','sharedassets2.assets:563']){const id='arenal-resource-'+key;this.graph.nodes.set(id,{id,name:id,path:id,parent:null,position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1],active:false,sprite:{key,enabled:true,order:0,color:[1,1,1,1]}});}
   const addBand=(a,b,from,to,inner,outer,sign)=>{
@@ -52,9 +52,24 @@ export class ArenalRoute extends CentreRoute {
   for(const segment of this.segments){const{a,b,length,module}=segment;if(module.source===ARENAL_REYES.source)continue;
    const inner=module.id==='MODULO_ADRIANO'?.86:.79,outer=inner+1.3;
    for(const sign of[-1,1]){
-    if(module.id==='MODULO_ADRIANO'){addBand(a,b,1.4,3.8,inner,outer,sign);if(sign===1){addBand(a,b,3.8,4.8,1.45,2.39,sign);addBand(a,b,7.2,8.2,1.45,2.39,sign);}else addBand(a,b,3.8,8.2,2.30,2.43,sign);addBand(a,b,8.2,length-1.35,inner,outer,sign);}
+    if(module.id==='MODULO_ADRIANO'){addBand(a,b,1.4,3.8,inner,outer,sign);if(sign===1){addBand(a,b,3.8,5.0,1.48,2.40,sign);addBand(a,b,7.0,8.2,1.48,2.40,sign);}else addBand(a,b,3.8,8.2,2.25,2.43,sign);addBand(a,b,8.2,length-1.35,inner,outer,sign);}
     else addBand(a,b,1.4,length-1.35,inner,Math.min(outer,module.halfWidth-.05),sign);
    }
+  }
+  // People at corner *pavements*, not floating on rooftops or blocking manoeuvres.
+  // These use original Chicotaz person sprites, with no extra collision wall.
+  for(const segment of this.segments){
+   if(segment.module.source===ARENAL_REYES.source)continue;
+   const {a,b,length,module}=segment;
+   if(length<1.55)continue;
+   for(const sign of[-1,1])for(const edge of[0,length])for(let d=.19;d<.79;d+=.20)
+    for(let inset=.12;inset<=.43;inset+=.155){
+     const along=edge===0?d:length-d;
+     const point=atBand(a,b,along,sign*(module.halfWidth+inset));
+     if(this.walkable.some(poly=>pointInPolygon(point,poly)))continue;
+     const key=keys[(this.cornerAudience.length*3)%keys.length],sp=this.graph.data.sprites[key];
+     if(sp)this.cornerAudience.push({point,key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits)});
+    }
   }
   // The chapel's central bay remains genuinely open for the whole rotating paso.
   this.lamps=this.lamps.filter(p=>Math.hypot(p[0]-BARATILLO.position[0],p[1]-BARATILLO.position[1])>2.0);this.obstacles=this.obstacles.filter(o=>o.kind!=='lamp'||this.lamps.some(p=>p===o.center));
@@ -63,8 +78,8 @@ export class ArenalRoute extends CentreRoute {
  // Original APK tree sprite and compact road signs; no invented turns or wider streets.
  buildAdrianoFurniture(){
   const detail=ADRIANO_URBAN_DETAIL;
-  this.adrianoTrees=detail.trees.map(({d,side},i)=>({id:'adriano-tree-'+i,point:adrianoPoint(d,side*2.34),d,side}));
-  this.adrianoSigns=detail.signs.map(({d,side,type},i)=>({id:'adriano-sign-'+i,point:adrianoPoint(d,side*2.36),d,side,type}));
+  this.adrianoTrees=detail.trees.filter(o=>o.d<ADRIANO_BASIS.length-.14).map(({d,side},i)=>({id:'adriano-tree-'+i,point:adrianoPoint(d,side*(2.45+.12)),d,side}));
+  this.adrianoSigns=detail.signs.map(({d,side,type},i)=>({id:'adriano-sign-'+i,point:adrianoPoint(d,side*(2.45+.065)),d,side,type}));
   // Street furniture touches the visible pavement: no invisible broad collision margin.
   for(const item of this.adrianoTrees)this.obstacles.push({kind:'tree',center:item.point,radius:.12,rect:[item.point[0]-.12,item.point[1]-.12,item.point[0]+.12,item.point[1]+.12]});
   for(const item of this.adrianoSigns)this.obstacles.push({kind:'traffic-sign',center:item.point,radius:.065,rect:[item.point[0]-.065,item.point[1]-.065,item.point[0]+.065,item.point[1]+.065]});
@@ -111,9 +126,9 @@ export class ArenalRoute extends CentreRoute {
   let detail='';
   if(!showConfirmation){
    if(distance>cfg.positionTolerance)detail=`Sitúa el paso sobre la marca azul · ${distance.toFixed(1)} m`;
-   else if(degrees>cfg.headingTolerance)detail='Orienta la delantera hacia la puerta de la capilla';
+   else if(degrees>cfg.headingTolerance)detail='Alinea el paso paralelo a la fachada, sin girarlo hacia la puerta';
    else if(!stopped)detail='Detén el paso para realizar la presentación';
-   else detail=`Mantén la posición · ${Math.max(0,cfg.holdSeconds-hold).toFixed(1)} s`;
+   else detail=`Presentación ante la capilla · ${Math.max(0,cfg.holdSeconds-hold).toFixed(1)} s`;
   }
   ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
   const bw=Math.min(w-24,420),x=(w-bw)/2,y=Math.max(120,h*.16),bh=showConfirmation?38:63;
@@ -131,14 +146,35 @@ export class ArenalRoute extends CentreRoute {
   for(const poly of this.walkable)if(intersects(bounds(poly),r))patch(poly,[1610,1050,96,96]);
   // Existing Reyes Católicos painter and bridgehead: no new street/deck geometry.
   if(r[3]>46.8){ctx.save();path(rect([23,46.8,45.25,60]));ctx.clip();const layer=this.reyesLayer,old=layer.scene;layer.scene={...old,ppu:p};CentreRoute.prototype.paintTile.call(layer,ctx,images,[r[0],r[1]-20,r[2],r[3]-20]);layer.scene=old;ctx.restore();}
-  this.paintContinuousArenal(ctx,r,images);
+  ctx.save();this.clipArchitectureToRealRoad(ctx,r);this.paintContinuousArenal(ctx,r,images);ctx.restore();
   for(const band of this.audienceBands)if(intersects(bounds(band.poly),r))patch(band.poly,[100,1038,400,90],band.angle);
   this.paintBaratillo(ctx,r,images);
   this.paintPastorFacade(ctx,r);
+  this.paintArenalCornerAudience(ctx,r,images);
   this.paintAdrianoFurniture(ctx,r,images);
   // Dawn is applied to this new district; the reused Reyes painter already tints itself.
   ctx.save();path(rect([r[0],r[1],r[2],Math.min(r[3],46.8)]));ctx.clip();ctx.globalAlpha=v.ambient.darkness;box(r,v.ambient.tint);ctx.restore();ctx.globalAlpha=1;
   for(const [x,y]of this.lamps)if(x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3]){const g=ctx.createRadialGradient(px(x),py(y),0,px(x),py(y),p*.65);g.addColorStop(0,'rgba(255,218,148,.28)');g.addColorStop(1,'rgba(255,207,116,0)');ctx.fillStyle=g;ctx.fillRect(px(x)-p,py(y)-p,2*p,2*p);box([x-.025,y-.025,x+.025,y+.025],'#ffe4ac');}
+ }
+ // Clip roofs, adjoining facades and sidewalks against ALL real street and
+ // rounded junction polygons. Eliminates roof wedges crossing a neighbour lane,
+ // without opening even a centimetre of extra navigable space.
+ clipArchitectureToRealRoad(ctx,r){
+  const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
+  for(const poly of this.walkable){
+   if(poly.length<3||!intersects(bounds(poly),r))continue;
+   ctx.beginPath();ctx.rect(0,0,(r[2]-r[0])*p,(r[3]-r[1])*p);
+   poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
+   ctx.closePath();ctx.clip('evenodd');
+  }
+ }
+ paintArenalCornerAudience(ctx,r,images){
+  const p=this.scene.ppu;
+  for(const item of this.cornerAudience){
+   const [x,y]=item.point,[w,h]=item.size;
+   if(!intersects([x-w/2,y-h/2,x+w/2,y+h/2],r))continue;
+   const image=images.get(item.key);if(image)ctx.drawImage(image,(x-w/2-r[0])*p,(r[3]-y-h/2)*p,w*p,h*p);
+  }
  }
  // Each building row is a continuous frontage; roof textures come from the APK.
  // We draw the curb outside the existing collision lane and keep intersections uncut.
@@ -151,16 +187,17 @@ export class ArenalRoute extends CentreRoute {
   const modules=['MODULO_ADRIANO','MODULO_PASTOR_LANDERO','MODULO_ENLACE_ARFE_ADRIANO'];
   for(const seg of this.segments){if(!modules.includes(seg.module.id))continue;
    const {a,b,length,module}=seg;
-   if(!intersects(bounds([a,b]),[r[0]-5,r[1]-5,r[2]+5,r[3]+5]))continue;
+   if(!intersects(bounds([a,b]),[r[0]-6,r[1]-6,r[2]+6,r[3]+6]))continue;
    const at=(d,o)=>atBand(a,b,d,o);
    for(const side of [-1,1]){
-    const kerb=module.halfWidth,front=kerb+.035,far=kerb+3.55;
+    const kerb=module.halfWidth,front=kerb+.065,far=kerb+3.55;
     const facade=[at(.02,side*front),at(length-.02,side*front),at(length-.02,side*far),at(.02,side*far)];
     fill(facade,side===1?'#d7c4aa':'#d2c7b6');
     // Opaque, uninterrupted roof mass replaces the seams between original house rectangles.
     const materialIndex=(module.id==='MODULO_ADRIANO'?4:module.id==='MODULO_PASTOR_LANDERO'?2:0)+(side===1?1:0);
     const roof=images.get(NATIVE_HOUSE_KEYS[materialIndex]);
-    if(roof){ctx.save();path(facade);ctx.clip();const bb=bounds(facade);ctx.globalAlpha=.83;ctx.drawImage(roof,px(bb[0]),py(bb[3]),(bb[2]-bb[0])*p,(bb[3]-bb[1])*p);ctx.restore();}
+    if(roof){ctx.save();path(facade);ctx.clip();const bb=bounds(facade);ctx.globalAlpha=.93;for(let x=Math.floor(bb[0]/2)*2;x<bb[2];x+=2)for(let y=Math.floor(bb[1]/2)*2;y<bb[3];y+=2)ctx.drawImage(roof,px(x),py(y+2),2*p,2*p);ctx.restore();}
+    // The street clip leaves actual swept curbs visible at junctions, without cut roofs.
     // Paint a continuous front before separate entrances and balconies.
     const frontLine=[at(.02,side*(kerb+.045)),at(length-.02,side*(kerb+.045))];
     ctx.beginPath();frontLine.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
