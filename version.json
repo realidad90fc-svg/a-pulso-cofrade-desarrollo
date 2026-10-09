@@ -1,5 +1,5 @@
-﻿{
-    "version":  "dev-2026.10.09.135511",
-    "stage":  "development",
-    "note":  "Pruebas, rutas desbloqueadas. La versión se actualiza al publicar en Vercel."
+{
+  "version": "dev-2026.10.09.2-realismo",
+  "stage": "development",
+  "note": "Parche 2: aceras, fachadas y mobiliario de Adriano/Baratillo. Modo pruebas."
 }

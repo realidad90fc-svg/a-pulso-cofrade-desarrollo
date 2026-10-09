@@ -10,6 +10,16 @@ export const MODULO_PASTOR_LANDERO=street('MODULO_PASTOR_LANDERO','Pastor y Land
 export const ARENAL_REYES=placeModule(MODULO_REYES_CATOLICOS,ARENAL_FRAME.reyesTranslation);
 const A=MODULO_ADRIANO.points[0],B=MODULO_ADRIANO.points[1],length=Math.hypot(B[0]-A[0],B[1]-A[1]);
 export const ADRIANO_BASIS={t:[(B[0]-A[0])/length,(B[1]-A[1])/length],n:[-(B[1]-A[1])/length,(B[0]-A[0])/length],length};
+// Street furniture is tied to the existing street geometry, never a new parallel road.
+// The plantings and hexagonal kerbs are based on Seville's 2023/2025 Adriano works;
+// individual positions are approximate pending a survey, and can be moved independently.
+export const ADRIANO_URBAN_DETAIL={
+ sidewalkDepth:.48, // outside the existing playable kerb; does NOT increase the driving width
+ kerbInset:.018,
+ trees:[{d:1.12,side:1},{d:2.75,side:-1},{d:9.35,side:1},{d:10.65,side:-1}],
+ signs:[{d:2.04,side:1,type:'no-stopping'},{d:9.95,side:-1,type:'no-parking'}],
+ treeSprite:'sharedassets2.assets:563'
+};
 export const adrianoPoint=(d,side=0)=>[A[0]+ADRIANO_BASIS.t[0]*d+ADRIANO_BASIS.n[0]*side,A[1]+ADRIANO_BASIS.t[1]*d+ADRIANO_BASIS.n[1]*side];
 export const BARATILLO={id:'CAPILLA_BARATILLO',name:'Capilla de la Piedad del Baratillo',moduleId:MODULO_ADRIANO.id,door:adrianoPoint(6,2.45),position:adrianoPoint(6,-.60),heading:Math.atan2(-ADRIANO_BASIS.n[0],ADRIANO_BASIS.n[1])*180/Math.PI,facadeWidth:2.0,facadeDepth:1.05};
 export const PRESENTACION_BARATILLO={id:'presentacion-baratillo',label:'PRESENTACIÓN EN EL BARATILLO',position:BARATILLO.position,heading:BARATILLO.heading,positionTolerance:.36,headingTolerance:18,maxSpeed:.035,maxAngularSpeed:1.2,holdSeconds:2,checkpoint:true,mandatory:true};
