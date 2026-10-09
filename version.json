@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.10.14-capas-separadas",
+  "version": "dev-2026.10.10.15-publico-y-colisiones",
   "stage": "development",
-  "note": "Arenal v14: construccion verificada en orden CALZADA→PUBLICO→ACERAS→CASAS. Separacion geométrica: los tejados no invaden la calzada ni el público; cuatro pequeñas cuñas de giro sin grandes polígonos cruzados; checkpoint del Baratillo intacto."
+  "note": "Regreso por el Arenal: más público continuo hasta las fachadas, sin hueco acera-casa, menos tejados inventados junto a la Maestranza y en Reyes; quitados obstáculos diminutos de árboles y señales; bordillos coinciden con la colisión real."
 }

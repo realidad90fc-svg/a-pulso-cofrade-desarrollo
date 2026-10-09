@@ -61,9 +61,11 @@ export class ArenalRoute extends CentreRoute {
   const detail=ADRIANO_URBAN_DETAIL;
   this.adrianoTrees=detail.trees.filter(o=>o.d<ADRIANO_BASIS.length-.14).map(({d,side},i)=>({id:'adriano-tree-'+i,point:adrianoPoint(d,side*(2.45+.12)),d,side}));
   this.adrianoSigns=detail.signs.map(({d,side,type},i)=>({id:'adriano-sign-'+i,point:adrianoPoint(d,side*(2.45+.065)),d,side,type}));
-  // Street furniture touches the visible pavement: no invisible broad collision margin.
-  for(const item of this.adrianoTrees)this.obstacles.push({kind:'tree',center:item.point,radius:.12,rect:[item.point[0]-.12,item.point[1]-.12,item.point[0]+.12,item.point[1]+.12]});
-  for(const item of this.adrianoSigns)this.obstacles.push({kind:'traffic-sign',center:item.point,radius:.065,rect:[item.point[0]-.065,item.point[1]-.065,item.point[0]+.065,item.point[1]+.065]});
+  // Decorative trees and signs are painted, but no longer create tiny,
+  // hard-to-see failure colliders against the candelabra. This route's
+  // contact obstacles belong exclusively to spectators actually rendered
+  // on the carriageway. Every roadway edge is defined by the asphalt map.
+
  }
  ensureInitialClearance(){
   if(this._startChecked)return;this._startChecked=true;

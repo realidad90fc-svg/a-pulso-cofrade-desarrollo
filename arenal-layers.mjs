@@ -113,8 +113,12 @@ export function buildArenalCrowd(route){
   const sp=all[key];if(!sp)return;
   const size=sp.rectSize.map(x=>x/sp.pixelsToUnits);
   if(!size.every(Number.isFinite))return;
-  if(route.crossroads.some(c=>d2(point,c)<1.5))return;
-  if(d2(point,first)<2.55||d2(point,BARATILLO.position)<2.25&&collision)return;
+  // Corners remain visually populated; only colliding audience is kept out
+  // of the swept turn envelope. Previously this rejected ALL public within
+  // 1.5 world units and made empty crossroads.
+  if(collision&&route.crossroads.some(c=>d2(point,c)<1.75))return;
+  if(collision&&d2(point,first)<3.15)return;
+  if(collision&&d2(point,BARATILLO.position)<2.70)return;
   // A person outside their own corridor cannot appear in another road's
   // centre merely because two urban blocks converge.
   if(!collision&&!route.walkable.some(p=>pointInPolygon(point,p))&&
@@ -131,18 +135,26 @@ export function buildArenalCrowd(route){
  for(const s of route.segments){
   const w=s.module.halfWidth,sw=sidewalkWidth(s.module);
   for(const sign of[-1,1]){
-   for(let d=.11;d<s.length-.11;d+=.178){
-    const nearTurn=d<1.8||d>s.length-1.8,chapel=s.module.id==='MODULO_ADRIANO'&&d>3.85&&d<8.05;
-    const firstRow=nearTurn||chapel?w+.11:
-     s.module.style==='avenue'?2.04:s.module.id==='MODULO_ADRIANO'?1.48:
-     s.module.id==='MODULO_PASTOR_LANDERO'?1.19:1.11;
-    const outer=w+sw+.28;
+   for(let d=.10;d<s.length-.08;d+=.154){
+    const nearTurn=d<1.46||d>s.length-1.46;
+    const chapel=s.module.id==='MODULO_ADRIANO'&&d>3.55&&d<8.35;
+    // A packed band from the first visible street rank to the building-side
+    // pavement, with no unexplained vacant strip between public and frontage.
+    // The chapel and turns preserve a full-step swept clearance.
+    const firstRow=nearTurn||chapel?w+.06:
+      s.module.style==='avenue'?1.82:s.module.id==='MODULO_ADRIANO'?1.28:
+      s.module.id==='MODULO_PASTOR_LANDERO'?1.12:1.10;
+    const outer=w+sw-.095;
     let row=0;
-    for(let offset=firstRow;offset<outer;offset+=.178,row++){
-     const position=pt(s,d+(row%2)*.07,sign*offset);
+    for(let offset=firstRow;offset<=outer+.001;offset+=.154,row++){
+     const position=pt(s,Math.min(s.length-.035,d+(row%2)*.06),sign*offset);
+     // Suppress individual street contacts only when another roadway crosses:
+     // visible spectators along the footpath still appear at the crossroads.
      const besideOtherRoad=route.segments.some(other=>other!==s&&pointInPolygon(position,other.polygon));
-     if(besideOtherRoad)continue;
-     const active=offset<w-.12&&row===0&&(Math.round(d/.178)%2===0)&&!nearTurn&&!chapel;
+     const active=offset<w-.13&&row===0&&(Math.round(d/.154)%3===0)&&!nearTurn&&!chapel&&!besideOtherRoad;
+     // Never place a decorative spectator in the actual crossing lane of
+     // another segment; that would look like somebody stranded in the road.
+     if(besideOtherRoad&&offset<w)continue;
      add(position,active);
     }
    }
@@ -166,21 +178,41 @@ export function buildArenalSidewalks(route){
 
 export function buildArenalHouses(route){
  route.buildings=[];
- const guard=route.people.map(p=>rectangle([p.point[0]-p.clearance,p.point[1]-p.clearance,
- p.point[0]+p.clearance,p.point[1]+p.clearance]));
- const cuts=[...route.walkable,...route.sidewalks.map(s=>s.poly),...guard];
+ const reservations=route.people.map(p=>rectangle([p.point[0]-p.clearance,p.point[1]-p.clearance,
+   p.point[0]+p.clearance,p.point[1]+p.clearance]));
+ // Frontages can touch the pavement. Clip against all three earlier
+ // occupied layers before accepting any building fragment.
+ const cuts=[...route.walkable,...route.sidewalks.map(x=>x.poly),...reservations];
  for(const s of route.segments){
-  const w=s.module.halfWidth,foot=sidewalkWidth(s.module),near=w+foot+.43;
+  const w=s.module.halfWidth,foot=sidewalkWidth(s.module);
+  const near=w+foot+.115; // sidewalk reaches w+foot+.11 => no 0.32m void
+  const isAdriano=s.module.id==='MODULO_ADRIANO';
+  const isArfe=s.module.id==='MODULO_ENLACE_ARFE_ADRIANO';
+  const isPastor=s.module.id==='MODULO_PASTOR_LANDERO';
+  const isReyes=s.module.style==='avenue';
   for(const sign of[-1,1]){
-   const portal=s.module.id==='MODULO_ADRIANO'&&sign===1?[[.18,4.35],[7.65,s.length-.17]]:[[.18,s.length-.17]];
-   for(const [start,finish]of portal){
-    for(let d=start;d<finish-.26;d+=1.52){
-     const end=Math.min(finish,d+1.48);
-     if(end-d<.32)continue;
-     const full=quad(s,d,end,near,near+2.35,sign);
-     const pieces=carve(full,cuts);
-     const key=NATIVE_HOUSE_KEYS[(route.buildings.length+Math.floor(d*4)+(sign+1)*2)%NATIVE_HOUSE_KEYS.length];
-     for(const poly of pieces)route.buildings.push({poly,bbox:bounds(poly),key});
+   // Conservative parcels rather than fabricating two identical rows of
+   // houses everywhere. Adriano's chapel/Maestranza flank is a landmark,
+   // not a shopping-street row of cloned houses. Leave its frontage clear.
+   if(isAdriano&&sign===1)continue;
+   // Reyes Católicos reaches the more open riverside approach; do not fill
+   // the ungrounded side of the avenue with roofs.
+   if(isReyes&&sign===1)continue;
+   let ranges=isAdriano?[[.48,s.length-.55]]:
+    isArfe?[[.30,s.length-.33]]:
+    isPastor?(sign===1?[[1.80,s.length-.5]]:[[.60,s.length-.45]]):
+    isReyes?[[1.3,s.length-1.15]]:[];
+   for(const [start,stop] of ranges){
+    for(let d=start;d<stop-.26;d+=1.58){
+     const end=Math.min(stop,d+1.54);
+     if(end-d<.34)continue;
+     const original=quad(s,d,end,near,near+2.35,sign);
+     const pieces=carve(original,cuts);
+     const key=NATIVE_HOUSE_KEYS[(route.buildings.length+Math.floor(d*3)+(sign+1)*2)%NATIVE_HOUSE_KEYS.length];
+     for(const poly of pieces){
+      if(Math.abs(area(poly))<.045)continue;
+      route.buildings.push({poly,bbox:bounds(poly),key});
+     }
     }
    }
   }
@@ -244,6 +276,31 @@ export function paintArenalScene(route,ctx,images,r){
    ctx.globalAlpha=1;
   }
   ctx.restore();
+ }
+ // Exterior kerbs are the visible limit of the *actual* collision road.
+ // Avoid artificial seams between overlapping segment and corner polygons.
+ const onStreet=q=>route.walkable.some(poly=>pointInPolygon(q,poly));
+ ctx.strokeStyle='#c9c0b4';ctx.lineWidth=.042*p;ctx.lineCap='butt';
+ for(const poly of route.walkable){
+  if(!boxhit(bounds(poly),r))continue;
+  for(let i=0;i<poly.length;i++){
+   const a=poly[i],b=poly[(i+1)%poly.length],len=d2(a,b);
+   if(len<.06)continue;
+   // Subsegments are necessary where another street joins partway along
+   // an edge. The curb appears only where there is real exterior paving.
+   const pieces=Math.ceil(len/.18);
+   for(let j=0;j<pieces;j++){
+    const t0=j/pieces,t1=(j+1)/pieces,mid=(t0+t1)/2;
+    const m=[a[0]+(b[0]-a[0])*mid,a[1]+(b[1]-a[1])*mid];
+    const normal=[-(b[1]-a[1])/len,(b[0]-a[0])/len];
+    const left=onStreet([m[0]+normal[0]*.024,m[1]+normal[1]*.024]);
+    const right=onStreet([m[0]-normal[0]*.024,m[1]-normal[1]*.024]);
+    if(left===right)continue;
+    const z=[a[0]+(b[0]-a[0])*t0,a[1]+(b[1]-a[1])*t0];
+    const w=[a[0]+(b[0]-a[0])*t1,a[1]+(b[1]-a[1])*t1];
+    ctx.beginPath();ctx.moveTo(px(z[0]),py(z[1]));ctx.lineTo(px(w[0]),py(w[1]));ctx.stroke();
+   }
+  }
  }
  route.paintBaratillo(ctx,r,images);
  route.paintAdrianoFurniture(ctx,r,images);
