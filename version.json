@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.13-reconstruccion-total",
+  "version": "dev-2026.10.10.14-capas-separadas",
   "stage": "development",
-  "note": "Regreso por el Arenal reconstruido desde cero en un solo renderizador: pavimento continuo, giros comprobados con huella TreCai, público visible y fachadas siempre bajo la calzada; conserva presentación obligatoria y checkpoint del Baratillo."
+  "note": "Arenal v14: construccion verificada en orden CALZADA→PUBLICO→ACERAS→CASAS. Separacion geométrica: los tejados no invaden la calzada ni el público; cuatro pequeñas cuñas de giro sin grandes polígonos cruzados; checkpoint del Baratillo intacto."
 }
