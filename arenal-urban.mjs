@@ -9,32 +9,11 @@ const overlaps=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 const frac=n=>n-Math.floor(n);
 const choose=(a,i)=>a[((i%a.length)+a.length)%a.length];
 
+// The previous six guessed side roads were drawn straight through existing
+// houses. Keep them removed until their mouths and directions are surveyed
+// from the user's aerial references. Decorative roads never define collisions.
 export function buildArenalSurroundings(route){
  route.visualSideStreets=[];
- // Reference-aligned secondary openings in Arfe, Adriano and Pastor y Landero.
- // Their mouths touch existing road edges, but the original travel route is
- // unchanged. The locations are stylized and can be refined with photos.
- const openings=[
-  ['MODULO_ENLACE_ARFE_ADRIANO',1.32,-1,1.04,5.2],
-  ['MODULO_ADRIANO',2.55,-1,1.25,5.9],
-  ['MODULO_ADRIANO',9.02,1,1.28,6.8],
-  ['MODULO_ADRIANO',10.98,-1,1.04,5.3],
-  ['MODULO_PASTOR_LANDERO',2.05,1,1.13,6.3],
-  ['MODULO_PASTOR_LANDERO',6.30,-1,1.20,5.6]
- ];
- for(const [moduleId,d,side,w,length] of openings){
-  const s=route.arenalSections.find(x=>x.module.id===moduleId);
-  if(!s||d<.5||d>s.length-.5)continue;
-  const outer=s.module.halfWidth+length;
-  // Straight parallel boundaries, not arbitrary diagonal triangular roofs.
-  const polygon=[
-   at(s,d-w/2,side*(s.module.halfWidth-.03)),
-   at(s,d+w/2,side*(s.module.halfWidth-.03)),
-   at(s,d+w/2,side*outer),
-   at(s,d-w/2,side*outer)
-  ];
-  route.visualSideStreets.push({poly:polygon,bounds:limits(polygon),width:w,moduleId,d,side});
- }
 }
 
 export function paintArenalPixelArchitecture(route,ctx,images,r){
@@ -69,16 +48,7 @@ export function paintArenalPixelArchitecture(route,ctx,images,r){
  }
 }
 
-export function paintArenalSecondaryStreets(route,ctx,images,r){
- const p=route.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
- const patch=(poly)=>CathedralRoute.prototype.paintNativePatch.call(route,ctx,images,r,poly,[1610,1050,96,96]);
- for(const street of route.visualSideStreets||[]){
-  if(!overlaps(street.bounds,[r[0]-.5,r[1]-.5,r[2]+.5,r[3]+.5]))continue;
-  const ps=street.poly;
-  ctx.beginPath();ps.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();
-  ctx.lineJoin='miter';ctx.strokeStyle='#c5bcae';ctx.lineWidth=.27*p;ctx.stroke();
-  // Same APK pavement/stone texture as native Arfe and the main roads.
-  // Side streets are visual only; their colliders aren't added to walkable.
-  patch(ps);
- }
-}
+// Intentionally no fabricated side streets. The actual original native
+// map remains visible, and mapped neighbouring streets can be added later.
+export function paintArenalSecondaryStreets(){}
+

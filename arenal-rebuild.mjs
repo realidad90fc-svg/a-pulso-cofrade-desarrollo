@@ -3,7 +3,7 @@ import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {CathedralRoute} from './cathedral-route.mjs';
 import {BARATILLO,ADRIANO_BASIS,adrianoPoint,ARENAL_REYES} from './arenal-data.mjs';
 import {CentreRoute} from './centre-route.mjs';
-import {buildArenalSurroundings,paintArenalPixelArchitecture,paintArenalSecondaryStreets} from './arenal-urban.mjs';
+import {buildArenalSurroundings,paintArenalPixelArchitecture} from './arenal-urban.mjs';
 
 const B=p=>[Math.min(...p.map(q=>q[0])),Math.min(...p.map(q=>q[1])),Math.max(...p.map(q=>q[0])),Math.max(...p.map(q=>q[1]))];
 const hit=(a,b)=>a[2]>=b[0]&&a[0]<=b[2]&&a[3]>=b[1]&&a[1]<=b[3];
@@ -135,9 +135,8 @@ export function paintRebuiltArenal(route,ctx,images,r){
  // Reconstructed contextual skyline: original Chicotaz roof sprites plus
  // pixel-scale masonry, roof rows and patios, clipped to urban footprints.
  paintArenalPixelArchitecture(route,ctx,images,r);
- // Surrounding streets remain visible where the paso does not travel.
- // They are a separate decorative layer and never widen collision geometry.
- paintArenalSecondaryStreets(route,ctx,images,r);
+ // Do not paint guessed perpendicular roads over actual urban buildings.
+ // Unmapped streets must be grounded in the user's aerial references.
  // PHASE 1: visually continuous paving follows EXACT collision polygons.
  // Sidewalk mass is placed BEFORE road asphalt so common seams are erased.
  ctx.save();ctx.lineJoin='miter';ctx.miterLimit=1.5;
