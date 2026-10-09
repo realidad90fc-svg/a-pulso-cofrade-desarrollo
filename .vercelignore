@@ -1,0 +1,9 @@
+*.bat
+*.ps1
+*.md
+*.txt
+tests/**
+.git/**
+.github/**
+.vercel/**
+node_modules/**

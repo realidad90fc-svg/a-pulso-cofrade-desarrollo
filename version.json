@@ -1,0 +1,5 @@
+{
+  "version": "dev-2026.10.09.1",
+  "stage": "development",
+  "note": "Pruebas, rutas desbloqueadas. La versión se actualiza al publicar en Vercel."
+}

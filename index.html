@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#18110b"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>Chicotaz</title><meta name="description" content="Chicotaz en el navegador, con sus pasos, calles, órdenes, animaciones, marchas y voces originales.">
+<link rel="icon" href="assets/original-menu-app-icon.png"><link rel="apple-touch-icon" href="assets/original-menu-app-icon.png"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <canvas id="scene" aria-label="Recorrido original de Chicotaz"></canvas>
+  <section id="loader" class="screen loading"><h1>Chicotaz</h1><p id="load-detail">Cargando el juego…</p><button id="load-retry" class="blue" hidden>Reintentar</button></section>
+  <section id="entry" class="screen entry" hidden><h1>Chicotaz</h1><p>El arte de mandar un paso</p><button id="enter" class="blue">Entrar con sonido</button></section>
+  <section id="menu" class="screen menu" hidden>
+    <h1>Chicotaz</h1><div class="menu-actions"><button id="classic" class="blue">Clásico</button><button id="free" class="blue">Libre</button><button id="continue" class="blue" hidden>Continuar</button><button id="instructions" class="blue">Instrucciones</button><button id="tutorial" class="blue">Tutorial</button><button id="records" class="blue">Récords</button><button id="settings" class="blue">Ajustes</button><button id="credits" class="blue">Créditos</button></div>
+    <div class="stamps"><img id="stamp-image" alt="Estampita"><strong id="stamp-count">0</strong></div>
+  </section>
+  <section id="home-screen" class="screen cofrade-screen mode-home" hidden aria-labelledby="mode-title">
+    <div class="mode-brand"><p class="mode-eyebrow">EL ARTE DE MANDAR UN PASO</p><h1 id="mode-title">Chicotaz</h1><span class="mode-rule" aria-hidden="true"></span></div>
+    <nav class="mode-choices" aria-label="Modos de juego">
+      <button id="mode-week" class="cofrade-button mode-choice"><strong>SEMANA SANTA</strong><span>Las jornadas de Sevilla</span></button>
+      <button id="mode-brotherhood" class="cofrade-button mode-choice"><strong>MI HERMANDAD</strong><span>Tu historia cofrade</span></button>
+      <button id="mode-free" class="cofrade-button mode-choice"><strong>JUEGO LIBRE</strong><span>Pasos y recorridos actuales</span></button>
+    </nav>
+    <nav class="mode-secondary" aria-label="Opciones"><button id="mode-settings" class="cofrade-link">Ajustes</button><button id="mode-information" class="cofrade-link">Información / créditos</button></nav>
+  </section>
+  <section id="week-screen" class="screen cofrade-screen" hidden aria-labelledby="week-title">
+    <header class="cofrade-header"><button id="week-back" class="cofrade-back" aria-label="Volver al menú principal">←</button><h2 id="week-title">Semana Santa</h2></header>
+    <div class="cofrade-content"><p class="mode-intro">Las jornadas de la Semana Santa sevillana.</p><div class="day-legend" aria-label="Estados de las jornadas"><span>★ Estrellas</span><span>🔒 Bloqueado</span><span>✓ Completado</span></div><p id="campaign-total" class="campaign-total"></p><p id="development-notice" class="mode-note" hidden>VERSIÓN DE PRUEBAS · Todos los recorridos disponibles sin estrellas ni completar los anteriores. Los récords y estrellas reales se siguen guardando.</p><div id="day-list" class="day-list"></div><p id="day-message" class="mode-note" role="status" aria-live="polite">Contenido provisional para probar el progreso. Las hermandades reales llegarán próximamente.</p></div>
+  </section>
+  <section id="brotherhood-screen" class="screen cofrade-screen" hidden aria-labelledby="brotherhood-title">
+    <header class="cofrade-header"><button id="brotherhood-back" class="cofrade-back" aria-label="Volver al menú principal">←</button><h2>Mi Hermandad</h2></header>
+    <div class="brotherhood-content"><span class="mode-rule" aria-hidden="true"></span><h2 id="brotherhood-title">FUNDA TU HERMANDAD</h2><p>Crea y gestiona tu propia hermandad sevillana.</p><button id="new-brotherhood" class="cofrade-button">NUEVA HERMANDAD</button><p class="mode-note">Próximamente</p></div>
+  </section>
+  <section id="information-screen" class="screen cofrade-screen" hidden aria-labelledby="information-title">
+    <header class="cofrade-header"><button id="information-back" class="cofrade-back" aria-label="Volver al menú principal">←</button><h2 id="information-title">Información</h2></header>
+    <nav class="cofrade-content information-actions" aria-label="Información y opciones originales"><button id="info-pasos" class="cofrade-button">Los pasos</button><button id="info-records" class="cofrade-button">Récords</button><button id="info-instructions" class="cofrade-button">Instrucciones</button><button id="info-tutorial" class="cofrade-button">Tutorial</button><button id="info-credits" class="cofrade-button">Créditos</button><button id="info-original" class="cofrade-link">Más opciones del juego original</button></nav>
+  </section>
+  <section id="campaign-day-screen" class="screen cofrade-screen" hidden><header class="cofrade-header"><button id="campaign-day-back" class="cofrade-back" aria-label="Volver a jornadas">←</button><h2 id="campaign-day-title"></h2></header><div class="cofrade-content"><p id="campaign-day-stars" class="campaign-total"></p><div id="campaign-brotherhood-list" class="day-list"></div><p id="campaign-day-note" class="mode-note"></p></div></section>
+  <section id="campaign-brotherhood-screen" class="screen cofrade-screen" hidden><header class="cofrade-header"><button id="campaign-brotherhood-back" class="cofrade-back" aria-label="Volver a la jornada">←</button><h2 id="campaign-brotherhood-title"></h2></header><div class="cofrade-content"><p id="campaign-brotherhood-stars" class="campaign-total"></p><h3>PASOS</h3><div id="campaign-step-list" class="day-list"></div><p id="campaign-pending-steps" class="mode-note"></p><h3>RECORRIDOS</h3><div id="campaign-route-list" class="day-list"></div></div></section>
+  <section id="campaign-step-screen" class="screen cofrade-screen" hidden><header class="cofrade-header"><button id="campaign-step-back" class="cofrade-back" aria-label="Volver a la hermandad">←</button><h2 id="campaign-step-title"></h2></header><div class="cofrade-content"><p id="campaign-step-kind" class="mode-note"></p><h3>RECORRIDOS</h3><div id="campaign-step-routes" class="day-list"></div></div></section>
+  <section id="campaign-route-screen" class="screen cofrade-screen" hidden><header class="cofrade-header"><button id="campaign-route-back" class="cofrade-back" aria-label="Volver a recorridos">←</button><h2 id="campaign-route-title"></h2></header><div class="cofrade-content campaign-objectives"><p id="campaign-route-brotherhood" class="campaign-total"></p><h3>OBJETIVOS</h3><p id="campaign-targets"></p><p id="campaign-best"></p><p id="campaign-route-note" class="mode-note"></p><button id="campaign-start" class="cofrade-button">COMENZAR DESDE EL INICIO</button><button id="campaign-resume" class="cofrade-button" hidden>CONTINUAR PARTIDA</button><button id="campaign-resume-checkpoint" class="cofrade-button" hidden>REANUDAR DESDE CHECKPOINT</button></div></section>
+  <section id="campaign-result-screen" class="screen cofrade-screen" hidden><div class="cofrade-content campaign-objectives"><h2 id="campaign-result-title"></h2><p id="campaign-result-message"></p><p id="campaign-result-details"></p><button id="campaign-repeat" class="cofrade-button">REPETIR</button><button id="campaign-checkpoint" class="cofrade-button" hidden>REANUDAR DESDE CHECKPOINT</button><button id="campaign-result-back" class="cofrade-button">CONTINUAR</button></div></section>
+  <section id="campaign-reset-screen" class="screen cofrade-screen" hidden role="dialog" aria-modal="true" aria-labelledby="reset-campaign-title"><div class="cofrade-content campaign-objectives"><h2 id="reset-campaign-title">Restablecer progreso</h2><p>¿Seguro que quieres borrar todo el progreso de Semana Santa?</p><button id="cancel-reset-campaign" class="cofrade-button">CANCELAR</button><button id="confirm-reset-campaign" class="cofrade-button">BORRAR</button></div></section>
+  <section id="selection" class="screen selection" hidden>
+    <header><button id="selection-back" class="round" aria-label="Volver">←</button><h2 id="selection-title">Elige el paso</h2><span id="mode-label"></span></header>
+    <div id="step-list" class="selection-list"></div><div id="map-list" class="selection-list" hidden></div>
+  </section>
+  <section id="hud" hidden aria-label="Controles originales de la partida">
+    <div id="original-hud"></div><div id="original-buttons"></div>
+    <div class="hud-fallback"><div id="clock">00:00</div><div id="strength"><img id="silhouette" alt="Estado de los costaleros"><div class="strength-track"><i id="strength-bar"></i></div></div></div>
+    <div id="now-playing"></div><button id="game-sound" class="audio-button" aria-label="Activar sonido">♪</button>
+  </section>
+  <section id="pause" class="screen veil" hidden><div class="panel"><h2>Pausa</h2><button id="resume" class="blue">Continuar</button><button id="retry" class="blue">Reintentar</button><button id="checkpoint-retry" class="blue" hidden>Volver al checkpoint</button><button id="pause-settings" class="blue">Ajustes</button><button id="pause-home" class="blue">Menú principal</button></div></section>
+  <section id="result" class="screen veil" hidden><div class="panel"><h2 id="result-title"></h2><p id="result-message"></p><p id="result-time"></p><div id="result-stamps"></div><button id="next" class="blue">Siguiente nivel</button><button id="result-retry" class="blue">Reintentar</button><button id="result-checkpoint" class="blue" hidden>Volver al checkpoint</button><button id="result-home" class="blue">Menú principal</button></div></section>
+  <section id="settings-screen" class="screen" hidden><header><button data-close class="round" aria-label="Volver">←</button><h2>Ajustes</h2></header><div id="volumes" class="volume-list"></div><button id="sound-enable" class="blue">Activar sonido</button><p id="sound-state" role="status"></p><button id="reset-campaign" class="cofrade-button campaign-reset-button">RESTABLECER PROGRESO DE SEMANA SANTA</button></section>
+  <section id="help" class="screen" hidden><header><button data-close class="round" aria-label="Volver">←</button><h2>Instrucciones</h2></header><div class="help-scroll"><img id="controls-guide" alt="Controles originales"><p>Una pulsación mantiene la orden. Los botones disponibles cambian con la maniobra y esperan al compás del paso.</p><p>Arría dentro del recuadro azul antes de continuar. Al arriar, la cuadrilla recupera fuerzas; espera a que el capataz vuelva a llamar. Al final, arría con las cuatro maniguetas en el recuadro amarillo.</p><p>La parihuela, las maniguetas, los candelabros y las imágenes tienen colisiones distintas. Un choque termina el recorrido.</p><details><summary>Teclado</summary><p>W: de frente. S o espacio: pararse/paso atrás. A/D: costeros alante. Q/C: costeros atrás. E: llamador. F: costeros a tierra. +/−: zancada. [ / ]: giro. Esc: pausa. Cada tecla envía una orden con una pulsación.</p></details></div></section>
+  <section id="tutorial-screen" class="screen" hidden><header><button data-close class="round" aria-label="Volver">←</button><h2>Tutorial</h2><span id="tutorial-page"></span></header><div class="tutorial-picture"><img id="tutorial-dialog" alt="Diálogo original del tutorial"></div><div class="tutorial-nav"><button id="tutorial-prev" class="blue">Anterior</button><button id="tutorial-next" class="blue">Siguiente</button></div><button id="tutorial-play" class="blue">Practicar las órdenes</button></section>
+  <section id="records-screen" class="screen" hidden><header><button data-close class="round" aria-label="Volver">←</button><h2>Récords</h2></header><div id="records-list" class="records-list"></div></section>
+  <section id="credits-screen" class="screen" hidden><header><button data-close class="round" aria-label="Volver">←</button><h2>Créditos</h2></header><div id="credits-text" class="help-scroll"></div></section>
+  <div id="toast" role="status" aria-live="polite"></div>
+</main>
+<script src="web-version.js" defer></script>
+<script type="module" src="game.js"></script>
+</body></html>
