@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.8-reconstruccion",
+  "version": "dev-2026.10.09.9-pixelart-entorno",
   "stage": "development",
-  "note": "Reconstrucción integral del Arenal por fases: calles y aceras, público, edificios; presentación obligatoria del Baratillo conservada."
+  "note": "Arenal: tejados pixel art y azoteas; seis calles laterales decorativas; espectadores visibles en calzada con colisiones individuales, sin tocar checkpoints."
 }
