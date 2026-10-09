@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.11-sin-calles-inventadas",
+  "version": "dev-2026.10.09.12-calles-limpias",
   "stage": "development",
-  "note": "Eliminadas seis calles secundarias inventadas que atravesaban edificios; restaurada la continuidad visual sin cambiar el recorrido, el público ni el checkpoint del Baratillo."
+  "note": "Corrección de capas del Arenal: bitmap original superpuesto desactivado y tejados/balcones nativos recortados de la calzada. Colisiones, público y presentación del Baratillo conservados."
 }

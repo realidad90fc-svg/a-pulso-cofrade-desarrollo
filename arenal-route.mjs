@@ -18,7 +18,16 @@ export class ArenalRoute extends CentreRoute {
   sim.map.variant.originalWalkable=[road];super(sim);
   this.nativeRoads=[road];this.nativeObstacles=[];this.nativeEdges=[];CathedralRoute.prototype.collectNative.call(this,sim.mapColliders,postigoPoint,5);
   this.obstacles.push(...this.nativeObstacles);const root=sim.mapGraph.root,a=POSTIGO_MODULE.rotation*Math.PI/180;root.position=[...postigoPoint(root.position),0];root.rotation=[0,0,Math.sin(a/2),Math.cos(a/2)];
-  for(const n of sim.mapGraph.nodes.values())if(n.path.includes('/zonaInter')||n.path.includes('/zonaParada'))n.active=false;
+  for(const n of sim.mapGraph.nodes.values()){
+   if(n.path.includes('/zonaInter')||n.path.includes('/zonaParada'))n.active=false;
+   // Original mapa5/caminosYVallas is an entire precomposed bitmap with
+   // pavement and background from another level. It was rendered *over* our
+   // rebuilt floor, producing the massive grey diagonals across roofs.
+   // Keep its node, child props, colliders and map logic; suppress ONLY that
+   // single composite bitmap. Arenal's tile painter draws the street.
+   if(n.name==='caminosYVallas'&&n.path==='mapa5/caminosYVallas'&&n.sprite)
+    n.sprite.enabled=false;
+  }
   // Only the CentreRoute synthetic turn disks are removed, NEVER native Arfe.
   // Actual street polygons define both the painted road and collision boundary.
   const nativeCount=this.scene.originalWalkable?.length||0;
@@ -56,7 +65,23 @@ export class ArenalRoute extends CentreRoute {
  validShape(w,obstacles=this.obstacles){return CathedralRoute.prototype.validShape.call(this,w,obstacles);}
  validPoint(p,obstacles=this.obstacles){return CathedralRoute.prototype.validPoint.call(this,p,obstacles);}
  spriteFilter(graph){return graph===this.sim.mapGraph?'brightness('+(1-this.scene.ambient.darkness*.55)+')':'none';}
- spriteClip(graph){return graph===this.sim.mapGraph?this.nativeKeep:null;}
+ spriteClip(graph,node){
+  if(graph!==this.sim.mapGraph)return null;
+  // The original roofs are reused in their original neighborhood only.
+  return this.nativeKeep;
+ }
+ spriteCutouts(graph,node){
+  if(graph!==this.sim.mapGraph||!node?.sprite)return [];
+  // Late original map roofs (orders 7–9) otherwise paint over the *new*
+  // roads after the step has been drawn. Clip those only within the Arenal
+  // walking lane, without deactivating trees, signs or crowd.
+  const structural=node.path.includes('/edificiosYObst/')||
+   node.name==='nuevoPostigo'||node.name.startsWith('balconFinal');
+  if(!structural)return [];
+  return (this.arenalSections||[])
+   .filter(s=>s.module.id!=='MODULO_PASTOR_LANDERO')
+   .map(s=>s.polygon);
+ }
  buildAudience(){populateArenalPublic(this);}
  buildAdrianoFurniture(){
   const detail=ADRIANO_URBAN_DETAIL;
