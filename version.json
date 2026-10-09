@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.5-salida",
+  "version": "dev-2026.10.09.6-levantada",
   "stage": "development",
-  "note": "Corrección de salida: enlace recto de Arfe sin círculos; comprobación de holgura inicial de candelabros"
+  "note": "Colisión de la levantá reparada: público junto al bordillo sin barreras invisibles en Arfe."
 }

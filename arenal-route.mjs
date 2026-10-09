@@ -61,21 +61,21 @@ export class ArenalRoute extends CentreRoute {
   for(const key of [...keys,'sharedassets2.assets:509','sharedassets2.assets:606','sharedassets2.assets:563']){const id='arenal-resource-'+key;this.graph.nodes.set(id,{id,name:id,path:id,parent:null,position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1],active:false,sprite:{key,enabled:true,order:0,color:[1,1,1,1]}});}
   const addBand=(a,b,from,to,inner,outer,sign)=>{
    if(to<=from)return;const poly=[atBand(a,b,from,sign*inner),atBand(a,b,to,sign*inner),atBand(a,b,to,sign*outer),atBand(a,b,from,sign*outer)],angle=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
-   this.audienceBands.push({poly,angle});this.obstacles.push({kind:'crowd-boundary',poly,rect:bounds(poly)});
-   for(let off=inner+Math.min(.10,(outer-inner)/2);off<outer-.05;off+=.19)for(let along=from+.09;along<to-.07;along+=.19){const key=keys[(this.people.length*7)%keys.length],sp=this.graph.data.sprites[key];this.people.push({id:'arenal-public-'+this.people.length,point:atBand(a,b,along,sign*off),key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits),baked:true});}
+   // Crowd is drawn on the sidewalk, not as an invisible wall intruding into Arfe.
+   this.audienceBands.push({poly,angle});
+   for(let off=inner+Math.min(.10,(outer-inner)/2);off<outer-.05;off+=.19)for(let along=from+.09;along<to-.07;along+=.19){const key=keys[(this.people.length*7)%keys.length],sp=this.graph.data.sprites[key];const point=atBand(a,b,along,sign*off);if(this.walkable.some(poly=>pointInPolygon(point,poly)))continue;this.people.push({id:'arenal-public-'+this.people.length,point,key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits),baked:true});}
   };
   for(const segment of this.segments){const{a,b,length,module}=segment;if(module.source===ARENAL_REYES.source)continue;
-   const inner=module.id==='MODULO_ADRIANO'?.86:.79,outer=inner+1.3;
+   // Public remains on the real sidewalk, beyond the kerb, including both crossings.
+   const inner=module.halfWidth+.045,outer=module.halfWidth+(module.id==='MODULO_ADRIANO'?.52:module.id==='MODULO_PASTOR_LANDERO'?.43:.34);
    for(const sign of[-1,1]){
-    if(module.id==='MODULO_ADRIANO'){
-     addBand(a,b,.72,3.8,inner,outer,sign);
-     if(sign===1){addBand(a,b,3.8,5.0,1.48,2.40,sign);addBand(a,b,7.0,8.2,1.48,2.40,sign);}
-     else addBand(a,b,3.8,8.2,2.25,2.43,sign);
-     addBand(a,b,8.2,length-.72,inner,outer,sign);
-    }else addBand(a,b,.68,length-.68,inner,Math.min(outer,module.halfWidth-.05),sign);
+    if(module.id==='MODULO_ADRIANO'&&sign===1){
+     addBand(a,b,.72,4.9,inner,outer,sign);
+     addBand(a,b,7.05,length-.72,inner,outer,sign);
+    }else addBand(a,b,.68,length-.68,inner,outer,sign);
    }
   }
-  // People at corner *pavements*, not floating on rooftops or blocking manoeuvres.
+  // / People at corner *pavements*, not floating on rooftops or blocking manoeuvres.
   // These use original Chicotaz person sprites, with no extra collision wall.
   for(const segment of this.segments){
    if(segment.module.source===ARENAL_REYES.source)continue;
