@@ -2,87 +2,204 @@ import {CentreRoute} from './centre-route.mjs';
 import {CathedralRoute} from './cathedral-route.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
-import {postigoPoint,POSTIGO_MODULE} from './cathedral-data.mjs';
-import {BARATILLO,PRESENTACION_BARATILLO,ADRIANO_BASIS,ADRIANO_URBAN_DETAIL,adrianoPoint,ARENAL_REYES,ARENAL_FRAME} from './arenal-data.mjs';
-import {CENTRE_MAP} from './centre-data.mjs';
+import {BARATILLO,PRESENTACION_BARATILLO,ADRIANO_BASIS,ADRIANO_URBAN_DETAIL,adrianoPoint,ARENAL_REYES} from './arenal-data.mjs';
 import {TemplePresentations} from './temple-presentations.mjs';
-import {rebuildArenalGeometry,populateArenalPublic,paintRebuiltArenal} from './arenal-rebuild.mjs';
-const rect=r=>[[r[0],r[1]],[r[2],r[1]],[r[2],r[3]],[r[0],r[3]]];
+
+const rect=([x,y,xx,yy])=>[[x,y],[xx,y],[xx,yy],[x,yy]];
 const bounds=p=>[Math.min(...p.map(q=>q[0])),Math.min(...p.map(q=>q[1])),Math.max(...p.map(q=>q[0])),Math.max(...p.map(q=>q[1]))];
 const intersects=(a,b)=>a[2]>=b[0]&&a[0]<=b[2]&&a[3]>=b[1]&&a[1]<=b[3];
-const clipHalfPlane=(poly,value)=>{const out=[];for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],va=value(a),vb=value(b);if(va>=0)out.push(a);if((va>=0)!==(vb>=0)){const t=va/(va-vb);out.push(a.map((x,k)=>x+(b[k]-x)*t));}}return out;};
-const atBand=(a,b,d,o)=>{const l=Math.hypot(b[0]-a[0],b[1]-a[1]),t=[(b[0]-a[0])/l,(b[1]-a[1])/l];return[a[0]+t[0]*d-t[1]*o,a[1]+t[1]*d+t[0]*o];};
+const at=(s,d,o)=>[s.a[0]+s.t[0]*d+s.n[0]*o,s.a[1]+s.t[1]*d+s.n[1]*o];
+const lane=(s,from,to,inner,outer,side)=>[at(s,from,side*inner),at(s,to,side*inner),at(s,to,side*outer),at(s,from,side*outer)];
+const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const hull=points=>{
+ const p=[...points].sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+ const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+ const lower=[],upper=[];
+ for(const q of p){while(lower.length>=2&&cross(lower.at(-2),lower.at(-1),q)<=0)lower.pop();lower.push(q);}
+ for(let i=p.length-1;i>=0;i--){const q=p[i];while(upper.length>=2&&cross(upper.at(-2),upper.at(-1),q)<=0)upper.pop();upper.push(q);}
+ return [...lower.slice(0,-1),...upper.slice(0,-1)];
+};
+
+// Stand-alone regeneration of REGRESO POR EL ARENAL.
+// The previous arena-rebuild and arenal-urban renderers are NOT imported.
+// Each tile uses one source of truth (walkable) for road, kerb and collision.
+// The map5 APK bitmap and all legacy building sprites stay in game assets,
+// but are NOT drawn on top of this route; no texture/roof ghosting.
 export class ArenalRoute extends CentreRoute {
  constructor(sim){
-  const road=sim.mapColliders.find(c=>c.entity.name==='caminosYVallas').world().points.map(postigoPoint);
-  sim.map.variant.originalWalkable=[road];super(sim);
-  this.nativeRoads=[road];this.nativeObstacles=[];this.nativeEdges=[];CathedralRoute.prototype.collectNative.call(this,sim.mapColliders,postigoPoint,5);
-  this.obstacles.push(...this.nativeObstacles);const root=sim.mapGraph.root,a=POSTIGO_MODULE.rotation*Math.PI/180;root.position=[...postigoPoint(root.position),0];root.rotation=[0,0,Math.sin(a/2),Math.cos(a/2)];
-  for(const n of sim.mapGraph.nodes.values()){
-   if(n.path.includes('/zonaInter')||n.path.includes('/zonaParada'))n.active=false;
-   // Original mapa5/caminosYVallas is an entire precomposed bitmap with
-   // pavement and background from another level. It was rendered *over* our
-   // rebuilt floor, producing the massive grey diagonals across roofs.
-   // Keep its node, child props, colliders and map logic; suppress ONLY that
-   // single composite bitmap. Arenal's tile painter draws the street.
-   if(n.name==='caminosYVallas'&&n.path==='mapa5/caminosYVallas'&&n.sprite)
-    n.sprite.enabled=false;
-  }
-  // Only the CentreRoute synthetic turn disks are removed, NEVER native Arfe.
-  // Actual street polygons define both the painted road and collision boundary.
-  const nativeCount=this.scene.originalWalkable?.length||0;
-  this.walkable=this.walkable.filter((p,i)=>i<nativeCount||p.length!==24);
-  this.nativeObstacles=this.nativeObstacles.filter(o=>o.rect[1]<36.5);
-  this.obstacles=this.obstacles.filter(o=>o.kind!=='native'||this.nativeObstacles.includes(o));this.nativeEdges=this.nativeEdges.filter(e=>e.a[1]<36.5||e.b[1]<36.5);
-  // The original Arfe graph ends here. Clip unused Postigo roofs from NEW streets.
-  const angle=147*Math.PI/180;this.arfeDirection=[-Math.sin(angle),Math.cos(angle)];this.arfeNormal=[-this.arfeDirection[1],this.arfeDirection[0]];this.arfeSeam=sim.map.variant.start.position.map((x,i)=>x+this.arfeDirection[i]*1.05);
-  const d=this.arfeDirection;
-  const nativeKeep=clipHalfPlane(rect([43.6,24,55,36.5]),q=>1.05-((q[0]-this.scene.start.position[0])*d[0]+(q[1]-this.scene.start.position[1])*d[1]));this.nativeKeep=nativeKeep;
-  const planes=[q=>q[0]-43.6,q=>36.5-q[1],q=>1.05-((q[0]-this.scene.start.position[0])*d[0]+(q[1]-this.scene.start.position[1])*d[1])];
-  const trim=poly=>planes.reduce((p,value)=>clipHalfPlane(p,value),poly);
-  const clippedRoad=trim(road);
-  this.walkable=this.walkable.filter(p=>p!==road);
-  this.walkable.push(clippedRoad);
-  // The reused Arfe native floor ends slightly before the TreCai chandeliers'
-  // initial footprint. Complete the SAME straight lane, not the turn, with a
-  // constant-width connector. No circular turning bay or extra manoeuvre space.
-  const link=this.segments.find(s=>s.module.id==='MODULO_ENLACE_ARFE_ADRIANO');
-  const start=this.scene.start.position,forward=[link.a[0]-start[0],link.a[1]-start[1]];
-  const len=Math.hypot(...forward),u=forward.map(x=>x/len);
-  const rear=start.map((x,i)=>x-u[i]*.68);
-  const w=link.module.halfWidth,n=[-u[1]*w,u[0]*w];
-  const corridor=[[rear[0]+n[0],rear[1]+n[1]],[link.a[0]+n[0],link.a[1]+n[1]],[link.a[0]-n[0],link.a[1]-n[1]],[rear[0]-n[0],rear[1]-n[1]]];
-  this.walkable.push(corridor);this.nativeRoads=[clippedRoad,corridor];
+  super(sim);
+  // Old mapa5 scenery was precomposed for a DIFFERENT topology, and its
+  // late-order rooftops covered the playable roads. Keep all original assets,
+  // map colliders, step and physics, but render only this custom environment.
+  sim.renderGraphs=sim.renderGraphs.filter(graph=>graph!==sim.mapGraph);
+  this.nativeRoads=[];
+  this.nativeEdges=[];
+  this.obstacles=[];
+  this.houses=[];
+  this.lamps=[];
+  this.people=[];
+  this.audienceBands=[];
+  this.tileCache.clear();
+  this._startChecked=false;
+  this.buildStreets();
+  this.buildBuildingBlocks();
+  this.buildAdrianoFurniture();
+  this.buildAudienceFromStreets();
+  this.presentations=new TemplePresentations(this.scene.presentations);
+  this.presentationIds=[];this.confirmation=null;
+  this.follow();
+ }
+ buildStreets(){
+  // Same staged place references, with *all* old synthetic disks removed.
+  const modules=['MODULO_ENLACE_ARFE_ADRIANO','MODULO_ADRIANO','MODULO_PASTOR_LANDERO'];
+  this.arenalSections=this.segments.filter(s=>modules.includes(s.module.id));
+  this.reyesSegment=this.segments.find(s=>s.module===ARENAL_REYES);
+  this.walkable=this.segments.map(s=>s.polygon);
+  // TreCai enters from the last genuinely playable Arfe fragment; link a
+  // short STRAIGHT corridor to that street, never a circular turning plaza.
+  const first=this.arenalSections[0],start=this.scene.start.position;
+  const axis=[first.a[0]-start[0],first.a[1]-start[1]],len=Math.hypot(...axis)||1;
+  const u=axis.map(q=>q/len),normal=[-u[1],u[0]],w=first.module.halfWidth;
+  const rear=start.map((v,i)=>v-u[i]*1.12);
+  const beyond=first.a.map((v,i)=>v+u[i]*.35);
+  this.startLane=[rear.map((x,i)=>x+normal[i]*w),beyond.map((x,i)=>x+normal[i]*w),beyond.map((x,i)=>x-normal[i]*w),rear.map((x,i)=>x-normal[i]*w)];
+  this.walkable.unshift(this.startLane);
   this.arfeStartAxis=u;
-  this.obstacles=this.obstacles.filter(o=>{if(o.kind!=='native')return true;if(o.center)return pointInPolygon(o.center,nativeKeep);o.poly=trim(o.poly||rect(o.rect));if(o.poly.length<3)return false;o.rect=bounds(o.poly);return true;});
-  this.nativeEdges=this.nativeEdges.flatMap(e=>{let a=e.a,b=e.b;for(const value of planes){const va=value(a),vb=value(b);if(va<0&&vb<0)return [];if((va>=0)!==(vb>=0)){const t=va/(va-vb),q=a.map((x,k)=>x+(b[k]-x)*t);if(va<0)a=q;else b=q;}}return[{...e,a,b}];});
-  rebuildArenalGeometry(this);
-  this.presentations=new TemplePresentations(this.scene.presentations);this.presentationIds=[];this.confirmation=null;
-  // The native blue checkpoint marker remains visible until the mandatory presentation is validated.
-  // Completing a route cannot substitute for this physical stop in front of the chapel.
-  this.buildAudience();this.buildReyesLayer();this.buildAdrianoFurniture();this.follow();
+  // Only tight four-point junctions; no 24-sided artificial circular corners.
+  this.turnFaces=[];
+  for(let i=0;i<this.arenalSections.length-1;i++){
+   const from=this.arenalSections[i],to=this.arenalSections[i+1],p=from.b;
+   if(distance(p,to.a)>.05)continue;
+   const a=from.module.halfWidth,b=to.module.halfWidth;
+   const face=[[p[0]+from.n[0]*a,p[1]+from.n[1]*a],[p[0]+to.n[0]*b,p[1]+to.n[1]*b],[p[0]-to.n[0]*b,p[1]-to.n[1]*b],[p[0]-from.n[0]*a,p[1]-from.n[1]*a]];
+   // Road spans define the corner; these mitred connectors contain no
+   // arbitrary lane-radius enlargement and share the same painted material.
+   this.turnFaces.push(hull(face));
+  }
+  this.walkable.push(...this.turnFaces);
+  this.roadBoxes=this.walkable.map(bounds);
+  this.sidewalkDepth=module=>module?.id==='MODULO_ADRIANO'?.54:module?.id==='MODULO_PASTOR_LANDERO'?.47:module?.style==='avenue'?.62:.41;
+  // Visible and collidable footprint are identical. Decorative buildings
+  // are always beneath the final road surface; no overwriting the step lane.
+  this.crossroads=this.arenalSections.map(s=>[s.a,s.b]).flat();
  }
- validShape(w,obstacles=this.obstacles){return CathedralRoute.prototype.validShape.call(this,w,obstacles);}
- validPoint(p,obstacles=this.obstacles){return CathedralRoute.prototype.validPoint.call(this,p,obstacles);}
- spriteFilter(graph){return graph===this.sim.mapGraph?'brightness('+(1-this.scene.ambient.darkness*.55)+')':'none';}
- spriteClip(graph,node){
-  if(graph!==this.sim.mapGraph)return null;
-  // The original roofs are reused in their original neighborhood only.
-  return this.nativeKeep;
+ buildBuildingBlocks(){
+  this.buildings=[];
+  const baseKeys=NATIVE_HOUSE_KEYS.length;
+  for(const s of this.segments){
+   const half=s.module.halfWidth,sidewalk=this.sidewalkDepth(s.module);
+   for(const sign of[-1,1]){
+    const near=half+sidewalk+.07;
+    const isAdriano=s.module.id==='MODULO_ADRIANO';
+    const groups=isAdriano&&sign===1?[[.18,4.43],[7.43,s.length-.18]]:[[.18,s.length-.18]];
+    for(const [from,to]of groups){
+     let blockIndex=0;
+     for(let d=from;d<to-.20;d+=1.7){
+      const end=Math.min(to,d+1.63);
+      if(end-d<.34)continue;
+      const p=lane(s,d,end,near,near+2.10+((blockIndex+1)%3)*.32,sign);
+      this.buildings.push({poly:p,bbox:bounds(p),key:NATIVE_HOUSE_KEYS[(this.buildings.length+blockIndex*3)%baseKeys]});
+      blockIndex++;
+     }
+    }
+   }
+  }
  }
- spriteCutouts(graph,node){
-  if(graph!==this.sim.mapGraph||!node?.sprite)return [];
-  // Late original map roofs (orders 7–9) otherwise paint over the *new*
-  // roads after the step has been drawn. Clip those only within the Arenal
-  // walking lane, without deactivating trees, signs or crowd.
-  const structural=node.path.includes('/edificiosYObst/')||
-   node.name==='nuevoPostigo'||node.name.startsWith('balconFinal');
-  if(!structural)return [];
-  return (this.arenalSections||[])
-   .filter(s=>s.module.id!=='MODULO_PASTOR_LANDERO')
-   .map(s=>s.polygon);
+ buildAudienceFromStreets(){
+  // Public is installed after lanes and before rooftops: a visible sprite
+  // is always present at every obstacle. More people on street shoulders,
+  // with a wide enough centre for the complete unscaled paso.
+  const sprites=this.sim.resources.animation.graphs,all=this.graph.data.sprites;
+  const keys=[...new Set(Object.entries(sprites).filter(([k])=>/^mapa\d+$/.test(k))
+   .flatMap(([,graph])=>(graph.nodes||[]).filter(n=>n.sprite&&n.path.includes('/publico/')&&!/pierna|brazo|mano/.test(n.path))
+     .map(n=>n.sprite.key).filter(key=>all[key]?.rectSize?.[0]>0)))];
+  if(!keys.length)return;
+  const max=this.scene.crowd?.maxPeople||3000,start=this.scene.start.position;
+  const add=(point,contact)=>{
+   if(this.people.length>=max)return;
+   const i=this.people.length,key=keys[((i*7+Math.floor(point[0]*9)+Math.floor(point[1]*4))%keys.length+keys.length)%keys.length];
+   const sp=all[key],size=sp.rectSize.map(n=>n/sp.pixelsToUnits);
+   if(!sp||!Number.isFinite(size[0]))return;
+   if(this.obstacles.some(o=>o.center&&distance(o.center,point)<(o.radius||.08)+.13))return;
+   if(contact){
+    if(distance(point,start)<3.1||distance(point,BARATILLO.position)<2.7)return;
+    if(this.crossroads.some(c=>distance(point,c)<1.55))return;
+    const r=Math.max(.060,Math.min(.092,size[0]*.48));
+    this.obstacles.push({kind:'visible-spectator',center:point,radius:r,rect:[point[0]-r,point[1]-r,point[0]+r,point[1]+r]});
+   }
+   this.people.push({id:'arenal-spectator-'+i,key,point,size,baked:true});
+  };
+  for(const s of this.segments){
+   const w=s.module.halfWidth,sw=this.sidewalkDepth(s.module);
+   for(const sign of[-1,1]){
+    for(let d=.14;d<s.length-.10;d+=.18){
+     const nearCorner=d<1.60||d>s.length-1.6,chapel=s.module.id==='MODULO_ADRIANO'&&d>3.75&&d<8.05;
+     // At awkward bends, the audience stays on the real footpath, not in
+     // a shortcut through the junction. Away from them it tightens the lane.
+     let inner=(nearCorner||chapel)?w+.12:
+      s.module.style==='avenue'?1.95:s.module.id==='MODULO_ADRIANO'?1.35:
+      s.module.id==='MODULO_PASTOR_LANDERO'?1.17:1.10;
+     const outer=w+sw+.42;
+     let row=0;
+     for(let offset=inner;offset<outer;offset+=.18,row++){
+      const q=at(s,d+(row%2)*.06,offset*sign);
+      const inStreet=offset<w-.09&&!nearCorner&&!chapel;
+      add(q,inStreet&&row===0&&Math.round(d/.18)%2===0);
+     }
+    }
+   }
+  }
  }
- buildAudience(){populateArenalPublic(this);}
+ // Simple painted strip as behind-the-kerb frontage. Native pixel art
+ // textures and tiling come from assets already loaded for other maps.
+ paintTile(ctx,images,r){
+  const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
+  const path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();};
+  const box=(a,b,c)=>{ctx.fillStyle=c;ctx.fillRect(px(a[0]),py(a[3]),(a[2]-a[0])*p,(a[3]-a[1])*p);};
+  const img=key=>images.get(key)||images.get(this.graph.data.sprites[key]?.image);
+  ctx.imageSmoothingEnabled=false;
+  // BACKGROUND: World aligned Chicotaz 3-unit roofs, never foreign textures.
+  box(r,null,'#65605a');
+  for(let x=Math.floor(r[0]/3)*3;x<r[2];x+=3)
+   for(let y=Math.floor(r[1]/3)*3;y<r[3];y+=3){
+    const im=img(NATIVE_HOUSE_KEYS[Math.abs(Math.round(x*7+y*3))%NATIVE_HOUSE_KEYS.length]);
+    if(im)ctx.drawImage(im,px(x),py(y+3),3*p,3*p);
+   }
+  // Architectural volumes are BELOW sidewalk and asphalt. A building can
+  // never cover a road tile, even at a seam or sharp corner.
+  for(const b of this.buildings){
+   if(!intersects(b.bbox,r))continue;
+   const im=img(b.key);if(!im)continue;
+   ctx.save();path(b.poly);ctx.clip();
+   const [x,y,xx,yy]=b.bbox;
+   ctx.drawImage(im,px(x),py(yy),(xx-x)*p,(yy-y)*p);
+   ctx.restore();
+  }
+  // PAVEMENTS: one continuous low-contrast ring for the whole road union.
+  ctx.save();ctx.lineJoin='miter';ctx.miterLimit=1.5;
+  for(let i=0;i<this.walkable.length;i++){
+   const poly=this.walkable[i];
+   if(!intersects(this.roadBoxes[i],[r[0]-.8,r[1]-.8,r[2]+.8,r[3]+.8]))continue;
+   path(poly);ctx.strokeStyle='#bcb4a5';ctx.lineWidth=.68*p;ctx.stroke();
+  }
+  ctx.restore();
+  // ASPHALT/CALZADA: painted LAST using the SAME cropped original APK
+  // texture in every tile, including Arfe, junctions, Pastor and Reyes.
+  for(let i=0;i<this.walkable.length;i++){
+   const poly=this.walkable[i];if(!intersects(this.roadBoxes[i],r))continue;
+   CathedralRoute.prototype.paintNativePatch.call(this,ctx,images,r,poly,[1610,1050,96,96]);
+  }
+  // Accents outside paved street, no fabricated cross streets or roofs over it.
+  this.paintBaratillo(ctx,r,images);
+  this.paintAdrianoFurniture(ctx,r,images);
+  ctx.save();ctx.globalAlpha=this.scene.ambient.darkness;
+  box(r,null,this.scene.ambient.tint);ctx.restore();
+  for(const person of this.people){
+   const [x,y]=person.point,[w,h]=person.size;
+   if(x+w/2<r[0]||x-w/2>r[2]||y+h/2<r[1]||y-h/2>r[3])continue;
+   const im=img(person.key);if(im)ctx.drawImage(im,px(x-w/2),py(y+h/2),w*p,h*p);
+  }
+ }
  buildAdrianoFurniture(){
   const detail=ADRIANO_URBAN_DETAIL;
   this.adrianoTrees=detail.trees.filter(o=>o.d<ADRIANO_BASIS.length-.14).map(({d,side},i)=>({id:'adriano-tree-'+i,point:adrianoPoint(d,side*(2.45+.12)),d,side}));
@@ -91,23 +208,6 @@ export class ArenalRoute extends CentreRoute {
   for(const item of this.adrianoTrees)this.obstacles.push({kind:'tree',center:item.point,radius:.12,rect:[item.point[0]-.12,item.point[1]-.12,item.point[0]+.12,item.point[1]+.12]});
   for(const item of this.adrianoSigns)this.obstacles.push({kind:'traffic-sign',center:item.point,radius:.065,rect:[item.point[0]-.065,item.point[1]-.065,item.point[0]+.065,item.point[1]+.065]});
  }
- buildReyesLayer(){
-  // Existing CentreRoute paints the SAME module and bridge approach in local space.
-  // A rigid translation places this instance into Arfe's independent native frame.
-  const shift=p=>[p[0],p[1]-ARENAL_FRAME.reyesTranslation[1]],source=ARENAL_REYES.source;
-  const layer=Object.create(CentreRoute.prototype);layer.scene={...CENTRE_MAP,ambient:this.scene.ambient};layer.graph=this.graph;
-  layer.segments=this.segments.filter(s=>s.module===ARENAL_REYES).map(s=>({...s,a:shift(s.a),b:shift(s.b),polygon:s.polygon.map(shift),module:source}));
-  layer.walkable=layer.segments.flatMap(s=>[s.polygon,rect([s.a[0]-1.4,s.a[1]-1.4,s.a[0]+1.4,s.a[1]+1.4]),rect([s.b[0]-1.4,s.b[1]-1.4,s.b[0]+1.4,s.b[1]+1.4])]);
-  layer.houses=this.houses.filter(h=>h.module===ARENAL_REYES).map(h=>({...h,poly:h.poly.map(shift),bounds:[h.bounds[0],h.bounds[1]-20,h.bounds[2],h.bounds[3]-20],front:h.front.map(shift),module:source}));layer.people=[];layer.lamps=this.lamps.filter(p=>p[1]>46).map(shift);
-  const keys=[...new Set(this.people.map(p=>p.key))];let count=0;
-  for(let x=33.65;x<45.1;x+=.19)for(const sign of[-1,1])for(let row=0;row<5;row++){const point=[x+(row%2)*.07,29.6+sign*(1+row*.17)],key=keys[count++%keys.length],sp=this.graph.data.sprites[key];if(x>38.2&&x<41.2)continue;layer.people.push({point,key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits),baked:true});}
-  for(const [from,to]of[[33.65,38.2],[41.2,45.1]])for(const sign of[-1,1]){const ys=[49.6+sign*.88,49.6+sign*1.82].sort((a,b)=>a-b),poly=rect([from,ys[0],to,ys[1]]);this.obstacles.push({kind:'crowd-boundary',poly,rect:bounds(poly)});}
-  this.reyesLayer=layer;
- }
- // Guard against a step being initialized with inherited APK collider heading
- // before the custom route's heading is applied. Only at first, unplayed spawn:
- // choose the nearest clear point on the SAME Arfe lane. Never ignore contact,
- // resize the paso, change physics or reposition it during a running route.
  ensureInitialClearance(){
   if(this._startChecked)return;this._startChecked=true;
   const s=this.sim,initial=this.scene.start.position,pos=s.position(s.stepEntity.transform);
@@ -166,8 +266,6 @@ export class ArenalRoute extends CentreRoute {
   if(!showConfirmation){ctx.fillStyle='#d9c9ad';ctx.font=`${Math.min(12,Math.max(10,bw/35))}px Arial,sans-serif`;ctx.fillText(detail,w/2,y+41,bw-12);if(hold>0){ctx.fillStyle='#9fc9d3';ctx.fillRect(x+8,y+57,(bw-16)*hold/cfg.holdSeconds,3);}}
   ctx.restore();
  }
-
- paintTile(ctx,images,r){paintRebuiltArenal(this,ctx,images,r);}
  paintAdrianoFurniture(ctx,r,images){
   const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
   const nativeTree=images.get(ADRIANO_URBAN_DETAIL.treeSprite);
@@ -208,11 +306,5 @@ export class ArenalRoute extends CentreRoute {
   poly([[along-half,across-half],[along+half,across-half],[along+half,across+half],[along-half,across+half]]);
   ctx.strokeStyle=done?'#d3b46d':'#83c8dc';ctx.lineWidth=.045*p;ctx.setLineDash([.13*p,.075*p]);ctx.stroke();ctx.setLineDash([]);
   if(!done){line([[along,across-.16],[along,across+.12]],'#d7e7db',.045);poly([[along-.11,across+.06],[along+.11,across+.06],[along,across+.25]]);ctx.fillStyle='#d7e7db';ctx.fill();}
- }
- paintPastorFacade(ctx,r){
-  const segment=this.segments.find(s=>s.module.id==='MODULO_PASTOR_LANDERO');if(!segment)return;const{a,b,length}=segment,p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
-  // Recognisable white/yellow arcaded frontage from the supplied Arenal reference.
-  const path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();};
-  for(let d=1.6;d<length-1.4;d+=.70){const corners=[atBand(a,b,d,1.64),atBand(a,b,d+.64,1.64),atBand(a,b,d+.64,2.12),atBand(a,b,d,2.12)];path(corners);ctx.fillStyle='#dcd6c3';ctx.fill();const arch=[atBand(a,b,d+.10,1.65),atBand(a,b,d+.54,1.65),atBand(a,b,d+.54,1.90),atBand(a,b,d+.45,2.01),atBand(a,b,d+.20,2.01),atBand(a,b,d+.10,1.90)];path(arch);ctx.fillStyle='#30373a';ctx.fill();const lip=[atBand(a,b,d,1.65),atBand(a,b,d+.64,1.65)];ctx.strokeStyle='#be9a50';ctx.lineWidth=.045*p;ctx.beginPath();ctx.moveTo(px(lip[0][0]),py(lip[0][1]));ctx.lineTo(px(lip[1][0]),py(lip[1][1]));ctx.stroke();}
  }
 }

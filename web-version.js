@@ -1,7 +1,7 @@
 /* Aviso de nuevas versiones. Nunca reinicia una partida en marcha. */
 (() => {
   'use strict';
-  const INSTALLED_VERSION = 'dev-2026.10.09.12-calles-limpias';
+  const INSTALLED_VERSION = 'dev-2026.10.09.13-reconstruccion-total';
   const VERSION_URL = '/version.json';
   const POLL_MS = 60000;
   let nextVersion = null;
