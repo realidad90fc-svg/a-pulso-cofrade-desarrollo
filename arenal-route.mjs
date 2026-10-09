@@ -3,7 +3,7 @@ import {CathedralRoute} from './cathedral-route.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {postigoPoint,POSTIGO_MODULE} from './cathedral-data.mjs';
-import {BARATILLO,ADRIANO_BASIS,adrianoPoint,ARENAL_REYES,ARENAL_FRAME} from './arenal-data.mjs';
+import {BARATILLO,PRESENTACION_BARATILLO,ADRIANO_BASIS,adrianoPoint,ARENAL_REYES,ARENAL_FRAME} from './arenal-data.mjs';
 import {CENTRE_MAP} from './centre-data.mjs';
 import {TemplePresentations} from './temple-presentations.mjs';
 const rect=r=>[[r[0],r[1]],[r[2],r[1]],[r[2],r[3]],[r[0],r[3]]];
@@ -32,8 +32,8 @@ export class ArenalRoute extends CentreRoute {
   this.obstacles=this.obstacles.filter(o=>{if(o.kind!=='native')return true;if(o.center)return pointInPolygon(o.center,nativeKeep);o.poly=trim(o.poly||rect(o.rect));if(o.poly.length<3)return false;o.rect=bounds(o.poly);return true;});
   this.nativeEdges=this.nativeEdges.flatMap(e=>{let a=e.a,b=e.b;for(const value of planes){const va=value(a),vb=value(b);if(va<0&&vb<0)return [];if((va>=0)!==(vb>=0)){const t=va/(va-vb),q=a.map((x,k)=>x+(b[k]-x)*t);if(va<0)a=q;else b=q;}}return[{...e,a,b}];});
   this.presentations=new TemplePresentations(this.scene.presentations);this.presentationIds=[];this.confirmation=null;
-  // No trigger marker floating over the chapel manoeuvre. Architecture guides it.
-  const marker=this.graph.nodes.get('centre-checkpoint-marker');if(marker)marker.sprite.enabled=false;
+  // The native blue checkpoint marker remains visible until the mandatory presentation is validated.
+  // Completing a route cannot substitute for this physical stop in front of the chapel.
   this.buildAudience();this.buildReyesLayer();this.follow();
  }
  validShape(w,obstacles=this.obstacles){return CathedralRoute.prototype.validShape.call(this,w,obstacles);}
@@ -81,7 +81,7 @@ export class ArenalRoute extends CentreRoute {
   for(const c of shapes)if(!this.validShape(c.world())){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:2;s.send(s.stepEntity,'gameOverMet');return;}
   const p=s.position(s.stepEntity.transform),moving=['alante','atras','derAl','izqAl','derAt','izqAt'].some(k=>s.controller[k]),stopped=!moving&&!s.controller.martillo;
   const events=this.presentations.update({position:[p.x,p.y],heading:s.angle(s.stepEntity.transform),dt:s.dt,stopped,playing:s.state.status==='playing'});
-  for(const event of events){this.presentationIds=[...this.presentations.completed];this.confirmation={label:event.label,since:s.levelTime};if(event.checkpoint){const cp=this.checkpoints.find(c=>c.presentationId===event.id);if(cp){this.checkpointIds.push(cp.id);this.checkpointReached=true;s.emit('checkpoint');}}}
+  for(const event of events){this.presentationIds=[...this.presentations.completed];this.confirmation={label:'✓ PRESENTACIÓN COMPLETADA · CHECKPOINT GUARDADO',since:s.levelTime};this.tileCache.clear();if(event.checkpoint){const cp=this.checkpoints.find(c=>c.presentationId===event.id);if(cp&&!this.checkpointIds.includes(cp.id)){this.checkpointIds.push(cp.id);this.checkpointReached=true;s.emit('checkpoint');}}}
   const f=this.scene.finish,delta=Math.abs(((s.angle(s.stepEntity.transform)-f.heading+540)%360)-180);
   const inFinish=s.controller.animator.state==='pasoBajado'&&delta<=f.tolerance&&shapes.every(c=>{const w=c.world();return(w.circle?Array.from({length:24},(_,i)=>[w.center[0]+w.radius*Math.cos(i*Math.PI/12),w.center[1]+w.radius*Math.sin(i*Math.PI/12)]):w.points).every(q=>pointInPolygon(q,f.polygon));});
   if(inFinish){if(!this.presentations.mandatoryComplete){this.confirmation={label:'FALTA LA PRESENTACIÓN EN EL BARATILLO',since:s.levelTime};return;}this.finished=true;s.send(s.stepEntity,'finJuegoExito');s.send(s.cameraEntity,'exitoMet');}
@@ -89,8 +89,29 @@ export class ArenalRoute extends CentreRoute {
  snapshot(){return {...super.snapshot(),presentations:this.presentations?.snapshot()||{completed:[]},geometryVersion:1};}
  restore(v){super.restore(v);this.presentations.restore(v?.presentations);this.presentationIds=[...this.presentations.completed];this.checkpointIds=this.checkpoints.filter(c=>this.presentationIds.includes(c.presentationId)).map(c=>c.id);this.checkpointReached=this.checkpointIds.length>0;this.confirmation=null;this.follow();}
  drawOverlay(ctx,w,h,dpr){
-  const note=this.confirmation;if(!note||this.sim.levelTime-note.since>4){super.drawOverlay(ctx,w,h,dpr);return;}
-  if(this.sim.timeScale===0||this.sim.state.status!=='playing')return;ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);const x=20,y=Math.max(112,h*.145);ctx.fillStyle='rgba(37,19,24,.94)';ctx.fillRect(x,y,w-40,38);ctx.strokeStyle='#a68b55';ctx.strokeRect(x+.5,y+.5,w-41,37);ctx.fillStyle='#eee0c5';ctx.font='14px Georgia,serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(note.label,w/2,y+19,w-58);ctx.restore();
+  super.drawOverlay(ctx,w,h,dpr);
+  if(this.sim.timeScale===0||this.sim.state.status!=='playing')return;
+  const note=this.confirmation,showConfirmation=note&&this.sim.levelTime-note.since<=4;
+  const cfg=PRESENTACION_BARATILLO,p=this.sim.position(this.sim.stepEntity.transform);
+  const distance=Math.hypot(p.x-cfg.position[0],p.y-cfg.position[1]);
+  if(!showConfirmation&&(this.presentations.completed.includes(cfg.id)||distance>5.2))return;
+  const degrees=Math.abs(((this.sim.angle(this.sim.stepEntity.transform)-cfg.heading+540)%360)-180);
+  const stopped=!['alante','atras','derAl','izqAl','derAt','izqAt'].some(k=>this.sim.controller[k])&&!this.sim.controller.martillo;
+  const hold=Math.max(0,Math.min(cfg.holdSeconds,this.presentations.hold[cfg.id]||0));
+  const title=showConfirmation?note.label:'CAPILLA DEL BARATILLO · PRESENTACIÓN OBLIGATORIA';
+  let detail='';
+  if(!showConfirmation){
+   if(distance>cfg.positionTolerance)detail=`Sitúa el paso sobre la marca azul · ${distance.toFixed(1)} m`;
+   else if(degrees>cfg.headingTolerance)detail='Orienta la delantera hacia la puerta de la capilla';
+   else if(!stopped)detail='Detén el paso para realizar la presentación';
+   else detail=`Mantén la posición · ${Math.max(0,cfg.holdSeconds-hold).toFixed(1)} s`;
+  }
+  ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+  const bw=Math.min(w-24,420),x=(w-bw)/2,y=Math.max(120,h*.16),bh=showConfirmation?38:63;
+  ctx.fillStyle='rgba(37,19,24,.95)';ctx.fillRect(x,y,bw,bh);ctx.strokeStyle='#c1a674';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,bw-1,bh-1);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f4e5c9';ctx.font=`bold ${Math.min(13,Math.max(10,bw/32))}px Georgia,serif`;ctx.fillText(title,w/2,y+17,bw-14);
+  if(!showConfirmation){ctx.fillStyle='#d9c9ad';ctx.font=`${Math.min(12,Math.max(10,bw/35))}px Arial,sans-serif`;ctx.fillText(detail,w/2,y+41,bw-12);if(hold>0){ctx.fillStyle='#9fc9d3';ctx.fillRect(x+8,y+57,(bw-16)*hold/cfg.holdSeconds,3);}}
+  ctx.restore();
  }
  paintTile(ctx,images,r){
   const v=this.scene,p=v.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p,path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();},box=(b,c)=>{ctx.fillStyle=c;ctx.fillRect(px(b[0]),py(b[3]),(b[2]-b[0])*p,(b[3]-b[1])*p);};ctx.imageSmoothingEnabled=false;
@@ -121,6 +142,14 @@ export class ArenalRoute extends CentreRoute {
   // Lit threshold, contiguous fronts and a native tree beside, not across, the bay.
   line([[-.48,.02],[.48,.02]],'#ffe3a3',.07);box([-2.2,.04,-1.07,.38],'#d2c09d');box([1.07,.04,2.2,.38],'#e1d8c1');box([-2,.07,-1.27,.16],'#263536');box([1.3,.07,2,.16],'#25343a');
   const tree=images.get('sharedassets2.assets:563'),z=q([1.8,-.13]);if(tree)ctx.drawImage(tree,px(z[0]-.34),py(z[1]+.34),.68*p,.68*p);
+  // Pavement-level checkpoint, aligned with the *actual* validation point; it does not
+  // enlarge the street or alter the paso's physics. The native blue marker stands over it.
+  const target=BARATILLO.position,dx=target[0]-origin[0],dy=target[1]-origin[1];
+  const along=dx*t[0]+dy*t[1],across=dx*n[0]+dy*n[1],done=this.presentationIds?.includes(PRESENTACION_BARATILLO.id);
+  const half=PRESENTACION_BARATILLO.positionTolerance;
+  poly([[along-half,across-half],[along+half,across-half],[along+half,across+half],[along-half,across+half]]);
+  ctx.strokeStyle=done?'#d3b46d':'#83c8dc';ctx.lineWidth=.045*p;ctx.setLineDash([.13*p,.075*p]);ctx.stroke();ctx.setLineDash([]);
+  if(!done){line([[along,across-.16],[along,across+.12]],'#d7e7db',.045);poly([[along-.11,across+.06],[along+.11,across+.06],[along,across+.25]]);ctx.fillStyle='#d7e7db';ctx.fill();}
  }
  paintPastorFacade(ctx,r){
   const segment=this.segments.find(s=>s.module.id==='MODULO_PASTOR_LANDERO');if(!segment)return;const{a,b,length}=segment,p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
