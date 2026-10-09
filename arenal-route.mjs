@@ -63,11 +63,11 @@ export class ArenalRoute extends CentreRoute {
    if(to<=from)return;const poly=[atBand(a,b,from,sign*inner),atBand(a,b,to,sign*inner),atBand(a,b,to,sign*outer),atBand(a,b,from,sign*outer)],angle=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
    // Crowd is drawn on the sidewalk, not as an invisible wall intruding into Arfe.
    this.audienceBands.push({poly,angle});
-   for(let off=inner+Math.min(.10,(outer-inner)/2);off<outer-.05;off+=.19)for(let along=from+.09;along<to-.07;along+=.19){const key=keys[(this.people.length*7)%keys.length],sp=this.graph.data.sprites[key];const point=atBand(a,b,along,sign*off);if(this.walkable.some(poly=>pointInPolygon(point,poly)))continue;this.people.push({id:'arenal-public-'+this.people.length,point,key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits),baked:true});}
+   for(let off=inner+.085;off<outer-.055;off+=.13)for(let along=from+.10;along<to-.07;along+=.15){const key=keys[(this.people.length*7)%keys.length],sp=this.graph.data.sprites[key];const point=atBand(a,b,along,sign*off);if(this.walkable.some(poly=>pointInPolygon(point,poly)))continue;this.people.push({id:'arenal-public-'+this.people.length,point,key,size:sp.rectSize.map(x=>x/sp.pixelsToUnits),baked:true});}
   };
   for(const segment of this.segments){const{a,b,length,module}=segment;if(module.source===ARENAL_REYES.source)continue;
    // Public remains on the real sidewalk, beyond the kerb, including both crossings.
-   const inner=module.halfWidth+.045,outer=module.halfWidth+(module.id==='MODULO_ADRIANO'?.52:module.id==='MODULO_PASTOR_LANDERO'?.43:.34);
+   const inner=module.halfWidth+.045,outer=module.halfWidth+(module.id==='MODULO_ADRIANO'?.58:module.id==='MODULO_PASTOR_LANDERO'?.47:.39);
    for(const sign of[-1,1]){
     if(module.id==='MODULO_ADRIANO'&&sign===1){
      addBand(a,b,.72,4.9,inner,outer,sign);
@@ -178,96 +178,86 @@ export class ArenalRoute extends CentreRoute {
   if(!showConfirmation){ctx.fillStyle='#d9c9ad';ctx.font=`${Math.min(12,Math.max(10,bw/35))}px Arial,sans-serif`;ctx.fillText(detail,w/2,y+41,bw-12);if(hold>0){ctx.fillStyle='#9fc9d3';ctx.fillRect(x+8,y+57,(bw-16)*hold/cfg.holdSeconds,3);}}
   ctx.restore();
  }
+
  paintTile(ctx,images,r){
-  const v=this.scene,p=v.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p,path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();},box=(b,c)=>{ctx.fillStyle=c;ctx.fillRect(px(b[0]),py(b[3]),(b[2]-b[0])*p,(b[3]-b[1])*p);};ctx.imageSmoothingEnabled=false;
-  for(let x=Math.floor(r[0]/3)*3;x<r[2];x+=3)for(let y=Math.floor(r[1]/3)*3;y<r[3];y+=3){const im=images.get(NATIVE_HOUSE_KEYS[Math.abs(Math.round(x*7+y*3))%NATIVE_HOUSE_KEYS.length]);if(im)ctx.drawImage(im,px(x),py(y+3),3*p,3*p);}
-  // One native pavement material joins the original Arfe road and new streets.
+  const v=this.scene,p=v.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
+  const path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();};
+  const box=(b,c)=>{ctx.fillStyle=c;ctx.fillRect(px(b[0]),py(b[3]),(b[2]-b[0])*p,(b[3]-b[1])*p);};
+  ctx.imageSmoothingEnabled=false;
+  // A continuous roof mass per large urban parcel, never multiple skewed
+  // rectangles / triangular leftover house images over the street.
+  box(r,'#a58c77');const size=8,keys=[0,4,5,7];
+  for(let x=Math.floor(r[0]/size)*size;x<r[2];x+=size)
+   for(let y=Math.floor(r[1]/size)*size;y<r[3];y+=size){
+    const k=keys[Math.abs(Math.floor(x/size)*7+Math.floor(y/size)*3)%keys.length],im=images.get(NATIVE_HOUSE_KEYS[k]);
+    if(im)ctx.drawImage(im,px(x),py(y+size),size*p,size*p);
+   }
+  // Sidewalks and kerbs form a continuous silhouette around the street
+  // union. Rendering ALL road surfaces afterwards hides internal join seams.
+  this.paintArenalSidewalks(ctx,r);
   const patch=(poly,crop,angle=90)=>CathedralRoute.prototype.paintNativePatch.call(this,ctx,images,r,poly,crop,angle);
-  for(const h of this.houses){if(h.module===ARENAL_REYES||!intersects(h.bounds,r))continue;ctx.save();path(h.poly);ctx.clip();const im=images.get(NATIVE_HOUSE_KEYS[h.material]);if(im)ctx.drawImage(im,px(h.bounds[0]),py(h.bounds[3]),(h.bounds[2]-h.bounds[0])*p,(h.bounds[3]-h.bounds[1])*p);ctx.restore();const [a,b]=h.front;ctx.strokeStyle='#cdbca2';ctx.lineWidth=.045*p;ctx.beginPath();ctx.moveTo(px(a[0]),py(a[1]));ctx.lineTo(px(b[0]),py(b[1]));ctx.stroke();for(let k=0;k<3;k++){const q=a.map((x,i)=>x+(b[i]-x)*(k+.3)/3),t=h.t,n=h.n;const window=[atBand(q,[q[0]+t[0],q[1]+t[1]],0,.05),atBand(q,[q[0]+t[0],q[1]+t[1]],.28,.05),atBand(q,[q[0]+t[0],q[1]+t[1]],.28,-.10),atBand(q,[q[0]+t[0],q[1]+t[1]],0,-.10)];path(window);ctx.fillStyle=k===1?'#35464b':'#24292d';ctx.fill();}}
-  for(const poly of this.walkable)if(intersects(bounds(poly),r))patch(poly,[1610,1050,96,96]);
-  // Existing Reyes Católicos painter and bridgehead: no new street/deck geometry.
+  for(const poly of this.walkable)if(poly.length>2&&intersects(bounds(poly),r))patch(poly,[1610,1050,96,96]);
+  // The existing Reyes Católicos sector remains untouched.
   if(r[3]>46.8){ctx.save();path(rect([23,46.8,45.25,60]));ctx.clip();const layer=this.reyesLayer,old=layer.scene;layer.scene={...old,ppu:p};CentreRoute.prototype.paintTile.call(layer,ctx,images,[r[0],r[1]-20,r[2],r[3]-20]);layer.scene=old;ctx.restore();}
-  ctx.save();this.clipArchitectureToRealRoad(ctx,r);this.paintContinuousArenal(ctx,r,images);ctx.restore();
-  for(const band of this.audienceBands)if(intersects(bounds(band.poly),r))patch(band.poly,[100,1038,400,90],band.angle);
+  this.paintContinuousArenal(ctx,r);
   this.paintBaratillo(ctx,r,images);
   this.paintPastorFacade(ctx,r);
-  this.paintArenalCornerAudience(ctx,r,images);
+  this.paintArenalCrowd(ctx,r,images);
   this.paintAdrianoFurniture(ctx,r,images);
-  // Dawn is applied to this new district; the reused Reyes painter already tints itself.
   ctx.save();path(rect([r[0],r[1],r[2],Math.min(r[3],46.8)]));ctx.clip();ctx.globalAlpha=v.ambient.darkness;box(r,v.ambient.tint);ctx.restore();ctx.globalAlpha=1;
   for(const [x,y]of this.lamps)if(x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3]){const g=ctx.createRadialGradient(px(x),py(y),0,px(x),py(y),p*.65);g.addColorStop(0,'rgba(255,218,148,.28)');g.addColorStop(1,'rgba(255,207,116,0)');ctx.fillStyle=g;ctx.fillRect(px(x)-p,py(y)-p,2*p,2*p);box([x-.025,y-.025,x+.025,y+.025],'#ffe4ac');}
  }
- // Clip roofs, adjoining facades and sidewalks against ALL real street and
- // rounded junction polygons. Eliminates roof wedges crossing a neighbour lane,
- // without opening even a centimetre of extra navigable space.
- clipArchitectureToRealRoad(ctx,r){
+ sidewalkDepth(module){
+  return module?.id==='MODULO_ADRIANO'?.63:module?.id==='MODULO_PASTOR_LANDERO'?.51:.42;
+ }
+ paintArenalSidewalks(ctx,r){
   const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
+  const trace=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();};
+  ctx.save();ctx.lineJoin='miter';ctx.miterLimit=1.6;
   for(const poly of this.walkable){
-   if(poly.length<3||!intersects(bounds(poly),r))continue;
-   ctx.beginPath();ctx.rect(0,0,(r[2]-r[0])*p,(r[3]-r[1])*p);
-   poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
-   ctx.closePath();ctx.clip('evenodd');
+   if(poly.length<3||!intersects(bounds(poly),[r[0]-.8,r[1]-.8,r[2]+.8,r[3]+.8]))continue;
+   const module=this.segments.find(s=>s.polygon===poly)?.module;
+   trace(poly);ctx.strokeStyle='#bdb9ad';ctx.lineWidth=2*this.sidewalkDepth(module)*p;ctx.stroke();
   }
- }
- paintArenalCornerAudience(ctx,r,images){
-  const p=this.scene.ppu;
-  for(const item of this.cornerAudience){
-   const [x,y]=item.point,[w,h]=item.size;
-   if(!intersects([x-w/2,y-h/2,x+w/2,y+h/2],r))continue;
-   const image=images.get(item.key);if(image)ctx.drawImage(image,(x-w/2-r[0])*p,(r[3]-y-h/2)*p,w*p,h*p);
+  for(const poly of this.walkable){
+   if(poly.length<3||!intersects(bounds(poly),[r[0]-.8,r[1]-.8,r[2]+.8,r[3]+.8]))continue;
+   trace(poly);ctx.strokeStyle='#80786b';ctx.lineWidth=.085*p;ctx.stroke();
+   trace(poly);ctx.strokeStyle='#e5dcca';ctx.lineWidth=.022*p;ctx.stroke();
   }
+  ctx.restore();
  }
- // Each building row is a continuous frontage; roof textures come from the APK.
- // We draw the curb outside the existing collision lane and keep intersections uncut.
- paintContinuousArenal(ctx,r,images){
+ paintArenalCrowd(ctx,r,images){
   const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
-  const path=poly=>{ctx.beginPath();poly.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();};
-  const fill=(poly,color)=>{path(poly);ctx.fillStyle=color;ctx.fill();};
-  const line=(a,color,width)=>{path([...a,a[0]]);ctx.strokeStyle=color;ctx.lineWidth=width*p;ctx.stroke();};
-  const tiles=['#cfcac0','#d8d3c9','#c6c0b6'];
-  const modules=['MODULO_ADRIANO','MODULO_PASTOR_LANDERO','MODULO_ENLACE_ARFE_ADRIANO'];
-  for(const seg of this.segments){if(!modules.includes(seg.module.id))continue;
+  // Use individual original Chicotaz spectators, not rectangular crowd
+  // texture patches that cut off midway through a pavement or crossing.
+  for(const person of [...this.people,...this.cornerAudience]){
+   const [x,y]=person.point,[w,h]=person.size;
+   if(x<r[0]-.3||x>r[2]+.3||y<r[1]-.3||y>r[3]+.3)continue;
+   if(this.walkable.some(poly=>pointInPolygon(person.point,poly)))continue;
+   const im=images.get(person.key);
+   if(im)ctx.drawImage(im,px(x-w/2),py(y+h/2),w*p,h*p);
+  }
+ }
+ paintContinuousArenal(ctx,r){
+  // Building mass lies beyond the sidewalk; add facade/windows only.
+  // This never lays another roof across the street or makes roof triangles.
+  const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
+  for(const seg of this.segments){
    const {a,b,length,module}=seg;
-   if(!intersects(bounds([a,b]),[r[0]-6,r[1]-6,r[2]+6,r[3]+6]))continue;
-   const at=(d,o)=>atBand(a,b,d,o);
-   for(const side of [-1,1]){
-    const kerb=module.halfWidth;
-    // Frontages remain BEHIND the actual footpath: no roof on sidewalk.
-    const pavement=module.id==='MODULO_ADRIANO'?.62:module.id==='MODULO_PASTOR_LANDERO'?.49:.37;
-    const front=kerb+pavement+.055,far=front+3.12;
-    const facade=[at(0,side*front),at(length,side*front),at(length,side*far),at(0,side*far)];
-    fill(facade,side===1?'#d7c4aa':'#d2c7b6');
-    // Opaque, uninterrupted roof mass replaces the seams between original house rectangles.
-    const materialIndex=(module.id==='MODULO_ADRIANO'?4:module.id==='MODULO_PASTOR_LANDERO'?2:0)+(side===1?1:0);
-    const roof=images.get(NATIVE_HOUSE_KEYS[materialIndex]);
-    if(roof){ctx.save();path(facade);ctx.clip();const bb=bounds(facade);ctx.globalAlpha=.93;for(let x=Math.floor(bb[0]/2)*2;x<bb[2];x+=2)for(let y=Math.floor(bb[1]/2)*2;y<bb[3];y+=2)ctx.drawImage(roof,px(x),py(y+2),2*p,2*p);ctx.restore();}
-    // The street clip leaves actual swept curbs visible at junctions, without cut roofs.
-    // Paint a continuous front before separate entrances and balconies.
-    const frontLine=[at(.02,side*(front+.012)),at(length-.02,side*(front+.012))];
-    ctx.beginPath();frontLine.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
-    ctx.strokeStyle=side===1?'#e6d7bd':'#f0e2cf';ctx.lineWidth=.075*p;ctx.stroke();
-    // NO8DO-like hexagonal tiles, clipped to actual parallel pavement (no arbitrary chamfer).
-    const pav=[at(0,side*(kerb+.012)),at(length,side*(kerb+.012)),at(length,side*(kerb+pavement)),at(0,side*(kerb+pavement))];
-    fill(pav,'#c8c2b6');ctx.save();path(pav);ctx.clip();ctx.strokeStyle='rgba(100,94,82,.32)';ctx.lineWidth=.011*p;
-    const step=.20,rad=.10;
-    for(let d=.10;d<length+.16;d+=step*1.5)for(let z=0;z<4;z++){
-     const y=kerb+.04+z*rad*1.69,off=side*y,x=d+(z%2)*step*.75;
-     ctx.beginPath();for(let k=0;k<6;k++){const q=at(x+Math.cos(k*Math.PI/3)*rad,off+side*Math.sin(k*Math.PI/3)*rad);k?ctx.lineTo(px(q[0]),py(q[1])):ctx.moveTo(px(q[0]),py(q[1]));}ctx.closePath();ctx.stroke();
-    }ctx.restore();
-    const curb=[at(0,side*(kerb+.01)),at(length,side*(kerb+.01))];
-    ctx.beginPath();curb.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
-    ctx.strokeStyle='#938b7c';ctx.lineWidth=.085*p;ctx.stroke();
-    ctx.strokeStyle='#eee5d8';ctx.lineWidth=.024*p;ctx.stroke();
-    // Architecturally regular balconies: withhold them from the chapel's narrow portal.
-    for(let d=.35;d<length-.22;d+=.62){if(module.id==='MODULO_ADRIANO'&&side===1&&d>4.55&&d<7.50)continue;
-     const door=d>1.8&&Math.floor(d/.62)%5===2;
-     const w=door?.29:.38,depth=door?.09:.14;
-     const poly=[at(d,side*(front+.018)),at(d+w,side*(front+.018)),at(d+w,side*(front+.018+depth)),at(d,side*(front+.018+depth))];
-     fill(poly,door?'#744c40':'#333b3e');
-     if(!door){const rail=[at(d-.025,side*(front+.012)),at(d+w+.025,side*(front+.012))];
-      ctx.beginPath();rail.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
-      ctx.strokeStyle='#252b2b';ctx.lineWidth=.022*p;ctx.stroke();}
-    }
+   if(!['MODULO_ADRIANO','MODULO_PASTOR_LANDERO','MODULO_ENLACE_ARFE_ADRIANO'].includes(module.id))continue;
+   if(!intersects(bounds([a,b]),[r[0]-5,r[1]-5,r[2]+5,r[3]+5]))continue;
+   const depth=this.sidewalkDepth(module);
+   for(const side of[-1,1])for(let d=.35;d<length-.3;d+=.55){
+    if(module.id==='MODULO_ADRIANO'&&side===1&&d>4.55&&d<7.5)continue;
+    const q=side*(module.halfWidth+depth+.085);
+    const u=atBand(a,b,d,q),v=atBand(a,b,d+.36,q);
+    if(this.walkable.some(poly=>pointInPolygon(u,poly)||pointInPolygon(v,poly)))continue;
+    ctx.strokeStyle='#eadbc4';ctx.lineWidth=.07*p;ctx.beginPath();ctx.moveTo(px(u[0]),py(u[1]));ctx.lineTo(px(v[0]),py(v[1]));ctx.stroke();
+    const door=Math.floor(d/.55)%5===3;
+    const back=side*(module.halfWidth+depth+(door?.27:.19));
+    const w=atBand(a,b,d+.36,back),z=atBand(a,b,d,back);
+    ctx.beginPath();[u,v,w,z].forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));ctx.closePath();
+    ctx.fillStyle=door?'#785243':'#344043';ctx.fill();
    }
   }
  }
