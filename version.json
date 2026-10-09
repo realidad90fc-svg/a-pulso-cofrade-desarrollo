@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.9-pixelart-entorno",
+  "version": "dev-2026.10.09.10-publico-continuidad",
   "stage": "development",
-  "note": "Arenal: tejados pixel art y azoteas; seis calles laterales decorativas; espectadores visibles en calzada con colisiones individuales, sin tocar checkpoints."
+  "note": "Continuidad original de tejados y pavimento Chicotaz; público denso hasta el borde de la trayectoria con paso central y presentación del Baratillo libres."
 }

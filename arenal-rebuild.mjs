@@ -52,71 +52,76 @@ export function rebuildArenalGeometry(route){
 }
 
 export function populateArenalPublic(route){
+ // Build audience AFTER street geometry and BEFORE architecture. The crowd
+ // fills both the pavement and the shoulders of the carriageway, as marked
+ // in the reference screenshot, leaving a continuous clearance for TreCai.
  for(const person of route.people)if(person.id)route.graph.nodes.delete(person.id);
  route.people=[];route.cornerAudience=[];route.audienceBands=[];
+ route.obstacles=route.obstacles.filter(o=>o.kind!=='visible-street-spectator');
  const sprites=route.sim.resources.animation.graphs;
- const keys=[...new Set(Object.entries(sprites).filter(([key])=>/^mapa\d+$/.test(key)).flatMap(([,graph])=>(graph.nodes||[]).filter(n=>n.sprite&&n.path.includes('/publico/')&&!/pierna|mano|brazo/.test(n.path)).map(n=>n.sprite.key)).filter(key=>route.graph.data.sprites[key]))];
+ const keys=[...new Set(Object.entries(sprites).filter(([key])=>/^mapa\d+$/.test(key)).flatMap(([,graph])=>
+  (graph.nodes||[]).filter(n=>n.sprite&&n.path.includes('/publico/')&&!/pierna|mano|brazo/.test(n.path))
+   .map(n=>n.sprite.key).filter(key=>route.graph.data.sprites[key])))];
  if(!keys.length)return;
- for(const key of keys){const id='arenal-rebuild-sprite-'+key;route.graph.nodes.set(id,{id,name:id,path:id,parent:null,position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1],active:false,sprite:{key,enabled:true,order:0,color:[1,1,1,1]}});}
- const register=(point,inCarriageway=false)=>{
-  // Avoid the actual TreCai spawn, all revolved junctions and the chapel.
-  // Decorative spectators on pavements are fine; only obstructing people
-  // must respect full native candelabra clearance during the levantá.
-  if(inCarriageway){
-   const start=route.scene.start?.position||[46.73,33.02];
-   if(Math.hypot(point[0]-start[0],point[1]-start[1])<3.25)return;
-   if(route.arenalSections.some(s=>[s.a,s.b].some(c=>Math.hypot(point[0]-c[0],point[1]-c[1])<1.35)))return;
+ for(const key of keys){
+  const id='arenal-rebuild-sprite-'+key;
+  route.graph.nodes.set(id,{id,name:id,path:id,parent:null,position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1],active:false,
+   sprite:{key,enabled:true,order:0,color:[1,1,1,1]}});
+ }
+ const start=route.scene.start?.position||[46.73,33.02];
+ const crowdPoint=(p,activeCollision=false)=>{
+  const ix=route.people.length;
+  if(ix>=route.scene.crowd.maxPeople)return;
+  const key=keys[((ix*7+Math.floor(p[0]*8)+Math.floor(p[1]*3))%keys.length+keys.length)%keys.length];
+  const sp=route.graph.data.sprites[key];
+  if(!sp)return;
+  const size=sp.rectSize.map(x=>x/sp.pixelsToUnits);
+  if(route.obstacles.some(o=>o.center&&Math.hypot(p[0]-o.center[0],p[1]-o.center[1])<(o.radius||.1)+.13&&o.kind!=='visible-street-spectator'))return;
+  // Only the front rank touches the paso. Every contact point corresponds
+  // to an actual sprite; decorative rows behind can't make invisible walls.
+  if(activeCollision){
+   if(Math.hypot(p[0]-start[0],p[1]-start[1])<3.25)return;
+   if(Math.hypot(p[0]-BARATILLO.position[0],p[1]-BARATILLO.position[1])<2.75)return;
+   const radius=.085;
+   route.obstacles.push({kind:'visible-street-spectator',center:[...p],radius,
+    rect:[p[0]-radius,p[1]-radius,p[0]+radius,p[1]+radius]});
   }
-  const onRoad=route.walkable.some(road=>pointInPolygon(point,road));
-  if(inCarriageway?!onRoad:onRoad)return;
-  if(route.obstacles.some(o=>o.center&&Math.hypot(point[0]-o.center[0],point[1]-o.center[1])<((o.radius||.1)+.11)))return;
-  // Public occupying the street has a visible body-sized collision, never
-  // a broad invisible rectangle floating over a junction.
-  const ix=route.people.length,key=keys[((ix*7+Math.floor(point[0]*8)+Math.floor(point[1]*3))%keys.length+keys.length)%keys.length],sprite=route.graph.data.sprites[key];
-  const radius=inCarriageway?Math.max(.065,Math.min(.10,sprite.rectSize[0]/sprite.pixelsToUnits*.46)):0;
-  if(inCarriageway)route.obstacles.push({kind:'visible-street-spectator',center:[...point],radius,rect:[point[0]-radius,point[1]-radius,point[0]+radius,point[1]+radius]});
-  route.people.push({id:'arenal-ped-'+ix,point,key,size:sprite.rectSize.map(x=>x/sprite.pixelsToUnits),baked:true,inCarriageway});
+  route.people.push({id:'arenal-public-'+ix,point:p,key,size,baked:true,inCarriageway:activeCollision});
  };
+ const front=(id,w)=>id==='MODULO_ADRIANO'?1.17:id==='MODULO_PASTOR_LANDERO'?.96:w-.20;
  for(const s of route.arenalSections){
-  const w=s.module.halfWidth,foot=sidewalkWidth(s.module);
+  const w=s.module.halfWidth,foot=sidewalkWidth(s.module),min=front(s.module.id,w);
+  const buffer=s.module.id==='MODULO_ENLACE_ARFE_ADRIANO'?1.45:1.55;
+  const outer=w+foot-.09;
   for(const sign of[-1,1]){
-   for(let along=.10;along<s.length-.08;along+=.17){
-    if(s.module.id==='MODULO_ADRIANO'&&sign===1&&along>4.55&&along<7.45)continue;
-    for(let offset=.10;offset<foot-.03;offset+=.16){
-     register(P(s,along+(Math.round(offset*100)%2)*.07,sign*(w+offset)));
+   // Continuous dense crowds to both edges: 0.17-unit longitudinal rows,
+   // extending from the roadside buildings to the safe central corridor.
+   for(let along=.13;along<s.length-.12;along+=.175){
+    const nearTurn=along<buffer||along>s.length-buffer;
+    const nearChapel=s.module.id==='MODULO_ADRIANO'&&along>3.65&&along<8.25;
+    const entry=nearTurn||nearChapel?w+.075:min;
+    let row=0;
+    for(let offset=entry;offset<=outer;offset+=.175,row++){
+     const q=P(s,along+(row%2)*.074,sign*offset);
+     // Secondary streets remain visible; don't fill their mouths with rows.
+     if((route.visualSideStreets||[]).some(st=>st.moduleId===s.module.id&&st.side===sign&&Math.abs(st.d-along)<st.width*.53&&offset>=w))continue;
+     const withinRoad=offset<w-.065&&route.walkable.some(poly=>pointInPolygon(q,poly));
+     const contact=withinRoad&&row===0&&Math.round(along/.175)%2===0&&!nearTurn&&!nearChapel;
+     crowdPoint(q,contact);
     }
    }
   }
-  // Complete the crowd at right-angle intersections, preserving the
-  // crossable road polygon and original paso footprint.
-  for(const d of[.14,.30,.47,.66,.86])for(const sign of[-1,1])for(const offset of[.09,.25,.40]){
-   register(P(s,d,sign*(w+offset)));
-   register(P(s,s.length-d,sign*(w+offset)));
-  }
  }
- // Controlled street-side audience pockets, outside the departure,
- // crossroads and chapel manoeuvre. The centre remains passable by the
- // unchanged paso even when these spectators add meaningful difficulty.
- const pockets=[
-  ['MODULO_ADRIANO',1.85,3.60,-1,.30],
-  ['MODULO_ADRIANO',8.55,10.70,1,.31],
-  ['MODULO_PASTOR_LANDERO',2.15,3.65,1,.16],
-  ['MODULO_PASTOR_LANDERO',4.90,6.40,-1,.17]
- ];
- for(const [moduleId,from,to,side,inset] of pockets){
-  const s=route.arenalSections.find(x=>x.module.id===moduleId);
-  if(!s)continue;
-  for(let d=from;d<Math.min(to,s.length-1.1);d+=.23){
-   const foot=P(s,d,side*(s.module.halfWidth-inset));
-   if(Math.hypot(foot[0]-BARATILLO.position[0],foot[1]-BARATILLO.position[1])<2.45)continue;
-   register(foot,true);
+ // Presentation: keep the entire manoeuvre open, but fill the side banks
+ // right up to the real chapel facades without blocking the stopping place.
+ const s=route.arenalSections.find(s=>s.module.id==='MODULO_ADRIANO');
+ if(s)for(const sign of[-1,1]){
+  for(const d of[4.25,4.44,4.62,7.63,7.81,8.00]){
+   if(sign===1&&d>4.45&&d<7.50)continue;
+   for(const off of[.10,.26,.41]){
+    crowdPoint(P(s,d,sign*(s.module.halfWidth+off)),false);
+   }
   }
- }
- // A dense presentation audience on either side of the chapel door,
- // never a solid invisible wall in the play area.
- const chapel=route.arenalSections.find(s=>s.module.id==='MODULO_ADRIANO');
- if(chapel)for(const side of[-1,1])for(const d of[4.40,4.57,7.36,7.53])for(const off of[.10,.25,.40]){
-  register(P(chapel,d,side*(chapel.module.halfWidth+off)));
  }
 }
 
@@ -143,12 +148,10 @@ export function paintRebuiltArenal(route,ctx,images,r){
  ctx.restore();
  for(const ps of allRoads(route)){
   if(!hit(B(ps),r))continue;
-  // All asphalt matches the original road and obstacle limits precisely.
-  fill(ps,'#58595b');
-  ctx.save();path(ps);ctx.clip();
-  const floor=images.get('sharedassets2.assets:373');
-  if(floor){ctx.globalAlpha=.36;for(let x=Math.floor(r[0]);x<r[2];x++)for(let y=Math.floor(r[1]);y<r[3];y++){ctx.drawImage(floor,322,40,110,110,px(x),py(y+1),p,p);}ctx.globalAlpha=1;}
-  ctx.restore();
+  // Exactly the SAME pixel material, rotation, sampling and world anchoring
+  // used by CathedralRoute's native Arfe reconstruction. No solid gray
+  // overlay or stretched asphalt tile at the old/new join.
+  CathedralRoute.prototype.paintNativePatch.call(route,ctx,images,r,ps,[1610,1050,96,96]);
  }
  for(const sw of route.arenalSidewalks){
   if(!hit(sw.bounds,r))continue;
