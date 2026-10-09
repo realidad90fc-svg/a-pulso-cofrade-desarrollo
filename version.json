@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.4-esquinas",
+  "version": "dev-2026.10.09.5-salida",
   "stage": "development",
-  "note": "Esquinas sin círculo artificial; aceras bien delimitadas, público más cerca de los giros"
+  "note": "Corrección de salida: enlace recto de Arfe sin círculos; comprobación de holgura inicial de candelabros"
 }

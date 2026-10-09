@@ -30,7 +30,20 @@ export class ArenalRoute extends CentreRoute {
   const nativeKeep=clipHalfPlane(rect([43.6,24,55,36.5]),q=>1.05-((q[0]-this.scene.start.position[0])*d[0]+(q[1]-this.scene.start.position[1])*d[1]));this.nativeKeep=nativeKeep;
   const planes=[q=>q[0]-43.6,q=>36.5-q[1],q=>1.05-((q[0]-this.scene.start.position[0])*d[0]+(q[1]-this.scene.start.position[1])*d[1])];
   const trim=poly=>planes.reduce((p,value)=>clipHalfPlane(p,value),poly);
-  const clippedRoad=trim(road);this.walkable=this.walkable.filter(p=>p!==road);this.walkable.push(clippedRoad);this.nativeRoads=[clippedRoad];
+  const clippedRoad=trim(road);
+  this.walkable=this.walkable.filter(p=>p!==road);
+  this.walkable.push(clippedRoad);
+  // The reused Arfe native floor ends slightly before the TreCai chandeliers'
+  // initial footprint. Complete the SAME straight lane, not the turn, with a
+  // constant-width connector. No circular turning bay or extra manoeuvre space.
+  const link=this.segments.find(s=>s.module.id==='MODULO_ENLACE_ARFE_ADRIANO');
+  const start=this.scene.start.position,forward=[link.a[0]-start[0],link.a[1]-start[1]];
+  const len=Math.hypot(...forward),u=forward.map(x=>x/len);
+  const rear=start.map((x,i)=>x-u[i]*.68);
+  const w=link.module.halfWidth,n=[-u[1]*w,u[0]*w];
+  const corridor=[[rear[0]+n[0],rear[1]+n[1]],[link.a[0]+n[0],link.a[1]+n[1]],[link.a[0]-n[0],link.a[1]-n[1]],[rear[0]-n[0],rear[1]-n[1]]];
+  this.walkable.push(corridor);this.nativeRoads=[clippedRoad,corridor];
+  this.arfeStartAxis=u;
   this.obstacles=this.obstacles.filter(o=>{if(o.kind!=='native')return true;if(o.center)return pointInPolygon(o.center,nativeKeep);o.poly=trim(o.poly||rect(o.rect));if(o.poly.length<3)return false;o.rect=bounds(o.poly);return true;});
   this.nativeEdges=this.nativeEdges.flatMap(e=>{let a=e.a,b=e.b;for(const value of planes){const va=value(a),vb=value(b);if(va<0&&vb<0)return [];if((va>=0)!==(vb>=0)){const t=va/(va-vb),q=a.map((x,k)=>x+(b[k]-x)*t);if(va<0)a=q;else b=q;}}return[{...e,a,b}];});
   this.presentations=new TemplePresentations(this.scene.presentations);this.presentationIds=[];this.confirmation=null;
@@ -103,10 +116,32 @@ export class ArenalRoute extends CentreRoute {
   for(const [from,to]of[[33.65,38.2],[41.2,45.1]])for(const sign of[-1,1]){const ys=[49.6+sign*.88,49.6+sign*1.82].sort((a,b)=>a-b),poly=rect([from,ys[0],to,ys[1]]);this.obstacles.push({kind:'crowd-boundary',poly,rect:bounds(poly)});}
   this.reyesLayer=layer;
  }
+ // Guard against a step being initialized with inherited APK collider heading
+ // before the custom route's heading is applied. Only at first, unplayed spawn:
+ // choose the nearest clear point on the SAME Arfe lane. Never ignore contact,
+ // resize the paso, change physics or reposition it during a running route.
+ ensureInitialClearance(){
+  if(this._startChecked)return;this._startChecked=true;
+  const s=this.sim,initial=this.scene.start.position,pos=s.position(s.stepEntity.transform);
+  if(s.levelTime>.25||Math.hypot(pos.x-initial[0],pos.y-initial[1])>.12)return;
+  const parts=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity);
+  const clear=()=>parts.every(c=>{c._frame=-1;return this.validShape(c.world());});
+  if(clear())return;
+  const original=[pos.x,pos.y,pos.z||0],axis=this.arfeStartAxis,normal=[-axis[1],axis[0]];
+  const shifts=[-.08,-.16,-.24,-.34,-.46,-.58,-.68,.08,.16,.24,.32];
+  const offsets=[0,.06,-.06,.12,-.12];
+  for(const d of shifts)for(const lateral of offsets){
+   const q=[initial[0]+axis[0]*d+normal[0]*lateral,initial[1]+axis[1]*d+normal[1]*lateral,0];
+   s.setPosition(s.stepEntity.transform,q);
+   if(clear()){this._startAdjusted=true;return;}
+  }
+  s.setPosition(s.stepEntity.transform,original);for(const c of parts)c._frame=-1;
+  console.warn('Arenal: sin posición inicial segura; revisar colisiones de Arfe.');
+ }
  follow(){super.follow();}
  updateStreet(){const p=this.sim.position(this.sim.stepEntity.transform);if(Math.hypot(p.x-BARATILLO.position[0],p.y-BARATILLO.position[1])<2.2){if(this.streetNotice?.id!=='baratillo')this.streetNotice={id:'baratillo',name:'Capilla del Baratillo · Presentación',since:this.sim.levelTime};return;}if(p.x>45.2&&p.y<35.3){if(this.streetNotice?.id!=='arfe')this.streetNotice={id:'arfe',name:'Arfe',since:this.sim.levelTime};return;}super.updateStreet();}
  tick(){
-  const s=this.sim;this.follow();this.updateStreet();
+  const s=this.sim;this.ensureInitialClearance();this.follow();this.updateStreet();
   const shapes=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity);
   for(const c of shapes)if(!this.validShape(c.world())){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:2;s.send(s.stepEntity,'gameOverMet');return;}
   const p=s.position(s.stepEntity.transform),moving=['alante','atras','derAl','izqAl','derAt','izqAt'].some(k=>s.controller[k]),stopped=!moving&&!s.controller.martillo;
