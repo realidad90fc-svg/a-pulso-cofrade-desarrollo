@@ -18,8 +18,10 @@ export class ArenalRoute extends CentreRoute {
   this.nativeRoads=[road];this.nativeObstacles=[];this.nativeEdges=[];CathedralRoute.prototype.collectNative.call(this,sim.mapColliders,postigoPoint,5);
   this.obstacles.push(...this.nativeObstacles);const root=sim.mapGraph.root,a=POSTIGO_MODULE.rotation*Math.PI/180;root.position=[...postigoPoint(root.position),0];root.rotation=[0,0,Math.sin(a/2),Math.cos(a/2)];
   for(const n of sim.mapGraph.nodes.values())if(n.path.includes('/zonaInter')||n.path.includes('/zonaParada'))n.active=false;
-  // Keep the original rounded joining footprints: no artificially squared turn bays.
-  // The same polygons drive collision testing and the visible pavement.
+  // Only the CentreRoute synthetic turn disks are removed, NEVER native Arfe.
+  // Actual street polygons define both the painted road and collision boundary.
+  const nativeCount=this.scene.originalWalkable?.length||0;
+  this.walkable=this.walkable.filter((p,i)=>i<nativeCount||p.length!==24);
   this.nativeObstacles=this.nativeObstacles.filter(o=>o.rect[1]<36.5);
   this.obstacles=this.obstacles.filter(o=>o.kind!=='native'||this.nativeObstacles.includes(o));this.nativeEdges=this.nativeEdges.filter(e=>e.a[1]<36.5||e.b[1]<36.5);
   // The original Arfe graph ends here. Clip unused Postigo roofs from NEW streets.
@@ -52,8 +54,12 @@ export class ArenalRoute extends CentreRoute {
   for(const segment of this.segments){const{a,b,length,module}=segment;if(module.source===ARENAL_REYES.source)continue;
    const inner=module.id==='MODULO_ADRIANO'?.86:.79,outer=inner+1.3;
    for(const sign of[-1,1]){
-    if(module.id==='MODULO_ADRIANO'){addBand(a,b,1.4,3.8,inner,outer,sign);if(sign===1){addBand(a,b,3.8,5.0,1.48,2.40,sign);addBand(a,b,7.0,8.2,1.48,2.40,sign);}else addBand(a,b,3.8,8.2,2.25,2.43,sign);addBand(a,b,8.2,length-1.35,inner,outer,sign);}
-    else addBand(a,b,1.4,length-1.35,inner,Math.min(outer,module.halfWidth-.05),sign);
+    if(module.id==='MODULO_ADRIANO'){
+     addBand(a,b,.72,3.8,inner,outer,sign);
+     if(sign===1){addBand(a,b,3.8,5.0,1.48,2.40,sign);addBand(a,b,7.0,8.2,1.48,2.40,sign);}
+     else addBand(a,b,3.8,8.2,2.25,2.43,sign);
+     addBand(a,b,8.2,length-.72,inner,outer,sign);
+    }else addBand(a,b,.68,length-.68,inner,Math.min(outer,module.halfWidth-.05),sign);
    }
   }
   // People at corner *pavements*, not floating on rooftops or blocking manoeuvres.
@@ -62,8 +68,8 @@ export class ArenalRoute extends CentreRoute {
    if(segment.module.source===ARENAL_REYES.source)continue;
    const {a,b,length,module}=segment;
    if(length<1.55)continue;
-   for(const sign of[-1,1])for(const edge of[0,length])for(let d=.19;d<.79;d+=.20)
-    for(let inset=.12;inset<=.43;inset+=.155){
+   for(const sign of[-1,1])for(const edge of[0,length])for(let d=.12;d<1.08;d+=.145)
+    for(let inset=.115;inset<=.515;inset+=.133){
      const along=edge===0?d:length-d;
      const point=atBand(a,b,along,sign*(module.halfWidth+inset));
      if(this.walkable.some(poly=>pointInPolygon(point,poly)))continue;
@@ -190,8 +196,11 @@ export class ArenalRoute extends CentreRoute {
    if(!intersects(bounds([a,b]),[r[0]-6,r[1]-6,r[2]+6,r[3]+6]))continue;
    const at=(d,o)=>atBand(a,b,d,o);
    for(const side of [-1,1]){
-    const kerb=module.halfWidth,front=kerb+.065,far=kerb+3.55;
-    const facade=[at(.02,side*front),at(length-.02,side*front),at(length-.02,side*far),at(.02,side*far)];
+    const kerb=module.halfWidth;
+    // Frontages remain BEHIND the actual footpath: no roof on sidewalk.
+    const pavement=module.id==='MODULO_ADRIANO'?.62:module.id==='MODULO_PASTOR_LANDERO'?.49:.37;
+    const front=kerb+pavement+.055,far=front+3.12;
+    const facade=[at(0,side*front),at(length,side*front),at(length,side*far),at(0,side*far)];
     fill(facade,side===1?'#d7c4aa':'#d2c7b6');
     // Opaque, uninterrupted roof mass replaces the seams between original house rectangles.
     const materialIndex=(module.id==='MODULO_ADRIANO'?4:module.id==='MODULO_PASTOR_LANDERO'?2:0)+(side===1?1:0);
@@ -199,11 +208,11 @@ export class ArenalRoute extends CentreRoute {
     if(roof){ctx.save();path(facade);ctx.clip();const bb=bounds(facade);ctx.globalAlpha=.93;for(let x=Math.floor(bb[0]/2)*2;x<bb[2];x+=2)for(let y=Math.floor(bb[1]/2)*2;y<bb[3];y+=2)ctx.drawImage(roof,px(x),py(y+2),2*p,2*p);ctx.restore();}
     // The street clip leaves actual swept curbs visible at junctions, without cut roofs.
     // Paint a continuous front before separate entrances and balconies.
-    const frontLine=[at(.02,side*(kerb+.045)),at(length-.02,side*(kerb+.045))];
+    const frontLine=[at(.02,side*(front+.012)),at(length-.02,side*(front+.012))];
     ctx.beginPath();frontLine.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
     ctx.strokeStyle=side===1?'#e6d7bd':'#f0e2cf';ctx.lineWidth=.075*p;ctx.stroke();
     // NO8DO-like hexagonal tiles, clipped to actual parallel pavement (no arbitrary chamfer).
-    const pav=[at(0,side*(kerb+.015)),at(length,side*(kerb+.015)),at(length,side*(kerb+ADRIANO_URBAN_DETAIL.sidewalkDepth)),at(0,side*(kerb+ADRIANO_URBAN_DETAIL.sidewalkDepth))];
+    const pav=[at(0,side*(kerb+.012)),at(length,side*(kerb+.012)),at(length,side*(kerb+pavement)),at(0,side*(kerb+pavement))];
     fill(pav,'#c8c2b6');ctx.save();path(pav);ctx.clip();ctx.strokeStyle='rgba(100,94,82,.32)';ctx.lineWidth=.011*p;
     const step=.20,rad=.10;
     for(let d=.10;d<length+.16;d+=step*1.5)for(let z=0;z<4;z++){
@@ -218,9 +227,9 @@ export class ArenalRoute extends CentreRoute {
     for(let d=.35;d<length-.22;d+=.62){if(module.id==='MODULO_ADRIANO'&&side===1&&d>4.55&&d<7.50)continue;
      const door=d>1.8&&Math.floor(d/.62)%5===2;
      const w=door?.29:.38,depth=door?.09:.14;
-     const poly=[at(d,side*(kerb+.048)),at(d+w,side*(kerb+.048)),at(d+w,side*(kerb+.048+depth)),at(d,side*(kerb+.048+depth))];
+     const poly=[at(d,side*(front+.018)),at(d+w,side*(front+.018)),at(d+w,side*(front+.018+depth)),at(d,side*(front+.018+depth))];
      fill(poly,door?'#744c40':'#333b3e');
-     if(!door){const rail=[at(d-.025,side*(kerb+.045)),at(d+w+.025,side*(kerb+.045))];
+     if(!door){const rail=[at(d-.025,side*(front+.012)),at(d+w+.025,side*(front+.012))];
       ctx.beginPath();rail.forEach(([x,y],i)=>i?ctx.lineTo(px(x),py(y)):ctx.moveTo(px(x),py(y)));
       ctx.strokeStyle='#252b2b';ctx.lineWidth=.022*p;ctx.stroke();}
     }

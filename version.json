@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.09.3-arenal",
+  "version": "dev-2026.10.09.4-esquinas",
   "stage": "development",
-  "note": "Parche 3: recorte de tejados en cruces, bordillos redondeados, público y presentación paralela en el Baratillo"
+  "note": "Esquinas sin círculo artificial; aceras bien delimitadas, público más cerca de los giros"
 }
