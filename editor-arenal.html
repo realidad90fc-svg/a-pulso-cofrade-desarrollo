@@ -1,144 +1,131 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#11222b">
-<title>Editor de mapas · A Pulso Cofrade</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#15202a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Taller de mapas · A Pulso Cofrade</title>
+<link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
-:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#e7eff2;background:#0e1b23;font-size:14px}
-*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}
-button:disabled{opacity:.38;cursor:not-allowed}button,input,select{accent-color:#58d7ca}
-header{background:#172c35;border-bottom:1px solid #36505d;display:flex;align-items:center;gap:11px;justify-content:space-between;padding:12px 18px;flex-wrap:wrap}
-h1{font-size:18px;line-height:1.15;margin:0}h2{font-size:13px;color:#c3dbe2;margin:6px 0 10px}
-.small{font-size:11px;color:#9bb1b9}.brand{display:flex;gap:10px;align-items:center}.brand svg{flex:none}
-.headerActions,.buttonGroup,.tools,.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-button,.soft,select{border:1px solid #365661;color:#e0edf0;background:#1e3944;border-radius:8px;padding:9px 11px}
-button:hover{border-color:#70bdba;background:#2c4a53}
-button.primary{background:#2d7d77;border-color:#5fc6bc;color:white;font-weight:700}
-button.active{background:#277a86;border-color:#97f3dc;color:white}
-button.warning{border-color:#8a5c40}.tiny{font-size:12px;padding:7px 8px}
-main{display:grid;grid-template-columns:260px minmax(0,1fr);height:calc(100dvh - 80px);min-height:450px}
-aside{border-right:1px solid #36505d;overflow-y:auto;background:#142833;padding:13px}
-.sideSection{border-top:1px solid #304753;padding:10px 0}
-.sideSection:first-child{border-top:0}
-.tools{display:grid;grid-template-columns:1fr 1fr}
-.tools button{text-align:left;font-size:12px}
-input[type=range]{width:100%;margin:8px 0}
-input[type=number]{width:65px;background:#0b2630;color:white;border:1px solid #4c6b76;border-radius:6px;padding:5px}
-label{display:block;font-size:12px;color:#c0d0d6;margin:8px 0}
-label.check{display:flex;align-items:center;gap:7px;margin:7px 0}
-#palette{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-.swatch{aspect-ratio:1.32;display:block;border-radius:5px;object-fit:cover;width:100%;background:#789;border:2px solid transparent;image-rendering:pixelated}
-.swatchButton{padding:2px;background:#223a44;border-radius:6px}
-.swatchButton.active{border:2px solid #72ead0}
-#stage{position:relative;min-width:0;overflow:hidden;background:#182a30}
-#map{display:block;touch-action:none;width:100%;height:100%;cursor:crosshair}
-#topHud{position:absolute;top:12px;left:12px;right:12px;pointer-events:none;display:flex;justify-content:space-between;gap:10px}
-.pill{display:inline-block;background:#0b2337d9;border:1px solid #3b6476;border-radius:8px;color:#e0f3f5;padding:9px 12px;box-shadow:0 2px 14px #0004}
-#footerHud{position:absolute;bottom:10px;left:10px;right:10px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none}
-#footerHud button{pointer-events:auto}
-#help{max-width:450px;color:#c2dde6;font-size:12px}
-#hudStatus{font-variant-numeric:tabular-nums;white-space:pre-line}
-fieldset{border:1px solid #36535f;border-radius:7px;padding:7px 10px;margin:9px 0}
-legend{font-size:11px;color:#9accc5}
-#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#194f56;border:1px solid #65b2b5;color:white;padding:12px 18px;border-radius:8px;box-shadow:0 4px 20px #0009;display:none;z-index:40;max-width:90vw;text-align:center}
-#zoomControls{display:flex;gap:6px;pointer-events:auto}
-details summary{cursor:pointer;color:#b3d4d9;font-size:12px}
-kbd{background:#31505d;color:#fff;padding:1px 4px;border-radius:3px}
-@media(max-width:850px){
- header{padding:10px;gap:8px}main{display:flex;flex-direction:column;height:calc(100dvh - 103px)}
- aside{width:100%;max-height:245px;border-right:0;border-bottom:1px solid #32525c;padding:5px 10px;flex-shrink:0}
- .toolside{display:flex;align-items:center;gap:6px}.tools{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;width:100%;padding:3px 0}
- .tools button{white-space:nowrap;flex:0 0 auto;text-align:center}
- .sideSection{padding:5px 0}.sideSection:not(.toolside){display:none}
- aside.show-options{max-height:65dvh}.show-options .sideSection:not(.toolside){display:block}
- #stage{flex:1;min-height:230px}
- #topHud{top:6px;left:6px;right:6px}.pill{padding:6px 8px;font-size:11px}
- #help{max-width:275px}
-}
+:root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}button,input,select{font:inherit}button{cursor:pointer;white-space:nowrap;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;min-height:38px}button:hover{border-color:var(--aqua)}button.active{border-color:var(--aqua);color:#072429;background:var(--aqua);font-weight:800}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--aqua);outline-offset:2px}button:disabled{opacity:.35;cursor:not-allowed}button.primary{background:var(--gold);color:#211608;border-color:var(--gold);font-weight:800}button.danger{color:var(--red)}button.small{min-height:31px;padding:5px 8px}a{color:#8fe6ed}p{margin:6px 0}.titlebar{height:67px;display:flex;align-items:center;justify-content:space-between;padding:8px 17px;background:#15202a;border-bottom:1px solid var(--line);gap:12px}.brand{display:flex;align-items:center;gap:11px;min-width:0}.brand img{width:38px;height:38px;border-radius:9px;object-fit:cover}.brand strong{display:block;font-size:17px;line-height:1.25}.brand span{display:block;color:var(--muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.title-actions{display:flex;align-items:center;gap:7px}.toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);overflow:auto;white-space:nowrap;scrollbar-width:thin}.toolbar button{font-size:13px}.toolbar-separator{flex-shrink:0;width:1px;height:30px;background:var(--line);margin:0 4px}.workspace{height:calc(100dvh - 124px);display:grid;grid-template-columns:minmax(0,1fr) 328px;min-height:0}.map-container{position:relative;overflow:hidden;background:#525657;min-height:0}.map-container canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}.map-top{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:start;justify-content:space-between;gap:10px;pointer-events:none}.map-top>div{background:#172630ed;border:1px solid #405763;border-radius:8px;padding:7px 10px;font-size:12px;max-width:70%;backdrop-filter:blur(6px)}#status[data-type=error]{color:#ffc5bd}#status[data-type=good]{color:#aef2c5}#counts{color:var(--muted);font-size:12px}.bottom-hud{position:absolute;bottom:10px;left:10px;right:10px;display:flex;align-items:center;justify-content:space-between;pointer-events:none;gap:12px}.bottom-hud>*{pointer-events:auto}.chip{padding:7px 10px;border:1px solid #465862;background:#14202be6;border-radius:9px;color:var(--text);font-size:12px}.zoom{display:flex;gap:5px}.zoom button{font-size:17px;font-weight:bold}#paso-test[data-ok=no]{color:#ffafa9}#paso-test[data-ok=yes]{color:#b0f4c1}.sidebar{border-left:1px solid var(--line);background:var(--panel);padding:11px;overflow-y:auto;overscroll-behavior:contain;min-height:0}.sidebar details{border:1px solid #394957;border-radius:11px;background:#202d38;margin-bottom:9px;overflow:hidden}.sidebar summary{list-style:none;cursor:pointer;padding:10px 12px;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:space-between}.sidebar summary:after{content:'⌄';color:var(--muted)}.sidebar details:not([open]) summary:after{content:'›'}.sidebar details>div{padding:0 11px 12px}.sidebar small,.muted{color:var(--muted)}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions>*{flex:1}.stack{display:flex;flex-direction:column;gap:8px}.flag{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}.flag input{accent-color:#43dbc8;width:17px;height:17px}.sidebar input[type=range]{width:100%;accent-color:var(--aqua)}.sidebar input[type=file]{width:100%;font-size:12px;padding:7px 0}.sidebar select{width:100%;background:#15232c;color:var(--text);padding:9px;border-radius:8px;border:1px solid var(--line)}.swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.swatch{display:flex;align-items:center;justify-content:center;height:68px;padding:4px;background:#101a22;border-color:#465765}.swatch.chosen{border:2px solid var(--aqua)}.swatch img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}.line{height:1px;background:var(--line);margin:9px 0}.notice{padding:9px;background:#13242b;border-left:3px solid var(--aqua);border-radius:4px;font-size:12px;color:#d7e8e5}.notice strong{color:var(--aqua)}.inline{display:flex;align-items:center;gap:6px}.inline button{flex:1}#validation{font-size:12px;color:var(--muted);line-height:1.4}#validation strong{color:var(--gold)}#validation p{margin:5px 0}.loading{position:absolute;inset:0;background:#131d24f5;display:flex;align-items:center;justify-content:center;text-align:center;z-index:10;padding:20px;font-size:17px;font-weight:bold}.loading[hidden]{display:none!important}input[type=checkbox]{margin:0}.hotkeys{font-size:12px;color:var(--muted)}@media(max-width:850px){.workspace{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}.sidebar{border:0;border-top:1px solid var(--line);max-height:28dvh;min-height:74px;padding:6px 8px;overflow-y:auto}.map-top>div{font-size:11px}.titlebar{height:63px;padding:7px 10px}.brand strong{font-size:14px}.brand span{font-size:11px}.brand img{width:34px;height:34px}.workspace{height:calc(100dvh - 120px)}.toolbar{padding:6px;height:57px}.toolbar button{font-size:12px;min-height:36px;padding:7px 9px}.sidebar details[open]{display:block}.sidebar details:first-child>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.sidebar details:first-child>div>*{flex:1}.sidebar:focus-within{max-height:50dvh}.bottom-hud{bottom:6px}.title-actions button{padding:6px 8px;min-height:33px}}@media(max-width:850px){.sidebar details{display:block}.sidebar summary{padding:8px 11px}.sidebar details:not([open])>div{display:none}.map-container{min-height:250px}}
+@media(max-width:410px){.brand span{display:none}.title-actions button{font-size:12px}.brand strong{font-size:12px}.toolbar{gap:4px}.chip{font-size:11px}#counts{display:none}}
 </style>
 </head>
 <body>
-<header>
+<header class="titlebar">
  <div class="brand">
-  <svg width="34" height="34" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M3 24 11 6l8 9L29 4v23H3Z" fill="#42aba9"/><path d="m3 24 8-18 8 9 10-11" stroke="#b5f4de" stroke-width="2"/></svg>
-  <div><h1>A Pulso · Editor del Arenal</h1><div class="small">Texturas originales de Chicotaz · edición manual de capas</div></div>
+  <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
+  <div><strong>Taller de mapas · A Pulso Cofrade</strong><span>Editor manual del Arenal con sprites originales</span></div>
  </div>
- <div class="headerActions">
-  <button id="undo" title="Deshacer (Ctrl+Z)">↶</button><button id="redo" title="Rehacer (Ctrl+Y)">↷</button>
-  <button id="importBtn">Importar</button>
-  <button id="exportBtn" class="primary">Exportar mapa JSON ↓</button>
-  <a href="/" style="color:#99d9d1;font-size:12px">Volver al juego ↗</a>
+ <div class="title-actions">
+  <button id="save" title="Guardar en este navegador">Guardar</button>
+  <button id="export" class="primary" title="Descargar JSON del diseño">Exportar mapa</button>
+  <a href="./" style="white-space:nowrap">Juego ↗</a>
  </div>
 </header>
-<main>
- <aside id="sidebar">
-  <div class="sideSection toolside">
-   <div class="tools" role="group" aria-label="Herramientas de edición">
-    <button data-tool="select" class="active">↖ Seleccionar</button>
-    <button data-tool="pan">✥ Mover vista</button>
-    <button data-tool="road">▰ Calzada</button>
-    <button data-tool="crowd">♟ Público</button>
-    <button data-tool="sidewalk">▦ Aceras</button>
-    <button data-tool="house">⌂ Edificios</button>
-    <button data-tool="erase">⌫ Borrar</button>
-    <button data-tool="test">▣ Probar paso</button>
-   </div>
-   <button id="moreOptions" class="tiny" title="Mostrar opciones">⚙ Opciones</button>
+<nav class="toolbar" aria-label="Herramientas de edición">
+ <button data-tool="pan" class="active">✋ Mover plano</button>
+ <button data-tool="select">↖ Seleccionar</button>
+ <button data-tool="road">▰ Calle</button>
+ <button data-tool="people">♟ Público</button>
+ <button data-tool="sidewalk">▤ Acera</button>
+ <button data-tool="house">⌂ Casa</button>
+ <button data-tool="erase">◌ Borrar</button>
+ <button data-tool="paso">✦ Probar paso</button>
+ <button data-tool="reference">▧ Ajustar foto</button>
+ <span class="toolbar-separator"></span>
+ <button id="undo">↶ Deshacer</button>
+ <button id="redo">↷ Rehacer</button>
+ <button id="finish-shape" disabled>✓ Cerrar polígono</button>
+ <button id="cancel-shape">× Cancelar puntos</button>
+</nav>
+<main class="workspace">
+ <section class="map-container" aria-label="Plano editable del Arenal">
+  <canvas id="editor-canvas" aria-label="Plano con calles, público y edificios editable mediante herramientas"></canvas>
+  <div class="map-top">
+   <div><strong id="tool-name">Cargando mapa</strong><div id="counts">Cargando geometría…</div><div id="status" role="status">Preparando el editor…</div></div>
+   <div id="coords">— · —</div>
   </div>
-  <div class="sideSection">
-   <h2>Edición</h2>
-   <div class="buttonGroup"><button id="finishPoly" class="primary tiny">✓ Terminar figura</button><button id="cancelPoly" class="tiny">Cancelar</button></div>
-   <div id="selectedInfo" class="small" style="margin-top:10px">Selecciona un elemento para moverlo o cambiarlo.</div>
-   <div class="buttonGroup" style="margin-top:7px">
-    <button id="bringFront" class="tiny">Duplicar</button><button id="deleteSelected" class="tiny warning">Eliminar</button>
-   </div>
-   <h2 style="margin-top:16px">Texturas originales · casas</h2>
-   <div id="palette"></div>
-   <label>Tamaño del pincel de público: <b id="brushLabel">0,28 m</b><input type="range" id="brush" min=".14" max="1.0" value=".28" step=".07"></label>
-   <label>Densidad: <b id="densityLabel">Alta</b><input type="range" id="density" min="1" max="3" value="2" step="1"></label>
-   <label>Rotación del paso de prueba: <b id="rotationLabel">147°</b><input type="range" id="rotation" min="0" max="359" value="147"></label>
+  <div class="bottom-hud">
+   <div class="chip"><span id="selection">Sin selección</span><div id="paso-test"></div></div>
+   <div class="zoom"><button id="zoom-out" title="Alejar">−</button><button id="zoom-in" title="Acercar">+</button></div>
   </div>
-  <div class="sideSection">
-   <h2>Capas visibles</h2>
-   <label class="check"><input data-layer="road" type="checkbox" checked> Calzada (gris oscuro)</label>
-   <label class="check"><input data-layer="crowd" type="checkbox" checked> Público (original)</label>
-   <label class="check"><input data-layer="sidewalk" type="checkbox" checked> Aceras</label>
-   <label class="check"><input data-layer="house" type="checkbox" checked> Edificios y tejados</label>
-   <label class="check"><input id="showGrid" type="checkbox" checked> Cuadrícula de medidas</label>
-   <label class="check"><input id="showPaso" type="checkbox" checked> Huella de paso (1,04 × 2,15 m)</label>
-   <label class="check"><input id="showRefs" type="checkbox" checked> Nombres del recorrido</label>
-  </div>
-  <div class="sideSection">
-   <h2>Estado del mapa</h2>
-   <div id="counts" class="small"></div>
-   <div class="buttonGroup" style="margin-top:9px">
-    <button id="resetFromGame" class="tiny">Restaurar mapa actual</button>
-    <button id="onlyRoads" class="tiny">Solo calles originales</button>
-    <button id="clearLayer" class="tiny warning">Vaciar capa activa</button>
-   </div>
-  </div>
-  <div class="sideSection">
-   <details><summary>Cómo se usa</summary>
-    <p class="small"><b>Calzada / aceras / casas:</b> toca cada esquina y pulsa «Terminar figura» (mínimo 3 puntos). <b>Público:</b> mantén pulsado y arrastra para rellenar. <b>Seleccionar:</b> toca un objeto y arrastra para moverlo; arrastra un vértice para ajustarlo. <b>Mover vista:</b> arrastra el mapa. Rueda o botones ± para ampliar.</p>
-    <p class="small">El editor guarda automáticamente en este navegador. <b>Exporta el JSON</b> para enviármelo por el chat e incorporarlo al juego. Este editor no modifica una partida ni publica cambios jugables por sí solo.</p>
-   </details>
-  </div>
- </aside>
- <section id="stage">
-  <canvas id="map" aria-label="Lienzo para editar el mapa del Arenal"></canvas>
-  <div id="topHud">
-   <div class="pill"><b id="currentTool">Seleccionar</b><div class="small" id="toolHint">Toca una figura para editarla</div></div>
-   <div class="pill" id="hudStatus">Cargando texturas...</div>
-  </div>
-  <div id="footerHud"><div class="pill" id="help">Consejo: empieza por la calzada, luego el público, después las aceras y al final los tejados.</div>
-   <div id="zoomControls"><button id="zoomOut" aria-label="Alejar">−</button><button id="zoomIn" aria-label="Acercar">＋</button><button id="zoomFit" title="Encajar mapa">⊞</button></div>
-  </div>
+  <div id="loading" class="loading">Cargando el mapa y los materiales originales…</div>
  </section>
+ <aside class="sidebar" aria-label="Controles del mapa">
+  <details open>
+   <summary>Proyecto y herramientas</summary>
+   <div>
+    <div class="notice"><strong>Este es tu taller.</strong> Los cambios se guardan en este navegador. El juego publicado no cambia hasta integrar el JSON exportado.</div>
+    <div class="actions">
+     <button id="goto-start">Ir a Arfe</button><button id="goto-chapel">Baratillo</button><button id="goto-all">Ver mapa entero</button>
+    </div>
+    <div class="actions">
+     <label style="flex:1">Importar diseño JSON <input id="import" type="file" accept=".json,application/json"></label>
+    </div>
+    <div class="actions"><button id="check">✓ Revisar mapa</button><button id="reset" class="danger">Reiniciar dibujo</button></div>
+    <div id="validation"></div>
+   </div>
+  </details>
+  <details open>
+   <summary>Visibilidad de capas</summary>
+   <div>
+    <label class="flag"><input id="roads-on" type="checkbox" checked> Calzada</label>
+    <label class="flag"><input id="public-on" type="checkbox" checked> Público</label>
+    <label class="flag"><input id="sidewalks-on" type="checkbox" checked> Aceras</label>
+    <label class="flag"><input id="houses-on" type="checkbox" checked> Casas y tejados</label>
+    <label class="flag"><input id="labels-on" type="checkbox" checked> Nombres de calles</label>
+    <label class="flag"><input id="grid-on" type="checkbox"> Cuadrícula métrica</label>
+    <label class="flag"><input id="paso-on" type="checkbox"> Mostrar huella del paso</label>
+    <p class="muted">Desactiva una capa para dibujar exactamente debajo de ella.</p>
+   </div>
+  </details>
+  <details open>
+   <summary>Casas — texturas originales</summary>
+   <div><p class="muted">Elige un edificio del APK y usa «Casa» para dibujar su contorno. Pulsa los puntos de las esquinas y termina con «Cerrar polígono».</p>
+    <div class="swatches" id="palettes"></div>
+    <div class="actions"><button id="delete" class="danger">Eliminar seleccionado</button></div>
+   </div>
+  </details>
+  <details>
+   <summary>Público — sprites del APK</summary>
+   <div><label for="public-sprite">Personaje original</label><select id="public-sprite"></select>
+    <p class="muted">Selecciona «Público» y desliza el dedo para colocarlo. Con «Borrar» puedes despejar la trayectoria del paso.</p>
+    <label for="brush-size">Radio del borrador: <strong id="brush-value">0.35 m</strong></label>
+    <input id="brush-size" type="range" min=".2" max="1.7" step=".05" value=".35">
+   </div>
+  </details>
+  <details>
+   <summary>Superponer tu fotografía aérea</summary>
+   <div><p class="muted">Carga una captura de Google Earth o una foto aérea para calcarla. Queda solo en esta sesión; no se sube a ningún servidor.</p>
+    <input id="reference-file" type="file" accept="image/png,image/jpeg,image/webp">
+    <label for="reference-opacity">Opacidad de la foto</label><input id="reference-opacity" type="range" min="5" max="100" value="36">
+    <label for="reference-scale">Escala de la foto</label><input id="reference-scale" type="range" min="30" max="450" value="100">
+    <button id="reference-clear" class="small">Ocultar foto</button>
+    <p class="muted">Usa «Ajustar foto» para desplazarla por el plano y cuadrarla con Arfe/Adriano.</p>
+   </div>
+  </details>
+  <details>
+   <summary>Probar maniobra del paso</summary>
+   <div><p class="muted">Reproducción de la huella del Tres Caídas (1,04 × 2,15 unidades). Pulsa «Probar paso» para colocarlo y usa los botones para girar.</p>
+    <div class="inline"><button id="paso-left">↶ Girar 5°</button><button id="paso-right">Girar 5° ↷</button></div>
+    <p class="muted">Esta vista previa orienta, pero las colisiones completas deben comprobarse jugando.</p>
+   </div>
+  </details>
+  <details>
+   <summary>Cómo guardar y usar tu mapa</summary>
+   <div>
+    <p>1. Dibuja o mueve calles, personas, aceras y tejados.</p>
+    <p>2. Pulsa <strong>Guardar</strong> para conservar el borrador en este iPhone o PC.</p>
+    <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
+    <p>4. Adjunta aquí ese JSON cuando quieras que lo integre en la web del juego.</p>
+    <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
+   </div>
+  </details>
+ </aside>
 </main>
-<input type="file" id="importFile" accept="application/json,.json" hidden>
-<div id="toast" role="status"></div>
 <script type="module" src="./editor-arenal.mjs"></script>
 </body>
 </html>
