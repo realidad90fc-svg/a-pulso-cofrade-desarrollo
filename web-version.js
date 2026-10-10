@@ -1,7 +1,7 @@
 /* Aviso de nuevas versiones. Nunca reinicia una partida en marcha. */
 (() => {
   'use strict';
-  const INSTALLED_VERSION = 'dev-2026.10.10.16-arfe-continuidad-publico';
+  const INSTALLED_VERSION = 'dev-2026.10.10.17-multitud-y-fachadas';
   const VERSION_URL = '/version.json';
   const POLL_MS = 60000;
   let nextVersion = null;
