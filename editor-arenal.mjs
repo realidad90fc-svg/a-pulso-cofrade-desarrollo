@@ -468,6 +468,11 @@ function dragEnd(ev){
  counts();render();
 }
 function wire(){
+ const quickActions=document.createElement('div');
+ quickActions.className='buttonGroup';
+ quickActions.style.marginTop='6px';
+ quickActions.append($('finishPoly'),$('cancelPoly'));
+ document.querySelector('.toolside').append(quickActions);
  for(const el of document.querySelectorAll('[data-tool]'))el.addEventListener('click',()=>setTool(el.dataset.tool));
  for(const el of document.querySelectorAll('[data-layer]'))el.addEventListener('change',()=>{state.visible[el.dataset.layer]=el.checked;render()});
  $('showGrid').onchange=e=>{state.grid=e.target.checked;render()};
