@@ -64,12 +64,17 @@ export function buildArenalRoad(route){
  route.arenalSections=route.segments.filter(s=>seq.includes(s.module.id));
  route.reyesSegment=route.segments.find(s=>s.module.style==='avenue');
  const first=route.arenalSections[0],start=route.scene.start.position;
- const heading=[first.a[0]-start[0],first.a[1]-start[1]],norm=Math.hypot(...heading)||1;
- route.arfeStartAxis=heading.map(x=>x/norm);
- const u=route.arfeStartAxis,n=[-u[1],u[0]],w=first.module.halfWidth;
- const p0=start.map((v,i)=>v-u[i]*1.12),p1=first.a.map((v,i)=>v+u[i]*.28);
- route.startLane=[[p0[0]+n[0]*w,p0[1]+n[1]*w],[p1[0]+n[0]*w,p1[1]+n[1]*w],
- [p1[0]-n[0]*w,p1[1]-n[1]*w],[p0[0]-n[0]*w,p0[1]-n[1]*w]];
+ // This level starts in the MIDDLE of Arfe, immediately after the previous
+ // level. Extend the original Arfe direction upstream, beyond the camera,
+ // instead of placing the paso against an artificial roof/wall or cul-de-sac.
+ // Both centreline and width are inherited from the actual Arfe segment.
+ route.arfeStartAxis=[...first.t];
+ const w=first.module.halfWidth;
+ route.entryFrom=-8.2;
+route.startLane=[
+  pt(first,route.entryFrom,w),pt(first,.28,w),
+  pt(first,.28,-w),pt(first,route.entryFrom,-w)
+ ];
  const road=[route.startLane,...route.segments.map(s=>s.polygon)];
  route.turnFaces=[];
  const chain=route.arenalSections;
@@ -106,7 +111,7 @@ export function buildArenalCrowd(route){
  .map(n=>n.sprite.key)).filter(k=>all[k]?.rectSize?.[0]>0))];
  if(!keys.length)return;
  const first=route.scene.start.position;
- const limit=route.scene.crowd?.maxPeople||3000;
+ const limit=route.scene.crowd?.maxPeople||4200;
  const add=(point,collision)=>{
   if(route.people.length>=limit)return;
   const i=route.people.length,key=keys[((i*7+Math.floor(point[0]*9)+Math.floor(point[1]*4))%keys.length+keys.length)%keys.length];
@@ -132,26 +137,35 @@ export function buildArenalCrowd(route){
   }
   route.people.push({id:'arenal-person-'+i,point,key,size,baked:true,clearance:r+.018,roadContact:collision&&inRoad});
  };
- for(const s of route.segments){
+ // Fill the inherited Arfe entry FIRST; otherwise the first screen of the
+ // level is nearly empty while audience quotas are spent in later streets.
+ // This continues the same two pavement banks already seen before the end
+ // of the Cathedral/Postigo level, never generating buildings at the spawn.
+ const sections=[...route.segments.filter(s=>s.module.id==='MODULO_ENLACE_ARFE_ADRIANO'),
+ ...route.segments.filter(s=>s.module.id!=='MODULO_ENLACE_ARFE_ADRIANO')];
+ for(const s of sections){
   const w=s.module.halfWidth,sw=sidewalkWidth(s.module);
+  const isEntry=s.module.id==='MODULO_ENLACE_ARFE_ADRIANO';
   for(const sign of[-1,1]){
-   for(let d=.10;d<s.length-.08;d+=.154){
-    const nearTurn=d<1.46||d>s.length-1.46;
+   const from=isEntry?route.entryFrom+.12:.10;
+   for(let d=from;d<s.length-.08;d+=.14){
+    const nearTurn=(isEntry?false:d<1.30)||d>s.length-1.30;
     const chapel=s.module.id==='MODULO_ADRIANO'&&d>3.55&&d<8.35;
     // A packed band from the first visible street rank to the building-side
     // pavement, with no unexplained vacant strip between public and frontage.
     // The chapel and turns preserve a full-step swept clearance.
-    const firstRow=nearTurn||chapel?w+.06:
-      s.module.style==='avenue'?1.82:s.module.id==='MODULO_ADRIANO'?1.28:
-      s.module.id==='MODULO_PASTOR_LANDERO'?1.12:1.10;
-    const outer=w+sw-.095;
+    const firstRow=nearTurn||chapel?w+.045:
+      s.module.style==='avenue'?1.83:s.module.id==='MODULO_ADRIANO'?1.32:
+      s.module.id==='MODULO_PASTOR_LANDERO'?1.13:1.065;
+    // A complete dense frontage, including the inherited opening of Arfe.
+    const outer=w+sw+.035;
     let row=0;
-    for(let offset=firstRow;offset<=outer+.001;offset+=.154,row++){
+    for(let offset=firstRow;offset<=outer+.001;offset+=.14,row++){
      const position=pt(s,Math.min(s.length-.035,d+(row%2)*.06),sign*offset);
      // Suppress individual street contacts only when another roadway crosses:
      // visible spectators along the footpath still appear at the crossroads.
      const besideOtherRoad=route.segments.some(other=>other!==s&&pointInPolygon(position,other.polygon));
-     const active=offset<w-.13&&row===0&&(Math.round(d/.154)%3===0)&&!nearTurn&&!chapel&&!besideOtherRoad;
+     const active=offset<w-.13&&row===0&&(Math.round(d/.14)%3===0)&&!nearTurn&&!chapel&&!besideOtherRoad;
      // Never place a decorative spectator in the actual crossing lane of
      // another segment; that would look like somebody stranded in the road.
      if(besideOtherRoad&&offset<w)continue;
@@ -168,8 +182,9 @@ export function buildArenalSidewalks(route){
  // including adjacent streets, before saving any sidewalk piece.
  for(const s of route.segments){
   const w=s.module.halfWidth,foot=sidewalkWidth(s.module);
+  const from=s.module.id==='MODULO_ENLACE_ARFE_ADRIANO'?route.entryFrom+.025:.08;
   for(const sign of[-1,1]){
-   const poly=quad(s,.08,s.length-.08,w+.025,w+foot+.11,sign);
+   const poly=quad(s,from,s.length-.08,w+.025,w+foot+.11,sign);
    for(const part of carve(poly,route.walkable))
     route.sidewalks.push({poly:part,bbox:bounds(part)});
   }
