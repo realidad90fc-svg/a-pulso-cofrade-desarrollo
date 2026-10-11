@@ -425,7 +425,7 @@ function bind(){
  $('map-select').onchange=()=>switchMap($('map-select').value);
  $('import').onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
-  try{const obj=JSON.parse(await file.text());setData(obj);show('Mapa importado. No altera el juego publicado.','good')}
+  try{let obj=JSON.parse(await file.text());if(activeMap===DEFAULT_MAP&&obj?.schema==='apulso-arenal-manual-v1')obj={...obj,schema:SCHEMA,metadata:{...baseline.metadata},trees:obj.trees||baseline.trees,signs:obj.signs||baseline.signs,checkpoints:obj.checkpoints||baseline.checkpoints,bounds:obj.bounds||baseline.bounds};setData(obj);show('Mapa importado. No altera el juego publicado.','good')}
   catch(err){show('No se pudo importar: '+err.message,'error')}
   e.target.value='';
  };
