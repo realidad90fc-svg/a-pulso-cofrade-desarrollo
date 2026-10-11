@@ -490,19 +490,59 @@ function validate(){
  const p=document.createElement('p');p.textContent=pedestrianRoad+' espectadores están en la calzada. Los pasos por las revirás deben probarse jugando.';result.appendChild(p);
  show(warnings.length?'Revisa las advertencias antes de exportar.':'No hay solapamientos obvios de capas.',''+(warnings.length?'error':'good'));
 }
+function fitMap(){
+ if(!data)return;
+ const b=data.bounds;
+ const xs=[],ys=[];
+ if(!b)for(const type of ['roads','houses','sidewalks'])for(const o of data[type]||[])for(const p of o.poly||[]){xs.push(p[0]);ys.push(p[1])}
+ const area=b|| (xs.length?[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]:null);
+ if(!area)return;
+ const margin=1.8,wd=Math.max(1,area[2]-area[0]+2*margin),ht=Math.max(1,area[3]-area[1]+2*margin);
+ focusAt((area[0]+area[2])/2,(area[1]+area[3])/2,Math.min(80,Math.max(1.5,Math.min((view.w-30)/wd,(view.h-30)/ht))));
+}
+function switchMap(key){
+ if(!EDITOR_MAPS.some(m=>m.key===key))return;
+ if(data){clearTimeout(saveTimer);saveLocal()}
+ activeMap=key;state.selected=null;state.working=[];state.reference=null;state.mouseWorld=null;
+ state.history=[];state.future=[];state.pinch=null;state.drag=null;state.pointers.clear();
+ baseline=buildEditorMap(key,animationData,nativeMaps,prepareMap);
+ let saved=null;
+ try{saved=JSON.parse(localStorage.getItem(storageFor(key))||'null')}catch{}
+ if(!saved&&key===DEFAULT_MAP){
+  try{
+   const old=JSON.parse(localStorage.getItem(LEGACY_STORAGE)||'null');
+   if(old?.schema==='apulso-arenal-manual-v1')saved={...old,schema:SCHEMA,metadata:{...baseline.metadata},trees:baseline.trees,signs:baseline.signs,checkpoints:baseline.checkpoints,bounds:baseline.bounds};
+  }catch{}
+ }
+ const restoring=saved?.schema===SCHEMA;
+ try{setData(restoring?saved:structuredClone(baseline))}
+ catch(error){setData(structuredClone(baseline));show('La edición guardada era incompatible: '+error.message,'error')}
+ $('map-select').value=key;
+ const chosen=EDITOR_MAPS.find(m=>m.key===key);
+ $('map-kind').textContent=chosen.type==='native'?'Mapa clásico del APK: geometría guía de colisiones; no es una reproducción visual exacta.':chosen.type==='mixed'?'Recorrido combinado: se conserva el mapa original junto a las ampliaciones.':chosen.type==='arenal'?'Arenal: taller con geometría detallada.':'Recorrido modular: aceras y público orientativos que puedes ajustar.';
+ configureTool('pan');fitMap();
+ show(restoring?'Edición de «'+chosen.name+'» recuperada.':'«'+chosen.name+'» cargado para editar.','good');
+}
 async function init(){
  try{
-  show('Cargando geometría y sprites auténticos del APK…');
-  const response=await fetch('./assets/original-animation.json');
-  if(!response.ok)throw Error('No se pudo cargar el catálogo original HTTP '+response.status);
-  const animation=await response.json();sprites=animation.sprites;
-  for(const key of [...HOUSE_KEYS,FLOOR_KEY,'sharedassets2.assets:379'])spriteFor(key);
-  baseline=prepareMap(animation);
-  let saved=null;try{saved=JSON.parse(localStorage.getItem(STORAGE)||'null')}catch{}
-  setData(saved?.schema===baseline.schema?saved:baseline);
-  palette();bind();configureTool('pan');resize();focusAt(...ARENAL_ROUTE.start.position,36);
-  show(saved?.schema===baseline.schema?'He recuperado tu edición guardada.':'Mapa del juego cargado: ya puedes editarlo.','good');
+  show('Cargando geometría y sprites originales del juego…');
+  const responses=await Promise.all([fetch('./assets/original-animation.json'),fetch('./assets/game-data.json')]);
+  for(const response of responses)if(!response.ok)throw Error('No se pudo cargar el catálogo HTTP '+response.status);
+  const values=await Promise.all(responses.map(response=>response.json()));
+  animationData=values[0];nativeMaps=values[1].maps||[];sprites=animationData.sprites;
+  for(const key of [...HOUSE_KEYS,FLOOR_KEY,'sharedassets2.assets:379','sharedassets2.assets:563'])spriteFor(key);
+  const selector=$('map-select');
+  for(const groupName of ['Recorridos de A Pulso','Mapas clásicos del APK']){
+   const group=document.createElement('optgroup');group.label=groupName;
+   for(const item of EDITOR_MAPS.filter(x=>groupName==='Mapas clásicos del APK' ? x.type==='native' : x.type!=='native')){
+    const opt=document.createElement('option');opt.value=item.key;opt.textContent=item.name;group.appendChild(opt);
+   }
+   selector.appendChild(group);
+  }
+  palette();bind();resize();
+  const requested=new URLSearchParams(location.search).get('map');
+  switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
   $('loading').hidden=true;
- }catch(err){show('Error preparando el editor: '+err.message,'error');$('loading').textContent='No se ha podido cargar el editor. '+err.message}
+ }catch(err){show('Error preparando el editor: '+err.message,'error');$('loading').textContent='No se ha podido cargar el editor. '+err.message;console.error(err)}
 }
 init();
