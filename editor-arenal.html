@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de mapas · A Pulso Cofrade</title>
+<title>Editor de todos los mapas · A Pulso Cofrade</title>
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -17,7 +17,7 @@
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de mapas · A Pulso Cofrade</strong><span>Editor manual del Arenal con sprites originales</span></div>
+  <div><strong>Taller de mapas · A Pulso Cofrade</strong><span>Editor de recorridos y mapas originales</span></div>
  </div>
  <div class="title-actions">
   <button id="save" title="Guardar en este navegador">Guardar</button>
@@ -32,6 +32,9 @@
  <button data-tool="people">♟ Público</button>
  <button data-tool="sidewalk">▤ Acera</button>
  <button data-tool="house">⌂ Casa</button>
+ <button data-tool="tree">♣ Árbol</button>
+ <button data-tool="sign">⊗ Señal</button>
+ <button data-tool="checkpoint">✚ Checkpoint</button>
  <button data-tool="erase">◌ Borrar</button>
  <button data-tool="paso">✦ Probar paso</button>
  <button data-tool="reference">▧ Ajustar foto</button>
@@ -42,7 +45,7 @@
  <button id="cancel-shape">× Cancelar puntos</button>
 </nav>
 <main class="workspace">
- <section class="map-container" aria-label="Plano editable del Arenal">
+ <section class="map-container" aria-label="Plano editable del mapa elegido">
   <canvas id="editor-canvas" aria-label="Plano con calles, público y edificios editable mediante herramientas"></canvas>
   <div class="map-top">
    <div><strong id="tool-name">Cargando mapa</strong><div id="counts">Cargando geometría…</div><div id="status" role="status">Preparando el editor…</div></div>
@@ -52,15 +55,18 @@
    <div class="chip"><span id="selection">Sin selección</span><div id="paso-test"></div></div>
    <div class="zoom"><button id="zoom-out" title="Alejar">−</button><button id="zoom-in" title="Acercar">+</button></div>
   </div>
-  <div id="loading" class="loading">Cargando el mapa y los materiales originales…</div>
+  <div id="loading" class="loading">Cargando los mapas y los materiales originales…</div>
  </section>
  <aside class="sidebar" aria-label="Controles del mapa">
   <details open>
    <summary>Proyecto y herramientas</summary>
    <div>
-    <div class="notice"><strong>Este es tu taller.</strong> Los cambios se guardan en este navegador. El juego publicado no cambia hasta integrar el JSON exportado.</div>
+    <div class="notice"><strong>Editor de todos los mapas.</strong> Elige un recorrido. Cada mapa guarda su diseño por separado en este navegador. Los originales se muestran como guías basadas en sus colisiones; los cambios se exportan en JSON y no modifican automáticamente el juego.</div>
+    <label for="map-select"><strong>Mapa que quieres editar</strong></label>
+    <select id="map-select" aria-label="Seleccionar mapa del juego"></select>
+    <p id="map-kind" class="muted" aria-live="polite"></p>
     <div class="actions">
-     <button id="goto-start">Ir a Arfe</button><button id="goto-chapel">Baratillo</button><button id="goto-all">Ver mapa entero</button>
+     <button id="goto-start">Inicio</button><button id="goto-chapel">Checkpoint</button><button id="goto-all">Ver mapa entero</button>
     </div>
     <div class="actions">
      <label style="flex:1">Importar diseño JSON <input id="import" type="file" accept=".json,application/json"></label>
@@ -79,6 +85,9 @@
     <label class="flag"><input id="labels-on" type="checkbox" checked> Nombres de calles</label>
     <label class="flag"><input id="grid-on" type="checkbox"> Cuadrícula métrica</label>
     <label class="flag"><input id="paso-on" type="checkbox"> Mostrar huella del paso</label>
+    <label class="flag"><input id="trees-on" type="checkbox" checked> Árboles</label>
+    <label class="flag"><input id="signs-on" type="checkbox" checked> Señales</label>
+    <label class="flag"><input id="checkpoints-on" type="checkbox" checked> Checkpoints</label>
     <p class="muted">Desactiva una capa para dibujar exactamente debajo de ella.</p>
    </div>
   </details>
