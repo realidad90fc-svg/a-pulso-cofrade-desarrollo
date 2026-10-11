@@ -5,7 +5,7 @@ import {BRIDGE_MAP,BRIDGE_ROUTE} from './bridge-data.mjs';
 import {CENTRE_MAP,CENTRE_ROUTE} from './centre-data.mjs';
 import {OFFICIAL_MAP,OFFICIAL_ROUTE,originalOfficialPoint} from './official-data.mjs';
 import {CATHEDRAL_MAP,CATHEDRAL_ROUTE,cathedralPoint,postigoPoint} from './cathedral-data.mjs';
-import {ARENAL_MAP,ARENAL_ROUTE,BARATILLO} from './arenal-data.mjs';
+import {ARENAL_MAP,ARENAL_ROUTE,BARATILLO,ADRIANO_URBAN_DETAIL,adrianoPoint,MODULO_ADRIANO} from './arenal-data.mjs';
 import {NEW_ROUTE} from './custom-routes.mjs';
 
 export const EDITOR_MAPS=[
@@ -134,7 +134,11 @@ export function buildEditorMap(key,animation,nativeMaps,prepareArenal){
  let geometry;
  if(map.type==='arenal'){
   const a=prepareArenal(animation);
-  geometry={...a,trees:[],signs:[],checkpoints:[{id:'baratillo',name:'Capilla del Baratillo',position:[...BARATILLO.position]}],bounds:map.scene.bounds};
+  geometry={...a,
+   trees:[...ARENAL_MAP.modules.flatMap(m=>(m.trees||[]).map(t=>({point:p2(t),radius:t[2]||.35,source:m.id}))),
+    ...ADRIANO_URBAN_DETAIL.trees.map(t=>({point:adrianoPoint(t.d,t.side*(MODULO_ADRIANO.halfWidth+.3)),radius:.28,source:'Adriano'}))],
+   signs:ADRIANO_URBAN_DETAIL.signs.map(t=>({point:adrianoPoint(t.d,t.side*(MODULO_ADRIANO.halfWidth+.12)),type:t.type,source:'Adriano'})),
+   checkpoints:[{id:'baratillo',name:'Capilla del Baratillo',position:[...BARATILLO.position]}],bounds:map.scene.bounds};
  }else if(map.type==='native')geometry=nativeGeometry(key,nativeMaps);
  else if(map.type==='custom'){
   const pts=NEW_ROUTE.points.map(([x,y])=>[(x-NEW_ROUTE.start[0])/NEW_ROUTE.ppu,(NEW_ROUTE.start[1]-y)/NEW_ROUTE.ppu]);
