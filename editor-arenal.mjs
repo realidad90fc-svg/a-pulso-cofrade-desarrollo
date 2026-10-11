@@ -1,17 +1,19 @@
 import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
+import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
 const HOUSE_KEYS=[569,416,463,480,495,562,566,581,554].map(i=>'sharedassets2.assets:'+i);
 const FLOOR_KEY='sharedassets2.assets:373';
-const STORAGE='apulso-arenal-manual-editor-v1';
+const LEGACY_STORAGE='apulso-arenal-manual-editor-v1';
+const storageFor=key=>'apulso-universal-editor-v2:'+key;
 const colors={road:'#45474d',sidewalk:'#aaa49a',bg:'#676863',selected:'#31d5ed',warning:'#ff6562'};
 const getId=(key)=>String(key).split(':').at(-1);
 const images=new Map();
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
 const state={tool:'pan',layer:'house',material:HOUSE_KEYS[0],audience:'sharedassets2.assets:379',selected:null,working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
-let sprites={},data=null,baseline=null,frames=false,saveTimer=null;
+let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null;
 
 function show(message,type='info'){
  const el=$('status');el.textContent=message;
@@ -20,11 +22,11 @@ function show(message,type='info'){
 function count(kind){return(data?.[kind]||[]).length}
 function updateCounts(){
  if(!data)return;
- $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios';
- $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
+ $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles';
+ $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público',tree:'Colocar árbol',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
  $('selection').textContent=state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
 }
-function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona'}[type]||type}
+function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',signs:'Señal',checkpoints:'Checkpoint'}[type]||type}
 function snapshot(){
  if(!data)return;
  state.history.push(JSON.stringify(data));
@@ -37,7 +39,7 @@ function changed(){
 }
 function saveLocal(){
  if(!data)return;
- try{localStorage.setItem(STORAGE,JSON.stringify(data));state.unsaved=false;show('Diseño guardado en este navegador. Exporta JSON para conservar otra copia.','good');}
+ try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));state.unsaved=false;show('Diseño guardado en este navegador. Exporta JSON para conservar otra copia.','good');}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
@@ -153,12 +155,23 @@ function draw(){
  }
  if($('roads-on').checked)for(const o of data.roads)drawFloor(o.poly);
  if($('public-on').checked)drawPeople();
+ if($('trees-on').checked)for(const t of data.trees||[]){
+  const p=pixel(...t.point),r=Math.max(3,Math.min(40,(t.radius||.35)*view.zoom));
+  const sprite=getImage('sharedassets2.assets:563');
+  if(sprite)ctx.drawImage(sprite,p[0]-r,p[1]-r,r*2,r*2);
+  else{ctx.fillStyle='#2a7553';ctx.strokeStyle='#153828';ctx.lineWidth=2;ctx.beginPath();ctx.arc(...p,r,0,Math.PI*2);ctx.fill();ctx.stroke()}
+ }
+ if($('signs-on').checked)for(const t of data.signs||[]){
+  const p=pixel(...t.point),r=Math.max(4,Math.min(10,.20*view.zoom));
+  ctx.fillStyle='#e7d5b7';ctx.strokeStyle='#c23b36';ctx.lineWidth=2;ctx.beginPath();ctx.arc(...p,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.moveTo(p[0]-r*.7,p[1]+r*.7);ctx.lineTo(p[0]+r*.7,p[1]-r*.7);ctx.stroke();
+ }
  drawGrid();
- const marker=pixel(...data.checkpoint);
- ctx.strokeStyle='#58f7dc';ctx.lineWidth=2;ctx.beginPath();
- ctx.moveTo(marker[0]-9,marker[1]);ctx.lineTo(marker[0]+9,marker[1]);
- ctx.moveTo(marker[0],marker[1]-9);ctx.lineTo(marker[0],marker[1]+9);ctx.stroke();
- ctx.fillStyle='#a6fff0';ctx.font='11px system-ui';ctx.fillText('BARATILLO',marker[0]+12,marker[1]-5);
+ if($('checkpoints-on').checked)for(const cp of data.checkpoints||[]){
+  const p=pixel(...cp.position);ctx.strokeStyle='#58f7dc';ctx.lineWidth=2;ctx.beginPath();
+  ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]+9,p[1]);ctx.moveTo(p[0],p[1]-9);ctx.lineTo(p[0],p[1]+9);ctx.stroke();
+  ctx.fillStyle='#a6fff0';ctx.font='11px system-ui';ctx.fillText(cp.name||cp.id||'Control',p[0]+12,p[1]-5);
+ }
  if($('labels-on').checked){
   for(const [name,p]of data.labels){
    const xy=pixel(...p);ctx.font='600 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#171a20';ctx.strokeText(name,xy[0]+6,xy[1]);ctx.fillStyle='#fff5e7';ctx.fillText(name,xy[0]+6,xy[1]);
@@ -175,7 +188,7 @@ function draw(){
   if(item){
    ctx.strokeStyle=colors.selected;ctx.lineWidth=3;
    if(item.poly){polygon(item.poly);ctx.stroke();for(const q of item.poly){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-5,p[1]-5,10,10)}}
-   else if(item.point){const p=pixel(...item.point);ctx.beginPath();ctx.arc(p[0],p[1],9,0,Math.PI*2);ctx.stroke()}
+   else if(item.point||item.position){const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],9,0,Math.PI*2);ctx.stroke()}
   }
  }
  if(state.tool==='paso'||$('paso-on').checked)drawPaso();
@@ -211,7 +224,7 @@ function configureTool(name){
 }
 function zoomAt(factor,loc=[view.w/2,view.h/2]){
  const before=world(...loc);
- view.zoom=Math.min(145,Math.max(9,view.zoom*factor));
+ view.zoom=Math.min(145,Math.max(1.5,view.zoom*factor));
  const after=world(...loc);
  view.cx+=before[0]-after[0];view.cy+=before[1]-after[1];
  requestDraw();
@@ -222,6 +235,14 @@ function focusAt(x,y,zoom){
  requestDraw();
 }
 function selectAt(p,px){
+ for(const [type,checkbox] of [['checkpoints','checkpoints-on'],['signs','signs-on'],['trees','trees-on']]){
+  if(!$(checkbox).checked)continue;
+  const items=data[type]||[];
+  for(let i=items.length-1;i>=0;i--){
+   const q=items[i].point||items[i].position;
+   if(q&&dist(q,p)<Math.max(.25,12/view.zoom))return {type,index:i,vertex:-1};
+  }
+ }
  if($('public-on').checked){
   let near=-1,nearD=Math.max(.13,9/view.zoom);
   for(let i=0;i<data.people.length;i++){
@@ -284,6 +305,9 @@ function pointerDown(e){
   state.working.push(q);requestDraw();return;
  }
  if(state.tool==='people'){snapshot();addPerson(q);state.drag={action:'people'};return}
+ if(state.tool==='tree'){snapshot();data.trees.push({point:q.map(x=>+x.toFixed(3)),radius:.35,source:'manual'});changed();return}
+ if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
+ if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
  if(state.tool==='erase'){snapshot();eraseAt(q);state.drag={action:'erase'};return}
  if(state.tool==='select'){
   state.selected=selectAt(q,pos);updateCounts();
@@ -311,7 +335,7 @@ function pointerMove(e){
   if(item.poly){
    if(a.selection.vertex>=0){item.poly[a.selection.vertex]=q.map(x=>+x.toFixed(3))}
    else for(const p of item.poly){p[0]+=dx;p[1]+=dy}
-  }else if(item.point){item.point=q.map(x=>+x.toFixed(3))}
+  }else if(item.point||item.position){const field=item.point?'point':'position';item[field]=q.map(x=>+x.toFixed(3))}
   a.pos=pos;changed();
  }
 }
@@ -324,17 +348,20 @@ function downloadJSON(){
  const output={...data,metadata:{...data.metadata,exportedAt:new Date().toISOString()}};
  const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download='arenal-mapa-manual-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+ a.href=url;a.download='apulso-'+activeMap.toLowerCase().replace(/[^a-z0-9-]/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),5000);show('Archivo JSON exportado. Puedes pasármelo para incorporarlo al juego.','good');
 }
 function setData(loaded){
- if(!loaded||!Array.isArray(loaded.roads)||!Array.isArray(loaded.houses)||!Array.isArray(loaded.sidewalks)||!Array.isArray(loaded.people))throw new Error('El archivo no contiene un diseño del Arenal válido.');
+ if(!loaded||!Array.isArray(loaded.roads)||!Array.isArray(loaded.houses)||!Array.isArray(loaded.sidewalks)||!Array.isArray(loaded.people))throw new Error('El archivo no contiene un diseño de mapa válido.');
+ if(loaded.metadata?.mapKey!==activeMap)throw new Error('Este archivo corresponde a otro mapa. Selecciónalo antes de importar.');
  for(const type of ['roads','houses','sidewalks'])
   if(loaded[type].some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.some(x=>!Array.isArray(x)||!Number.isFinite(x[0])||!Number.isFinite(x[1]))))throw new Error('Hay polígonos inválidos en '+type);
  data=loaded;state.selected=null;state.history=[];state.future=[];
- if(!data.paso)data.paso={x:ARENAL_ROUTE.start.position[0],y:ARENAL_ROUTE.start.position[1],angle:ARENAL_ROUTE.start.angle||147};
- if(!data.checkpoint)data.checkpoint=[...BARATILLO.position];
+ if(!data.paso)data.paso={...baseline.paso};
+ if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
  if(!data.labels)data.labels=[];
+ for(const kind of ['trees','signs','checkpoints'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
+ if(!data.bounds)data.bounds=baseline.bounds;
  state.paso={...data.paso};changed();
 }
 function makeSegments(){
@@ -386,7 +413,7 @@ function palette(){
 }
 function bind(){
  for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>configureTool(button.dataset.tool);
- for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on'])$(id).onchange=requestDraw;
+ for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
  $('delete').onclick=()=>{
@@ -395,6 +422,7 @@ function bind(){
  };
  $('undo').onclick=undo;$('redo').onclick=redo;
  $('save').onclick=saveLocal;$('export').onclick=downloadJSON;
+ $('map-select').onchange=()=>switchMap($('map-select').value);
  $('import').onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
   try{const obj=JSON.parse(await file.text());setData(obj);show('Mapa importado. No altera el juego publicado.','good')}
@@ -406,9 +434,9 @@ function bind(){
   snapshot();data=JSON.parse(JSON.stringify(baseline));state.selected=null;changed();
  };
  $('brush-size').oninput=()=>{$('brush-value').textContent=Number($('brush-size').value).toFixed(2)+' m'};
- $('goto-start').onclick=()=>focusAt(...ARENAL_ROUTE.start.position,45);
- $('goto-chapel').onclick=()=>focusAt(...BARATILLO.position,48);
- $('goto-all').onclick=()=>focusAt(39.4,41,Math.min(view.w/37,view.h/43));
+ $('goto-start').onclick=()=>focusAt(data.paso.x,data.paso.y,Math.min(45,Math.max(view.zoom,20)));
+ $('goto-chapel').onclick=()=>{const p=data.checkpoints?.[0]?.position||data.checkpoint;focusAt(...p,Math.min(48,Math.max(view.zoom,20)))};
+ $('goto-all').onclick=fitMap;
  $('zoom-in').onclick=()=>zoomAt(1.3);$('zoom-out').onclick=()=>zoomAt(1/1.3);
  $('paso-left').onclick=()=>{state.paso.angle=(state.paso.angle-5+360)%360;changed()};
  $('paso-right').onclick=()=>{state.paso.angle=(state.paso.angle+5)%360;changed()};
