@@ -1,0 +1,261 @@
+// Private photo guides for the A Pulso map workshop.
+// Photos never leave this browser: binary data and transforms use IndexedDB,
+// outside the game model and outside exported JSON.
+const DATABASE='apulso-private-map-photos-v1';
+const MAX_PHOTOS=12;
+const MAX_SIZE=25*1024*1024;
+const round=n=>Math.round(n*1000)/1000;
+const strip=photo=>({
+ id:photo.id,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
+ width:photo.width,height:photo.height,scale:photo.scale,rotation:photo.rotation,
+ opacity:photo.opacity,locked:photo.locked,visible:photo.visible,order:photo.order
+});
+function openDatabase(){
+ return new Promise((resolve,reject)=>{
+  if(!('indexedDB' in window))return reject(Error('Este navegador no permite guardado local de imágenes.'));
+  const request=indexedDB.open(DATABASE,1);
+  request.onupgradeneeded=()=>{
+   const db=request.result;
+   if(!db.objectStoreNames.contains('meta')){
+    const meta=db.createObjectStore('meta',{keyPath:'id'});
+    meta.createIndex('mapKey','mapKey',{unique:false});
+   }
+   if(!db.objectStoreNames.contains('blobs'))db.createObjectStore('blobs',{keyPath:'id'});
+  };
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error||Error('No se pudo abrir el almacén de imágenes.'));
+  request.onblocked=()=>reject(Error('Otra pestaña está bloqueando el almacén. Cierra las otras pestañas del editor.'));
+ });
+}
+function done(tx){
+ return new Promise((resolve,reject)=>{
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(tx.error||Error('Error al guardar las fotografías.'));
+  tx.onabort=()=>reject(tx.error||Error('Se ha cancelado el guardado de fotografías.'));
+ });
+}
+function read(request){
+ return new Promise((resolve,reject)=>{
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error||Error('Error leyendo fotografía.'));
+ });
+}
+async function decode(blob){
+ const url=URL.createObjectURL(blob),im=new Image();
+ try{
+  await new Promise((resolve,reject)=>{
+   im.onload=resolve;im.onerror=()=>reject(Error('Este formato no puede abrirse como imagen.'));
+   im.src=url;
+  });
+  return{image:im,url};
+ }catch(e){URL.revokeObjectURL(url);throw e}
+}
+const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
+const selectedText=p=>p?.name||'';
+export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView}){
+ const el=id=>document.getElementById(id);
+ let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
+ let storageAvailable=true;
+ const selected=()=>photos.find(p=>p.id===currentId)||null;
+ function database(){
+  if(!dbPromise)dbPromise=openDatabase().catch(e=>{dbPromise=null;throw e});
+  return dbPromise;
+ }
+ async function persist(photo,blob){
+  const db=await database();
+  const names=blob?['meta','blobs']:['meta'];
+  const tx=db.transaction(names,'readwrite'),completion=done(tx);
+  tx.objectStore('meta').put(strip(photo));
+  if(blob)tx.objectStore('blobs').put({id:photo.id,blob});
+  await completion;
+ }
+ async function erase(id){
+  const db=await database();
+  const tx=db.transaction(['meta','blobs'],'readwrite'),completion=done(tx);
+  tx.objectStore('meta').delete(id);
+  tx.objectStore('blobs').delete(id);
+  await completion;
+ }
+ async function readMap(key){
+  const db=await database(),tx=db.transaction(['meta','blobs'],'readonly');
+  const rows=await read(tx.objectStore('meta').index('mapKey').getAll(key));
+  const records=await Promise.all(rows.map(async p=>({...p,blob:await read(tx.objectStore('blobs').get(p.id))})));
+  return records.filter(p=>p.blob?.blob).sort((a,b)=>a.order-b.order);
+ }
+ function updateUI(){
+  const chooser=el('reference-list');
+  chooser.replaceChildren();
+  for(const p of photos){
+   const option=document.createElement('option');
+   option.value=p.id;option.textContent=(p.visible?'◉ ':'○ ')+(p.locked?'🔒 ':'')+p.name;
+   chooser.appendChild(option);
+  }
+  if(currentId)chooser.value=currentId;
+  const p=selected();
+  el('reference-controls').disabled=!p;
+  el('reference-count').textContent=photos.length+'/'+MAX_PHOTOS+' fotografías en este mapa';
+  if(p){
+   el('reference-opacity').value=Math.round(p.opacity*100);
+   el('reference-scale').value=Math.round(p.scale*100);
+   el('reference-rotation').value=p.rotation;
+   el('reference-angle').value=p.rotation;
+   el('reference-locked').checked=!!p.locked;
+   el('reference-visible').checked=!!p.visible;
+   el('reference-opacity-value').textContent=Math.round(p.opacity*100)+'%';
+   el('reference-scale-value').textContent=Math.round(p.scale*100)+'%';
+   el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
+  }
+  el('reference-storage').textContent=storageAvailable?
+   'Las fotos y su colocación se guardan solo en este navegador. No se suben ni se incluyen en el JSON.':
+   'Atención: no se pueden guardar fotos de forma persistente en este navegador. Exportar el mapa NO incluye las fotografías.';
+ }
+ function markDirty(){
+  requestDraw();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{void flush()},450);
+ }
+ async function flush(items=photos){
+  clearTimeout(saveTimer);saveTimer=null;
+  if(!storageAvailable)return;
+  try{
+   // Saving metadata alone does not repeatedly rewrite the original photo bytes.
+   await Promise.all(items.map(p=>persist(p)));
+  }catch(e){storageAvailable=false;updateUI();show('No se pudo guardar la posición de las fotos: '+e.message,'error')}
+ }
+ function release(items){for(const p of items)if(p.url)URL.revokeObjectURL(p.url)}
+ async function switchMap(next){
+  const epoch=++generation,old=photos;
+  clearTimeout(saveTimer);saveTimer=null;photos=[];currentId=null;drag=null;mapKey=next;
+  updateUI();requestDraw();
+  await flush(old);release(old);
+  if(epoch!==generation)return;
+  if(!storageAvailable)return;
+  try{
+   const records=await readMap(next);
+   const loaded=[];
+   for(const record of records){
+    try{const converted=await decode(record.blob.blob);
+     loaded.push({...record,...converted,blob:undefined});
+    }catch(e){show('Una foto de referencia no se pudo abrir: '+record.name,'error')}
+   }
+   if(epoch!==generation){release(loaded);return}
+   photos=loaded;currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
+  }catch(e){
+   if(epoch===generation){storageAvailable=false;updateUI();show('No se pudieron recuperar las fotos: '+e.message,'error')}
+  }
+ }
+ async function addFiles(files){
+  const startMap=mapKey,epoch=generation;
+  let added=0;
+  for(const file of Array.from(files)){
+   if(photos.length>=MAX_PHOTOS){show('Máximo '+MAX_PHOTOS+' fotos por mapa.','error');break}
+   if(!file.type.startsWith('image/')){show('Solo se aceptan archivos de imagen.','error');continue}
+   if(file.size>MAX_SIZE){show('La foto supera los 25 MB: '+file.name,'error');continue}
+   try{
+    const converted=await decode(file);
+    if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
+    const w=12,h=12*converted.image.naturalHeight/converted.image.naturalWidth;
+    const view=getView();
+    const p={id:crypto.randomUUID?.()||('photo-'+Date.now()+'-'+Math.random()),mapKey:startMap,
+     name:file.name,position:[round(view.cx),round(view.cy)],width:w,height:h,
+     scale:1,rotation:0,opacity:.36,locked:false,visible:true,order:photos.length,...converted};
+    if(storageAvailable){
+     try{await persist(p,file)}
+     catch(e){storageAvailable=false;show('Foto cargada, pero no se pudo conservar al cerrar el navegador: '+e.message,'error')}
+    }
+    if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
+    photos.push(p);currentId=p.id;added++;updateUI();requestDraw();
+   }catch(e){show('No se pudo abrir «'+file.name+'»: '+e.message,'error')}
+  }
+  if(added)show(added+' foto(s) añadida(s). Usa «Ajustar foto» para arrastrar la elegida.','good');
+ }
+ function mutate(name,value){
+  const p=selected();if(!p)return;
+  p[name]=value;updateUI();markDirty();
+ }
+ async function deleteSelected(){
+  const p=selected();if(!p)return;
+  if(!confirm('¿Eliminar esta fotografía de referencia de este navegador? No se alterará el mapa.'))return;
+  photos=photos.filter(item=>item.id!==p.id);
+  currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
+  if(p.url)URL.revokeObjectURL(p.url);
+  if(storageAvailable)try{await erase(p.id)}catch(e){show('No se pudo eliminar la foto guardada: '+e.message,'error')}
+ }
+ function moveOrder(dir){
+  const p=selected();if(!p)return;
+  const i=photos.indexOf(p),j=i+dir;
+  if(j<0||j>=photos.length)return;
+  [photos[i],photos[j]]=[photos[j],photos[i]];
+  photos.forEach((v,k)=>v.order=k);
+  updateUI();markDirty();
+ }
+ function drawPhoto(p){
+  if(!p.visible||!p.image?.naturalWidth)return;
+  const [cx,cy]=pixel(...p.position),width=p.width*p.scale*getView().zoom,height=p.height*p.scale*getView().zoom;
+  if(!Number.isFinite(cx+cy+width+height))return;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-p.rotation*Math.PI/180);
+  ctx.globalAlpha=p.opacity;ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(p.image,-width/2,-height/2,width,height);
+  ctx.restore();
+ }
+ function draw(layer){
+  const atop=el('reference-overlay').checked;
+  if((layer==='overlay'&&atop)||(layer==='background'&&!atop))for(const p of photos)drawPhoto(p);
+  if(layer==='handles'){
+   const p=selected();
+   if(!p?.visible)return;
+   const [cx,cy]=pixel(...p.position),w=p.width*p.scale*getView().zoom,h=p.height*p.scale*getView().zoom;
+   if(!Number.isFinite(cx+cy+w+h)||w>30000||h>30000)return;
+   ctx.save();ctx.translate(cx,cy);ctx.rotate(-p.rotation*Math.PI/180);
+   ctx.strokeStyle=p.locked?'#ffc18e':'#52ffdb';ctx.lineWidth=2;ctx.setLineDash([7,5]);
+   ctx.strokeRect(-w/2,-h/2,w,h);ctx.setLineDash([]);
+   ctx.fillStyle='#f7f2e4';ctx.fillRect(-3,-3,6,6);ctx.restore();
+  }
+ }
+ function hit(p,q){
+  const angle=p.rotation*Math.PI/180,dx=q[0]-p.position[0],dy=q[1]-p.position[1];
+  const a=Math.cos(angle)*dx+Math.sin(angle)*dy,b=-Math.sin(angle)*dx+Math.cos(angle)*dy;
+  return Math.abs(a)<=p.width*p.scale/2&&Math.abs(b)<=p.height*p.scale/2;
+ }
+ function pointerDown(pos){
+  const q=world(...pos);
+  const chosen=[...photos].reverse().find(p=>p.visible&&hit(p,q));
+  if(chosen){currentId=chosen.id;updateUI();requestDraw();}
+  const p=chosen||selected();
+  drag=p&&!p.locked&&p.visible&&chosen?{id:p.id,pos}:null;
+  if(p?.locked)show('Esta foto está bloqueada. Desmarca el candado para moverla.','info');
+ }
+ function pointerMove(pos){
+  if(!drag)return;
+  const p=photos.find(x=>x.id===drag.id);
+  if(!p||p.locked||!p.visible)return;
+  const v=getView(),dx=(pos[0]-drag.pos[0])/v.zoom,dy=-(pos[1]-drag.pos[1])/v.zoom;
+  p.position=[round(p.position[0]+dx),round(p.position[1]+dy)];
+  drag.pos=pos;requestDraw();markDirty();
+ }
+ function pointerUp(){drag=null}
+ function bind(){
+  el('reference-file').addEventListener('change',async event=>{
+   const input=event.currentTarget,files=Array.from(input.files||[]);
+   input.value='';await addFiles(files);
+  });
+  el('reference-list').addEventListener('change',event=>{currentId=event.target.value;updateUI();requestDraw()});
+  for(const [input,key,convert] of [
+   ['reference-opacity','opacity',v=>Number(v)/100],
+   ['reference-scale','scale',v=>Number(v)/100],
+   ['reference-rotation','rotation',v=>Number(v)],
+   ['reference-angle','rotation',v=>clamp(Number(v),-180,180)]
+  ])el(input).addEventListener('input',event=>{const x=convert(event.target.value);if(Number.isFinite(x))mutate(key,x)});
+  el('reference-locked').onchange=e=>mutate('locked',e.target.checked);
+  el('reference-visible').onchange=e=>mutate('visible',e.target.checked);
+  el('reference-overlay').onchange=requestDraw;
+  el('reference-clear').onclick=deleteSelected;
+  el('reference-up').onclick=()=>moveOrder(1);
+  el('reference-down').onclick=()=>moveOrder(-1);
+  el('reference-reset').onclick=()=>mutate('rotation',0);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)void flush()});
+  window.addEventListener('pagehide',()=>{void flush()});
+  updateUI();
+ }
+ return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush};
+}
