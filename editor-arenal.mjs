@@ -230,6 +230,14 @@ function drawPaso(){
  ctx.strokeStyle='#dfb559';ctx.lineWidth=3;ctx.stroke();
  const center=pixel(p.x,p.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(center[0],center[1],3,0,Math.PI*2);ctx.fill();
  if(state.tool==='paso'){
+  const handle=[center[0],center[1]-Math.max(52,1.15*view.zoom)];
+  ctx.save();ctx.strokeStyle='#ffdc83';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(center[0],center[1]);ctx.lineTo(...handle);ctx.stroke();
+  ctx.fillStyle='#182a32';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('↻',handle[0],handle[1]);ctx.restore();
+ }
+ if(state.tool==='paso'){
   const okay=corners.every(x=>data.roads.some(o=>inPolygon(x,o.poly)));
   $('paso-test').textContent=okay?'Paso dentro de la calzada':'Paso invade el exterior de la calzada';
   $('paso-test').dataset.ok=okay?'yes':'no';
@@ -378,7 +386,14 @@ function pointerDown(e){
  const q=world(...pos);state.mouseWorld=q;
  if(state.tool==='pan'){state.drag={action:'pan',pos};return}
  if(state.tool==='reference'){photoGuides?.pointerDown(pos);return}
- if(state.tool==='paso'){snapshot();state.drag={action:'paso',pos};state.paso={...(state.paso||data.paso),x:q[0],y:q[1]};changed();return}
+ if(state.tool==='paso'){
+  const current=state.paso||data.paso,center=pixel(current.x,current.y),
+   handle=[center[0],center[1]-Math.max(52,1.15*view.zoom)];
+  if(dist(pos,handle)<17){
+   state.drag={action:'rotate-paso',angle:mouseAngle([current.x,current.y],q),moved:false};return;
+  }
+  snapshot();state.drag={action:'paso',pos};state.paso={...current,x:q[0],y:q[1]};changed();return;
+ }
  if(['road','sidewalk','house'].includes(state.tool)){
   if(state.working.length>=3&&dist(q,state.working[0])<10/view.zoom){finishPolygon();return}
   state.working.push(q);requestDraw();return;
@@ -448,6 +463,13 @@ function pointerMove(e){
  if(a.action==='erase'){eraseAt(q);return}
  if(a.action==='furniture-row'){a.end=q;requestDraw();return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
+ if(a.action==='rotate-paso'){
+  const p=state.paso||data.paso,angle=mouseAngle([p.x,p.y],q),step=angleDelta(a.angle,angle);
+  a.angle=angle;if(!Number.isFinite(step)||Math.abs(step)<.01)return;
+  if(!a.moved){snapshot();a.moved=true}
+  state.paso.angle=(((state.paso.angle||0)+step)%360+360)%360;
+  changed();return;
+ }
  if(a.action==='marquee'){a.end=pos;requestDraw();return}
  if(a.action==='rotate'){
   const current=mouseAngle(a.center,q);
