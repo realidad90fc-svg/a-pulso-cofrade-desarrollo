@@ -100,7 +100,7 @@ function drawTexture(poly,key,fallback,variant=0){
 }
 function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
- drawSurface(ctx,poly,kind,material,pixel,view.zoom,getImage(FLOOR_KEY));
+ drawSurface(ctx,poly,kind,material,pixel,view.zoom,getImage(FLOOR_KEY),visualBounds());
 }
 function drawPeople(){
  const v=visualBounds();
@@ -354,7 +354,7 @@ function pointerMove(e){
  }
 }
 function pointerUp(e){
- if(state.drag?.action==='furniture-row'){
+ if(e.type!=='pointercancel'&&state.drag?.action==='furniture-row'){
   const a=state.drag;snapshot();
   if(dist(a.start,a.end)>=.05)addFurnitureRow(a.type,a.start,a.end);
   else addFurniture(a.type,a.start,Number($('furniture-angle').value)||0);
