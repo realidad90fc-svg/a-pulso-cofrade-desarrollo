@@ -101,7 +101,7 @@ export class RuntimeEditorDraft{
  constructor(draft){
   this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;
   this.obstacles=obstaclesFor(this.layers);
-  this.lastCollisionFrame=-1;
+  this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
  }
  draw(ctx,project,images,canvas){
   const inv=inverse(project);if(!inv)return;
@@ -127,6 +127,11 @@ export class RuntimeEditorDraft{
    ctx.beginPath();ctx.arc(x,y,.10,0,Math.PI*2);ctx.fill();ctx.stroke();
   }
   for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
+  for(const cp of this.layers.checkpoints||[])if(valid(cp.position)){
+   const [x,y]=px(...cp.position);ctx.strokeStyle='#65eed8';ctx.lineWidth=.045;
+   ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
+   ctx.moveTo(x,y-.28);ctx.lineTo(x,y+.28);ctx.stroke();
+  }
   for(const o of this.layers.people)if(valid(o.point)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
@@ -135,6 +140,21 @@ export class RuntimeEditorDraft{
    else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(x,-y,.095,0,2*Math.PI);ctx.fill()}
   }
   ctx.restore();
+ }
+ update(sim){
+  if(sim.state.status!=='playing'||!sim.state.lifted||sim.controller?.martillo)return;
+  const checkpoints=this.layers.checkpoints||[];
+  if(!checkpoints.length)return;
+  const pos=sim.position(sim.stepEntity.transform);
+  for(const cp of checkpoints){
+   if(!valid(cp.position)||this.reachedCheckpoints.has(cp.id))continue;
+   if(Math.hypot(pos.x-cp.position[0],pos.y-cp.position[1])>Math.max(.30,Math.min(2,cp.radius||.65)))continue;
+   this.reachedCheckpoints.add(cp.id);
+   // The game's native checkpoint and campaign logic still validate their
+   // own prerequisites (notably the mandatory Baratillo presentation).
+   sim.emit('checkpoint');
+   if(!sim.routeAdapter&&!sim.checkpointState)sim.checkpointState=sim.snapshot();
+  }
  }
  collision(sim){
   if(sim.state.status!=='playing'||!this.obstacles.length||this.lastCollisionFrame===sim.frameCount)return;
