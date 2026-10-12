@@ -11,7 +11,7 @@ import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
 import {Renderer} from './renderer.mjs';
-import {attachEditorDraft,loadEditorDraftImages} from './game-editor-bridge.mjs';
+import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages} from './game-editor-bridge.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
 let customMenu,modeNavigation,allowLegacyHome=false;
@@ -87,7 +87,9 @@ async function startGame(scene=2,snapshot=null){
   const map=tutorial?{id:0,nodes:[],name:'Tutorial'}:customMap(maps[Math.max(0,Math.min(9,((choice?.mapId||saved.prefs.mapaElegido)||1)-1))],choice?choice.mapKey:saved.prefs.customRoute,choice),step=tutorial?{id:0,code:'Tuto',nodes:[],name:'Tutorial'}:customStep(steps[Math.max(0,Math.min(6,((chosenStep?.engineId||choice?.stepId||saved.prefs.pasoElegido)||1)-1))],choice?(chosenStep?.engineVariant||choice.stepKey):saved.prefs.customStep);
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
   const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
-  const editorDraft=attachEditorDraft(next);
+  const publishedOrLocal=await resolveEditorDraft(next);
+  if(run!==loading)return;
+  const editorDraft=attachEditorDraft(next,publishedOrLocal);
   if(editorDraft){
    const customPoints=(editorDraft.layers.checkpoints||[])
     .filter(cp=>Array.isArray(cp.position)&&cp.position.every(Number.isFinite))
