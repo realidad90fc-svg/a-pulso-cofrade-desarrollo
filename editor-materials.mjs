@@ -94,17 +94,20 @@ function lineGrid(ctx,x0,y0,x1,y1,stepX,stepY,vertical,alpha){
  for(let y=y0;y<y1;y+=stepY){ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke()}
  ctx.restore();
 }
-export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor){
+export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visible=null){
  if(!asPoly(poly))return;
  const m=surfaceById(materialId,kind),b=bounds(poly);
  ctx.save();polygonPath(ctx,poly,pixel);ctx.clip();
- const p=pixel(b[0],b[3]),x0=p[0],y0=p[1],x1=x0+(b[2]-b[0])*zoom,y1=y0+(b[3]-b[1])*zoom;
+ const p=pixel(b[0],b[3]);
+ const area=visible?[Math.max(b[0],visible[0]),Math.max(b[1],visible[1]),Math.min(b[2],visible[2]),Math.min(b[3],visible[3])]:b;
+ const region=area[2]>area[0]&&area[3]>area[1]?area:b;
+ const top=pixel(region[0],region[3]),x0=top[0],y0=top[1],x1=x0+(region[2]-region[0])*zoom,y1=y0+(region[3]-region[1])*zoom;
  ctx.fillStyle=m.base;ctx.fillRect(x0,y0,x1-x0,y1-y0);
  const style=m.pattern,step=Math.max(7,zoom*(style==='cobbles'?.23:style==='tiles'?.42:style==='stone'?.67:1.15));
  // Keep the original floor sprite for asphalt, then overlay coordinated seams.
  if(kind==='roads'&&baseFloor&&(style==='asphalt'||style==='concrete')){
   ctx.imageSmoothingEnabled=false;
-  const minX=Math.floor(b[0]),maxX=Math.ceil(b[2]),minY=Math.floor(b[1]),maxY=Math.ceil(b[3]);
+  const minX=Math.floor(region[0]),maxX=Math.ceil(region[2]),minY=Math.floor(region[1]),maxY=Math.ceil(region[3]);
   ctx.globalAlpha=style==='asphalt'?.24:.13;
   for(let x=minX;x<maxX;x++)for(let y=minY;y<maxY;y++){
    const a=pixel(x,y+1);ctx.drawImage(baseFloor,322,40,110,110,a[0],a[1],zoom,zoom);
