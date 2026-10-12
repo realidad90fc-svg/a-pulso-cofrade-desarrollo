@@ -56,7 +56,7 @@ export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show
    show('Mapa enviado a GitHub. Pendiente del despliegue de Vercel.','good');
    pending=null;
   }catch(error){
-   result(error.message||'Error de publicación.','false');
+   result(error.message||'Error de publicación.',false);
    show('No se ha publicado: '+error.message,'error');
   }finally{
    token.value='';busy=false;send.textContent='Confirmar publicación';toggle();
