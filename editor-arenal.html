@@ -58,7 +58,7 @@
 </header>
 <nav class="toolbar" aria-label="Herramientas de edición">
  <button data-tool="pan" class="active">✋ Mover plano</button>
- <button data-tool="select" title="Clic para seleccionar, arrastrar desde un hueco vacío para selección por zona. Mayús + arrastrar fuerza la zona.">▧ Seleccionar</button>
+ <button data-tool="select" title="Selecciona un elemento o varios. Arrastra el círculo dorado ↻ para girarlos con el ratón.">▧ Seleccionar</button>
  <button data-tool="road">▰ Calle</button>
  <button data-tool="people">♟ Público</button>
  <button data-tool="sidewalk">▤ Acera</button>
@@ -183,7 +183,8 @@
    <summary>Vallas rojas y sillas · individuales o en fila</summary>
    <div class="stack">
     <p class="muted">Vallas de separación de público, como las rojas de la salida de la Catedral, y sillas para Carrera Oficial. Los nuevos elementos forman parte del JSON de edición.</p>
-    <label for="furniture-angle">Orientación de una valla o silla (grados)</label>
+    <p class="muted"><strong>Giro directo:</strong> selecciona cualquier elemento y arrastra el círculo dorado ↻ para girarlo. También funciona para grupos de vallas, sillas, árboles, público, edificios, calzadas y aceras.</p>
+    <label for="furniture-angle">Ángulo inicial opcional de colocación (grados)</label>
     <input id="furniture-angle" type="number" min="-180" max="180" step="5" value="0">
     <label for="furniture-spacing">Separación en fila (unidades)</label>
     <input id="furniture-spacing" type="range" min=".3" max="1.8" value=".7" step=".05">
@@ -236,6 +237,7 @@
    <summary>Cómo guardar y usar tu mapa</summary>
    <div>
     <p>1. Dibuja o mueve calles, personas, aceras y tejados. Con <strong>Público</strong>, mantén pulsado el clic izquierdo y arrastra para poner muchas personas seguidas.</p>
+    <p>Con <strong>Seleccionar</strong>, arrastra el <strong>tirador dorado ↻</strong> sobre cualquier elemento seleccionado para girarlo con el ratón, sin prefijar un ángulo. También puedes girar varios elementos a la vez.</p>
     <p>Con <strong>Seleccionar</strong>, arrastra desde un espacio vacío para dibujar un rectángulo como en Windows. Se seleccionan los elementos completamente dentro del área. <strong>Mayús + arrastrar</strong> inicia el rectángulo incluso encima de un objeto. <strong>Ctrl + clic</strong> suma o quita elementos. Arrastra un objeto seleccionado para mover todo el grupo y usa «Borrar selección» para eliminarlo.</p>
     <p>2. Pulsa <strong>Guardar</strong> para conservar el mapa y activarlo como borrador jugable en este dominio.</p>
     <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
