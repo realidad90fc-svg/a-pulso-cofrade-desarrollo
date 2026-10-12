@@ -32,6 +32,7 @@ function item(v,kind){
  if(kind==='people'){
   const result={point:point(v.point),key:string(v.key,100)};
   if(v.size!==undefined)result.size=point(v.size).map(n=>Math.max(.01,n));
+  if(v.angle!==undefined)result.angle=number(v.angle,0,-360,360);
   return result;
  }
  if(kind==='trees'){
@@ -42,7 +43,7 @@ function item(v,kind){
   return result;
  }
  if(kind==='signs'){
-  return{point:point(v.point),type:string(v.type||'traffic',50)};
+  return{point:point(v.point),type:string(v.type||'traffic',50),angle:number(v.angle,0,-360,360)};
  }
  if(kind==='checkpoints'){
   return{position:point(v.position),id:string(v.id||'custom',100),
