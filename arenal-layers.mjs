@@ -393,6 +393,11 @@ export function paintArenalScene(route,ctx,images,r){
   const [x,y]=person.point,[w,h]=person.size;
   if(x+w/2<r[0]||x-w/2>r[2]||y+h/2<r[1]||y-h/2>r[3])continue;
   const image=img(person.key);
-  if(image)ctx.drawImage(image,px(x-w/2),py(y+h/2),w*p,h*p);
+  if(image){
+   if(person.angle){
+    ctx.save();ctx.translate(px(x),py(y));ctx.rotate(-(person.angle||0)*Math.PI/180);
+    ctx.drawImage(image,-w*p/2,-h*p/2,w*p,h*p);ctx.restore();
+   }else ctx.drawImage(image,px(x-w/2),py(y+h/2),w*p,h*p);
+  }
  }
 }
