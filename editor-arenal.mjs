@@ -321,9 +321,9 @@ function eraseAt(p){
  const radius=Math.max(.20,Number($('brush-size').value||.35));
  const before=data.people.length;
  data.people=data.people.filter(a=>dist(a.point,p)>radius);
- if(before!==data.people.length){state.selected=null;changed();return}
+ if(before!==data.people.length){clearSelection();changed();return}
  const chosen=selectAt(p);
- if(chosen){data[chosen.type].splice(chosen.index,1);state.selected=null;changed()}
+ if(chosen){data[chosen.type].splice(chosen.index,1);clearSelection();changed()}
 }
 function finishPolygon(){
  if(state.working.length<3){show('Marca al menos 3 puntos para cerrar el polígono.','error');return}
@@ -462,7 +462,7 @@ function setData(loaded){
  if(loaded.metadata?.mapKey!==activeMap)throw new Error('Este archivo corresponde a otro mapa. Selecciónalo antes de importar.');
  for(const type of ['roads','houses','sidewalks'])
   if(loaded[type].some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.some(x=>!Array.isArray(x)||!Number.isFinite(x[0])||!Number.isFinite(x[1]))))throw new Error('Hay polígonos inválidos en '+type);
- data=loaded;state.selected=null;state.history=[];state.future=[];
+ data=loaded;clearSelection();state.history=[];state.future=[];
  if(!data.paso)data.paso={...baseline.paso};
  if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
  if(!data.labels)data.labels=[];
@@ -541,35 +541,50 @@ function bind(){
  for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
- $('delete').onclick=()=>{
-  if(!state.selected){show('Selecciona un elemento que quieras borrar.','error');return}
-  snapshot();data[state.selected.type].splice(state.selected.index,1);state.selected=null;changed();
- };
+ $('delete').onclick=deleteSelected;
+ $('delete-selected').onclick=deleteSelected;
+ $('clear-selected').onclick=clearSelection;
  $('road-material').onchange=e=>{state.roadMaterial=e.target.value};
  $('sidewalk-material').onchange=e=>{state.sidewalkMaterial=e.target.value};
  $('tree-variant').onchange=e=>{state.treeVariant=e.target.value};
  $('public-mode').onchange=updatePeopleHint;
+ $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
  $('furniture-spacing').oninput=e=>{$('furniture-spacing-value').textContent=Number(e.target.value).toFixed(2)};
  $('apply-roof').onclick=()=>{
-  const sel=state.selected;
-  if(sel?.type!=='houses'){show('Selecciona primero una casa existente.','error');return}
-  snapshot();const roof=roofById(state.material),o=data.houses[sel.index];o.material=roof.id;o.key=roof.key;changed();
+  const selected=state.selectedItems.filter(o=>o.type==='houses');
+  if(!selected.length){show('Selecciona primero una o varias casas.','error');return}
+  snapshot();const roof=roofById(state.material);
+  for(const sel of selected){const obj=data.houses[sel.index];if(obj){obj.material=roof.id;obj.key=roof.key}}
+  changed();show('Tejado aplicado a '+selected.length+' edificios.','good');
  };
  $('apply-surface').onclick=()=>{
-  const sel=state.selected;if(!sel||!['roads','sidewalks'].includes(sel.type)){show('Selecciona una calle o una acera.','error');return}
-  snapshot();data[sel.type][sel.index].material=sel.type==='roads'?state.roadMaterial:state.sidewalkMaterial;changed();
+  const selected=state.selectedItems.filter(o=>o.type==='roads'||o.type==='sidewalks');
+  if(!selected.length){show('Selecciona las calzadas o aceras que quieras modificar.','error');return}
+  snapshot();
+  for(const sel of selected){
+   const obj=data[sel.type]?.[sel.index];
+   if(obj)obj.material=sel.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
+  }
+  changed();show('Pavimento aplicado a '+selected.length+' superficies.','good');
  };
- const selectedFurniture=()=>state.selected&&['fences','chairs'].includes(state.selected.type)?data[state.selected.type][state.selected.index]:null;
+ const selectedFurniture=()=>state.selectedItems.filter(o=>['fences','chairs'].includes(o.type));
  const rotateSelected=degrees=>{
-  const o=selectedFurniture();if(!o){show('Selecciona una valla o silla.','error');return}
-  snapshot();o.angle=((o.angle||0)+degrees+360)%360;changed();
+  const items=selectedFurniture();if(!items.length){show('Selecciona una o varias vallas o sillas.','error');return}
+  snapshot();
+  for(const item of items){const obj=data[item.type]?.[item.index];if(obj)obj.angle=((obj.angle||0)+degrees+360)%360}
+  changed();
  };
  $('rotate-selected-left').onclick=()=>rotateSelected(-15);
  $('rotate-selected-right').onclick=()=>rotateSelected(15);
  $('duplicate-selected').onclick=()=>{
-  const o=selectedFurniture();if(!o){show('Selecciona una valla o silla.','error');return}
-  snapshot();data[state.selected.type].push({...o,point:[o.point[0]+.3,o.point[1]+.3]});
-  state.selected.index=data[state.selected.type].length-1;changed();
+  const items=selectedFurniture();if(!items.length){show('Selecciona una o varias vallas o sillas.','error');return}
+  snapshot();const duplicated=[];
+  for(const item of items){
+   const obj=data[item.type]?.[item.index];if(!obj)continue;
+   data[item.type].push({...obj,point:[+(obj.point[0]+.3).toFixed(3),+(obj.point[1]+.3).toFixed(3)]});
+   duplicated.push({type:item.type,index:data[item.type].length-1,vertex:-1});
+  }
+  setSelection(duplicated);changed();
  };
  $('undo').onclick=undo;$('redo').onclick=redo;
  $('save').onclick=()=>{saveLocal();void photoGuides?.flush()};$('export').onclick=downloadJSON;
@@ -582,7 +597,7 @@ function bind(){
  };
  $('reset').onclick=()=>{
   if(!confirm('¿Volver a la versión de partida del editor? Exporta antes tu trabajo si quieres conservarlo.'))return;
-  snapshot();data=JSON.parse(JSON.stringify(baseline));state.selected=null;changed();
+  snapshot();data=JSON.parse(JSON.stringify(baseline));clearSelection();changed();
  };
  $('brush-size').oninput=()=>{$('brush-value').textContent=Number($('brush-size').value).toFixed(2)+' m'};
  $('goto-start').onclick=()=>focusAt(data.paso.x,data.paso.y,Math.min(45,Math.max(view.zoom,20)));
@@ -603,8 +618,8 @@ function bind(){
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){state.working=[];state.selected=null;requestDraw()}
-  if(e.key==='Delete'||e.key==='Backspace')$('delete').click();
+  if(e.key==='Escape'){state.working=[];clearSelection();requestDraw()}
+  if(e.key==='Delete'||e.key==='Backspace')deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);
  });
@@ -647,7 +662,7 @@ function fitMap(){
 function switchMap(key){
  if(!EDITOR_MAPS.some(m=>m.key===key))return;
  if(data){clearTimeout(saveTimer);saveLocal()}
- activeMap=key;state.selected=null;state.working=[];state.mouseWorld=null;
+ activeMap=key;clearSelection();state.working=[];state.mouseWorld=null;
  void photoGuides?.switchMap(key);
  state.history=[];state.future=[];state.pinch=null;state.drag=null;state.pointers.clear();
  baseline=buildEditorMap(key,animationData,nativeMaps,prepareMap);
