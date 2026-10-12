@@ -46,23 +46,42 @@ function obstaclesFor(layers){
  }
  return obstacles.map(o=>({...o,box:bbox(o.poly)}));
 }
+function parseDraft(obj,key){
+ if(obj?.schema!==EDITOR_PATCH_SCHEMA||obj.mapKey!==key||!obj.layers||!Number.isFinite(obj.total)||obj.total<1)return null;
+ const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
+  const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?12000:kind==='houses'?7000:6000):[]]
+ }));
+ return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null};
+}
 function readDraft(key){
  try{
   const raw=localStorage.getItem(GAME_PATCH_PREFIX+key);
   if(!raw||raw.length>4500000)return null;
-  const obj=JSON.parse(raw);
-  if(obj?.schema!==EDITOR_PATCH_SCHEMA||obj.mapKey!==key||!obj.layers)return null;
-  const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
-   const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?3500:kind==='houses'?2000:2500):[]]
-  }));
-  if(!obj.total)return null;
-  return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null};
- }catch(e){console.warn('A Pulso: no se pudo abrir el diseño guardado',e);return null}
+  return parseDraft(JSON.parse(raw),key);
+ }catch(e){console.warn('A Pulso: no se pudo leer el borrador del mapa',e);return null}
 }
-export function attachEditorDraft(sim){
- if(sim.tutorial||new URLSearchParams(location.search).get('editor')==='off')return null;
+export async function resolveEditorDraft(sim){
+ if(sim.tutorial)return null;
  const key=sim.map.variant?.key||'native-'+sim.map.id;
- const draft=readDraft(key);if(!draft)return null;
+ // A local draft takes priority only for its owner on this specific browser.
+ // ?editor=off bypasses local drafts, but keeps the published public map.
+ const useLocal=new URLSearchParams(location.search).get('editor')!=='off';
+ if(useLocal){const local=readDraft(key);if(local)return local;}
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);
+ try{
+  const response=await fetch('./published-maps/'+encodeURIComponent(key)+'.json',
+   {cache:'no-store',signal:controller.signal});
+  if(!response.ok)return null;return parseDraft(await response.json(),key);
+ }catch(e){
+  if(e?.name!=='AbortError')console.warn('No hay diseño público para el mapa '+key,e);
+  return null;
+ }finally{clearTimeout(timeout)}
+}
+export function attachEditorDraft(sim,draftOverride=undefined){
+ if(sim.tutorial)return null;
+ const key=sim.map.variant?.key||'native-'+sim.map.id;
+ const draft=draftOverride===undefined?readDraft(key):draftOverride;
+ if(!draft)return null;
  // Arenal uses the exact saved road, pavement, housing and spectator
  // arrays. This connects its editable geometry to the game tile cache.
  const route=sim.routeAdapter;
