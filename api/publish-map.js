@@ -89,7 +89,7 @@ async function github(path,token,options={}){
  let body={};try{body=await response.json()}catch{}
  return{ok:response.ok,status:response.status,body};
 }
-module.exports=async function handler(req,res){
+export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store, max-age=0');
  res.setHeader('X-Content-Type-Options','nosniff');
  res.setHeader('Content-Type','application/json; charset=utf-8');
