@@ -6,7 +6,7 @@ export const EDITOR_PATCH_SCHEMA='apulso-game-draft-v1';
 export const MAP_KINDS=['roads','sidewalks','houses','people','trees','signs','fences','chairs'];
 const stringify=x=>JSON.stringify(x);
 export function makeGameDraft(data,baseline){
- const layers={};
+ const layers={},modified={};
  for(const kind of MAP_KINDS){
   const existing=new Map();
   for(const item of baseline?.[kind]||[]){
@@ -19,11 +19,14 @@ export function makeGameDraft(data,baseline){
    else changes.push(item);
   }
   layers[kind]=changes;
+  modified[kind]=changes.length>0||[...existing.values()].some(n=>n>0);
  }
  const total=MAP_KINDS.reduce((n,k)=>n+layers[k].length,0);
  return{schema:EDITOR_PATCH_SCHEMA,mapKey:data?.metadata?.mapKey,
   createdAt:new Date().toISOString(),layers,total,
   // Full road geometry supports accurate path validation on the Arenal route.
-  arenalWalkable:data?.metadata?.mapKey==='RegresoArenal'&&layers.roads.length?data.roads.map(x=>x.poly):null,
+  arenalScene:data?.metadata?.mapKey==='RegresoArenal'?Object.fromEntries(
+    ['roads','sidewalks','houses','people'].filter(k=>modified[k]).map(k=>[k,data[k]])
+   ):null,
   note:'Solo diseño local del editor, sin fotografías. Las bajas en mapas originales requieren integrar sus gráficos y colisiones de origen.'};
 }
