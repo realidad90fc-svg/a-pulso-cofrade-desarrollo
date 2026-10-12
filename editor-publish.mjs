@@ -52,7 +52,7 @@ export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show
    const body=await response.json().catch(()=>({}));
    if(!response.ok)throw Error(body.error||'No se pudo realizar la publicación.');
    saveLocal();
-   result('Versión confirmada en GitHub. El despliegue de Vercel puede tardar; después aparecerá automáticamente a todos los jugadores.',true,body.url);
+   result('Versión confirmada en GitHub. Tras el despliegue, el mapa aparecerá para todos los visitantes del juego de desarrollo en Vercel (no cambia el antiguo enlace de ChatGPT Sites).',true,body.url);
    show('Mapa enviado a GitHub. Pendiente del despliegue de Vercel.','good');
    pending=null;
   }catch(error){
