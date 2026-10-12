@@ -3,6 +3,7 @@ import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses}
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
 import {ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -41,7 +42,7 @@ function changed(){
 }
 function saveLocal(){
  if(!data)return;
- try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));state.unsaved=false;show('Diseño guardado en este navegador. Exporta JSON para conservar otra copia.','good');}
+ try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(data,baseline)));state.unsaved=false;show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
