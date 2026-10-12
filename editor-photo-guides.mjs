@@ -77,9 +77,12 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   await completion;
  }
  async function readMap(key){
-  const db=await database(),tx=db.transaction(['meta','blobs'],'readonly');
-  const rows=await read(tx.objectStore('meta').index('mapKey').getAll(key));
-  const records=await Promise.all(rows.map(async p=>({...p,blob:await read(tx.objectStore('blobs').get(p.id))})));
+  const db=await database();
+  const metadataTx=db.transaction('meta','readonly');
+  const rows=await read(metadataTx.objectStore('meta').index('mapKey').getAll(key));
+  // Open a fresh transaction after the async metadata read (important on iOS Safari).
+  const blobTx=db.transaction('blobs','readonly'),blobs=blobTx.objectStore('blobs');
+  const records=await Promise.all(rows.map(async p=>({...p,blob:await read(blobs.get(p.id))})));
   return records.filter(p=>p.blob?.blob).sort((a,b)=>a.order-b.order);
  }
  function updateUI(){
@@ -149,7 +152,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   let added=0;
   for(const file of Array.from(files)){
    if(photos.length>=MAX_PHOTOS){show('Máximo '+MAX_PHOTOS+' fotos por mapa.','error');break}
-   if(!file.type.startsWith('image/')){show('Solo se aceptan archivos de imagen.','error');continue}
+   if(!['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif','image/bmp'].includes(file.type)){show('Usa una imagen PNG, JPG, WebP, HEIC, GIF o AVIF.','error');continue}
    if(file.size>MAX_SIZE){show('La foto supera los 25 MB: '+file.name,'error');continue}
    try{
     const converted=await decode(file);
@@ -171,6 +174,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  }
  function mutate(name,value){
   const p=selected();if(!p)return;
+  if(p.locked&&!['locked','visible'].includes(name)){show('Desbloquea la fotografía antes de modificarla.','error');updateUI();return}
   p[name]=value;updateUI();markDirty();
  }
  async function deleteSelected(){
