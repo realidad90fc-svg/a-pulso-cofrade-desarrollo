@@ -88,6 +88,23 @@ async function startGame(scene=2,snapshot=null){
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
   const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
   const editorDraft=attachEditorDraft(next);
+  if(editorDraft){
+   const customPoints=(editorDraft.layers.checkpoints||[])
+    .filter(cp=>Array.isArray(cp.position)&&cp.position.every(Number.isFinite))
+    .map((cp,i)=>({id:cp.id||'editor-checkpoint-'+i,
+      position:[...cp.position],angle:cp.angle||0,radius:cp.radius||.65}));
+   if(customPoints.length){
+    const ids=new Set(customPoints.map(cp=>cp.id));
+    if(Array.isArray(next.routeAdapter?.checkpoints)){
+     next.routeAdapter.checkpoints=[...next.routeAdapter.checkpoints.filter(cp=>!ids.has(cp.id)),...customPoints];
+    }
+    if(campaignRun?.route?.checkpoints?.points){
+     const previous=campaignRun.route.checkpoints;
+     campaignRun.route={...campaignRun.route,checkpoints:{...previous,
+      points:[...previous.points.filter(cp=>!ids.has(cp.id)),...customPoints]}};
+    }
+   }
+  }
   await loadSceneImages(next,loadImage,images,(done,total)=>{if(run===loading)$('load-detail').textContent=`Cargando la calle y la cuadrilla… ${done}/${total}`;});
   await loadEditorDraftImages(editorDraft,loadImage,images);
   if(run!==loading)return;
@@ -178,7 +195,7 @@ function keyboard(event){
 function frame(now){
  const dt=Math.min((now-last)/1000,.05)||0;last=now;
  try{
-  if(screen==='game'&&sim){sim.tick(dt);sim.editorDraft?.collision(sim);campaignRun?.observe(sim,now);processEvents();updateHud();if(now-lastSave>4000){saveActive();lastSave=now;}}
+  if(screen==='game'&&sim){sim.tick(dt);sim.editorDraft?.collision(sim);sim.editorDraft?.update(sim);campaignRun?.observe(sim,now);processEvents();updateHud();if(now-lastSave>4000){saveActive();lastSave=now;}}
   else if(screen==='menu')menus?.tick(dt);
   if(sim&&['game','pause','result'].includes(screen))renderer.render(sim,images,screen==='game');
  }catch(e){console.error(e);if(screen==='game'){pause();toast('Se ha detenido la partida: '+e.message,8);}else if(screen==='menu')toast(e.message,6);}
