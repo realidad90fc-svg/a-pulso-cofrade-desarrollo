@@ -213,7 +213,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    ctx.save();ctx.translate(cx,cy);ctx.rotate(-p.rotation*Math.PI/180);
    ctx.strokeStyle=p.locked?'#ffc18e':'#52ffdb';ctx.lineWidth=2;ctx.setLineDash([7,5]);
    ctx.strokeRect(-w/2,-h/2,w,h);ctx.setLineDash([]);
-   ctx.fillStyle='#f7f2e4';ctx.fillRect(-3,-3,6,6);ctx.restore();
+   ctx.fillStyle='#f7f2e4';ctx.fillRect(-3,-3,6,6);
+   ctx.beginPath();ctx.moveTo(0,-h/2);ctx.lineTo(0,-h/2-35);ctx.strokeStyle='#ffd77c';ctx.lineWidth=2;ctx.stroke();
+   ctx.fillStyle='#263541';ctx.beginPath();ctx.arc(0,-h/2-35,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.fillStyle='#ffe5aa';ctx.font='bold 17px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('↻',0,-h/2-34);
+   ctx.restore();
   }
  }
  function hit(p,q){
@@ -221,8 +225,20 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   const a=Math.cos(angle)*dx+Math.sin(angle)*dy,b=-Math.sin(angle)*dx+Math.cos(angle)*dy;
   return Math.abs(a)<=p.width*p.scale/2&&Math.abs(b)<=p.height*p.scale/2;
  }
+ function rotationHandle(p){
+  const [cx,cy]=pixel(...p.position),v=getView(),h=p.height*p.scale*v.zoom,
+   a=-p.rotation*Math.PI/180,d=h/2+35;
+  return[cx+Math.sin(a)*d,cy-Math.cos(a)*d];
+ }
+ const angle=(center,p)=>Math.atan2(p[1]-center[1],p[0]-center[0])*180/Math.PI;
+ const wrap=(a,b)=>((b-a+540)%360)-180;
  function pointerDown(pos){
   const q=world(...pos);
+  const active=selected();
+  if(active?.visible&&!active.locked&&Math.hypot(pos[0]-rotationHandle(active)[0],pos[1]-rotationHandle(active)[1])<17){
+   drag={id:active.id,mode:'rotate',angle:angle(active.position,q)};
+   return;
+  }
   const chosen=[...photos].reverse().find(p=>p.visible&&hit(p,q));
   if(chosen){currentId=chosen.id;updateUI();requestDraw();}
   const p=chosen||selected();
@@ -233,6 +249,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   if(!drag)return;
   const p=photos.find(x=>x.id===drag.id);
   if(!p||p.locked||!p.visible)return;
+  if(drag.mode==='rotate'){
+   const current=angle(p.position,world(...pos)),delta=wrap(drag.angle,current);
+   drag.angle=current;p.rotation=round((((p.rotation||0)+delta+540)%360)-180);
+   updateUI();requestDraw();markDirty();return;
+  }
   const v=getView(),dx=(pos[0]-drag.pos[0])/v.zoom,dy=-(pos[1]-drag.pos[1])/v.zoom;
   p.position=[round(p.position[0]+dx),round(p.position[1]+dy)];
   drag.pos=pos;requestDraw();markDirty();
