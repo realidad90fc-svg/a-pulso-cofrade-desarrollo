@@ -55,27 +55,44 @@ function readDraft(key){
   const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
    const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?3500:kind==='houses'?2000:2500):[]]
   }));
-  if(MAP_KINDS.every(k=>!layers[k].length))return null;
-  return{mapKey:key,layers,total:MAP_KINDS.reduce((n,k)=>n+layers[k].length,0),
-   arenalWalkable:obj.arenalWalkable};
+  if(!obj.total)return null;
+  return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null};
  }catch(e){console.warn('A Pulso: no se pudo abrir el diseño guardado',e);return null}
 }
 export function attachEditorDraft(sim){
  if(sim.tutorial||new URLSearchParams(location.search).get('editor')==='off')return null;
  const key=sim.map.variant?.key||'native-'+sim.map.id;
  const draft=readDraft(key);if(!draft)return null;
- // Arenal's route adapter has one authoritative road polygon collection; applying
- // a changed street there updates both simulation constraints and tile rendering.
- if(key==='RegresoArenal'&&sim.routeAdapter&&Array.isArray(draft.arenalWalkable)&&draft.arenalWalkable.length&&draft.arenalWalkable.every(polygon)){
-  const route=sim.routeAdapter;
-  route.walkable=draft.arenalWalkable.map(p=>p.map(q=>[...q]));
-  route.roadBoxes=route.walkable.map(bbox);
+ // Arenal uses the exact saved road, pavement, housing and spectator
+ // arrays. This connects its editable geometry to the game tile cache.
+ const route=sim.routeAdapter;
+ if(key==='RegresoArenal'&&route&&draft.arenalScene){
+  const scene=draft.arenalScene;
+  if(Array.isArray(scene.roads)&&scene.roads.length&&scene.roads.every(o=>polygon(o.poly))){
+   route.walkable=scene.roads.map(o=>o.poly.map(p=>[...p]));
+   route.roadBoxes=route.walkable.map(bbox);
+  }
+  if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly)))
+   route.sidewalks=scene.sidewalks.map(o=>({poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly)}));
+  if(Array.isArray(scene.houses)&&scene.houses.every(o=>polygon(o.poly))){
+   const old=route.buildings||[];
+   route.buildings=scene.houses.map(o=>{
+    const original=old.find(h=>JSON.stringify(h.poly)===JSON.stringify(o.poly));
+    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569'};
+    if(!original){item.kind='historic';item.front=[item.poly[0],item.poly[1]];item.outward=[0,1]}
+    return item;
+   });
+  }
+  if(Array.isArray(scene.people)&&scene.people.every(o=>valid(o.point))){
+   const old=route.people||[],lookup=new Map(old.map(o=>[JSON.stringify(o.point)+'|'+o.key,o]));
+   const keep=new Set(scene.people.map(o=>o.point.map(n=>n.toFixed(3)).join(',')));
+   route.people=scene.people.map((p,i)=>({...lookup.get(JSON.stringify(p.point)+'|'+p.key),...p,id:'editor-arenal-person-'+i,baked:true,size:p.size||[.19,.19]}));
+   route.obstacles=route.obstacles.filter(o=>o.kind!=='visible-spectator'||keep.has(o.center?.map(n=>n.toFixed(3)).join(',')));
+  }
   route.tileCache?.clear();
- }else if(sim.routeAdapter&&Array.isArray(sim.routeAdapter.walkable)){
-  // A new road in a modular route must also become traversable. This never
-  // erases the original native route or a reusable street section.
+ }else if(route&&Array.isArray(route.walkable)){
   const added=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
-  if(added.length)sim.routeAdapter.walkable.push(...added);
+  if(added.length)route.walkable.push(...added);
  }
  sim.editorDraft=new RuntimeEditorDraft(draft);
  return sim.editorDraft;
