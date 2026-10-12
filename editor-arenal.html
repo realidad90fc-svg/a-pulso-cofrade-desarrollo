@@ -34,6 +34,10 @@
  <button data-tool="sidewalk">▤ Acera</button>
  <button data-tool="house">⌂ Casa</button>
  <button data-tool="tree">♣ Árbol</button>
+ <button data-tool="fence">▥ Valla roja</button>
+ <button data-tool="fence-row">↔ Fila vallas</button>
+ <button data-tool="chair">♧ Silla</button>
+ <button data-tool="chair-row">↔ Fila sillas</button>
  <button data-tool="sign">⊗ Señal</button>
  <button data-tool="checkpoint">✚ Checkpoint</button>
  <button data-tool="erase">◌ Borrar</button>
@@ -88,23 +92,71 @@
     <label class="flag"><input id="paso-on" type="checkbox"> Mostrar huella del paso</label>
     <label class="flag"><input id="trees-on" type="checkbox" checked> Árboles</label>
     <label class="flag"><input id="signs-on" type="checkbox" checked> Señales</label>
+    <label class="flag"><input id="fences-on" type="checkbox" checked> Vallas rojas</label>
+    <label class="flag"><input id="chairs-on" type="checkbox" checked> Sillas</label>
     <label class="flag"><input id="checkpoints-on" type="checkbox" checked> Checkpoints</label>
     <p class="muted">Desactiva una capa para dibujar exactamente debajo de ella.</p>
    </div>
   </details>
   <details open>
-   <summary>Casas — texturas originales</summary>
-   <div><p class="muted">Elige un edificio del APK y usa «Casa» para dibujar su contorno. Pulsa los puntos de las esquinas y termina con «Cerrar polígono».</p>
+   <summary>Materiales de tejado · 36 acabados</summary>
+   <div>
+    <p class="muted">9 cubiertas originales combinadas con cuatro tratamientos visuales: tradicional, envejecida, clara y oscura. Selecciona una y dibuja una casa, o selecciona una casa existente y pulsa «Aplicar a seleccionado».</p>
     <div class="swatches" id="palettes"></div>
-    <div class="actions"><button id="delete" class="danger">Eliminar seleccionado</button></div>
+    <div class="actions"><button id="apply-roof" type="button">Aplicar tejado a edificio</button><button id="delete" class="danger" type="button">Eliminar seleccionado</button></div>
    </div>
   </details>
-  <details>
-   <summary>Público — sprites del APK</summary>
-   <div><label for="public-sprite">Personaje original</label><select id="public-sprite"></select>
-    <p class="muted">Selecciona «Público» y desliza el dedo para colocarlo. Con «Borrar» puedes despejar la trayectoria del paso.</p>
+  <details open>
+   <summary>Pavimentos y acerados</summary>
+   <div class="stack">
+    <label for="road-material">Material de calzada (12 tipos)</label>
+    <select id="road-material"></select>
+    <label for="sidewalk-material">Material de acera (12 tipos)</label>
+    <select id="sidewalk-material"></select>
+    <div class="actions"><button id="apply-surface" type="button">Aplicar a elemento seleccionado</button></div>
+    <p class="muted">Los materiales se pueden asignar a las calles y aceras nuevas o a las ya dibujadas con «Seleccionar».</p>
+   </div>
+  </details>
+  <details open>
+   <summary>Árboles y vegetación</summary>
+   <div class="stack">
+    <label for="tree-variant">Tipo de árbol (8 variedades)</label>
+    <select id="tree-variant"></select>
+    <label for="tree-radius">Radio del árbol (unidades del mapa)</label>
+    <input id="tree-radius" type="range" min=".15" max="1.2" step=".05" value=".35">
+    <label class="flag"><input id="tree-cycle" type="checkbox" checked> Alternar modelos al colocarlos</label>
+    <p class="muted">Los árboles nuevos pueden variar de tamaño y orientación. También puedes moverlos con «Seleccionar».</p>
+   </div>
+  </details>
+  <details open>
+   <summary>Público · alternancia automática</summary>
+   <div class="stack">
+    <label for="public-mode">Cómo elegir el siguiente personaje</label>
+    <select id="public-mode">
+     <option value="cycle" selected>Rotativo automático (recomendado)</option>
+     <option value="random">Aleatorio</option>
+     <option value="fixed">Referencia fija</option>
+    </select>
+    <label for="public-sprite">Personaje / referencia inicial</label>
+    <select id="public-sprite"></select>
+    <small id="public-next">Siguiente referencia: —</small>
+    <p class="muted">Al pintar público, el editor cambia automáticamente el número de referencia. Puedes volver al modo fijo cuando quieras.</p>
     <label for="brush-size">Radio del borrador: <strong id="brush-value">0.35 m</strong></label>
     <input id="brush-size" type="range" min=".2" max="1.7" step=".05" value=".35">
+   </div>
+  </details>
+  <details open>
+   <summary>Vallas rojas y sillas · individuales o en fila</summary>
+   <div class="stack">
+    <p class="muted">Vallas de separación de público, como las rojas de la salida de la Catedral, y sillas para Carrera Oficial. Los nuevos elementos forman parte del JSON de edición.</p>
+    <label for="furniture-angle">Orientación de una valla o silla (grados)</label>
+    <input id="furniture-angle" type="number" min="-180" max="180" step="5" value="0">
+    <label for="furniture-spacing">Separación en fila (unidades)</label>
+    <input id="furniture-spacing" type="range" min=".3" max="1.8" value=".7" step=".05">
+    <output id="furniture-spacing-value">0.70</output>
+    <p class="muted">Elige «Valla roja» o «Silla» para colocar una tocando el mapa. Para crear una fila, elige «Fila vallas» o «Fila sillas» y arrastra de un extremo al otro. Selecciona una para girarla o duplicarla.</p>
+    <div class="actions"><button id="rotate-selected-left" type="button">↶ Girar selección</button><button id="rotate-selected-right" type="button">Girar selección ↷</button></div>
+    <button id="duplicate-selected" type="button">Duplicar elemento seleccionado</button>
    </div>
   </details>
   <details open id="photo-guides-panel">
