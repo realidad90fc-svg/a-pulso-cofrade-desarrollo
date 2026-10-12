@@ -3,7 +3,7 @@
 // No reference-photo bytes or positional metadata are included.
 export const GAME_PATCH_PREFIX='apulso-game-draft-v1:';
 export const EDITOR_PATCH_SCHEMA='apulso-game-draft-v1';
-export const MAP_KINDS=['roads','sidewalks','houses','people','trees','signs','fences','chairs'];
+export const MAP_KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs'];
 const stringify=x=>JSON.stringify(x);
 export function makeGameDraft(data,baseline){
  const layers={},modified={};let removedCount=0;
