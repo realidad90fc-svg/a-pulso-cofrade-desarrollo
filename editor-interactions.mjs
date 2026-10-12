@@ -104,3 +104,49 @@ export function makeCrowdStroke(existing=[],minimum=PUBLIC_MIN_DISTANCE){
   }
  };
 }
+
+// Rotation of one or many elements with the mouse; map-world positive angles
+// match the angle field used by furniture, trees, and checkpoints.
+const clampRound=n=>Math.round(n*1000)/1000;
+export function selectionGeometry(map,selections){
+ const points=[];
+ for(const {type,index}of unifySelections(selections)){
+  const item=map[type]?.[index];if(!item)continue;
+  if(Array.isArray(item.poly)){points.push(...item.poly);continue}
+  const p=item.point||item.position;if(!valid(p))continue;
+  const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):.2;
+  points.push([p[0]-half,p[1]-half],[p[0]+half,p[1]+half]);
+ }
+ if(!points.length)return null;
+ const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+ const bounds=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+ return {bounds,center:[(bounds[0]+bounds[2])/2,(bounds[1]+bounds[3])/2]};
+}
+export function rotateSelections(map,selections,center,degrees,originals){
+ const rad=degrees*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
+ const rotate=p=>{
+  const dx=p[0]-center[0],dy=p[1]-center[1];
+  return[clampRound(center[0]+dx*c-dy*s),clampRound(center[1]+dx*s+dy*c)];
+ };
+ for(const {type,index}of unifySelections(selections)){
+  const item=map[type]?.[index],origin=originals?.[type+'|'+index];
+  if(!item||!origin)continue;
+  if(Array.isArray(origin.poly))item.poly=origin.poly.map(rotate);
+  else{
+   const field=origin.point?'point':'position',p=origin[field];if(valid(p))item[field]=rotate(p);
+   const angleKey=type==='trees'?'rotation':'angle';
+   item[angleKey]=clampRound((((Number(origin[angleKey])||0)+degrees)%360+360)%360);
+  }
+ }
+}
+export function captureSelection(map,selections){
+ const out={};
+ for(const {type,index}of unifySelections(selections)){
+  const item=map[type]?.[index];if(item)out[type+'|'+index]=JSON.parse(JSON.stringify(item));
+ }
+ return out;
+}
+export function mouseAngle(center,pointer){
+ return Math.atan2(pointer[1]-center[1],pointer[0]-center[0])*180/Math.PI;
+}
+export function angleDelta(from,to){return((to-from+540)%360)-180}
