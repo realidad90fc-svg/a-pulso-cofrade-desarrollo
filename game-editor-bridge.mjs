@@ -71,6 +71,11 @@ export function attachEditorDraft(sim){
   route.walkable=draft.arenalWalkable.map(p=>p.map(q=>[...q]));
   route.roadBoxes=route.walkable.map(bbox);
   route.tileCache?.clear();
+ }else if(sim.routeAdapter&&Array.isArray(sim.routeAdapter.walkable)){
+  // A new road in a modular route must also become traversable. This never
+  // erases the original native route or a reusable street section.
+  const added=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
+  if(added.length)sim.routeAdapter.walkable.push(...added);
  }
  sim.editorDraft=new RuntimeEditorDraft(draft);
  return sim.editorDraft;
