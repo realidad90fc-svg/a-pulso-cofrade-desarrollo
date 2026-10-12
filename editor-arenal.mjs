@@ -280,16 +280,26 @@ function updatePeopleHint(){
  const key=mode==='cycle'?ids[state.peopleIndex%Math.max(1,ids.length)]:state.audience;
  $('public-next').textContent=mode==='random'?'Siguiente referencia: aleatoria': 'Siguiente referencia: '+(key?.split(':').at(-1)||'—')+(mode==='cycle'?' (rotativa)':' (fija)');
 }
-function addPerson(q){
- if(data.people.some(a=>dist(a.point,q)<.135))return;
+function appendPerson(q){
  const ids=[...$('public-sprite').options].map(o=>o.value).filter(Boolean);
+ if(!ids.length)return false;
  const mode=$('public-mode').value;
- const key=mode==='cycle'?ids[state.peopleIndex%Math.max(1,ids.length)]:mode==='random'?ids[Math.floor(Math.random()*ids.length)]:state.audience;
- if(!key)return;
- const s=sprites[key],size=s?.rectSize?s.rectSize.map(x=>x/(s.pixelsToUnits||100)):[.19,.19];
+ const key=mode==='cycle'?ids[state.peopleIndex%ids.length]:mode==='random'?ids[Math.floor(Math.random()*ids.length)]:state.audience;
+ if(!key)return false;
+ const sprite=sprites[key],size=sprite?.rectSize?sprite.rectSize.map(x=>x/(sprite.pixelsToUnits||100)):[.19,.19];
  data.people.push({point:q.map(x=>+x.toFixed(3)),key,size});
  if(mode==='cycle')state.peopleIndex=(state.peopleIndex+1)%ids.length;
- updatePeopleHint();changed();
+ return true;
+}
+function selectionVisibility(type){
+ return $( {roads:'roads-on',sidewalks:'sidewalks-on',houses:'houses-on',
+  people:'public-on',trees:'trees-on',fences:'fences-on',chairs:'chairs-on',
+  signs:'signs-on',checkpoints:'checkpoints-on'}[type]).checked;
+}
+function toggleInSelection(base,item){
+ if(!item)return base;
+ const has=base.some(o=>o.type===item.type&&o.index===item.index);
+ return has?base.filter(o=>o.type!==item.type||o.index!==item.index):[...base,item];
 }
 function addFurniture(type,p,angle=0){
  const kind=type==='fence'?'fences':'chairs';
@@ -328,8 +338,11 @@ function finishPolygon(){
 }
 function pointEvent(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
 function pointerDown(e){
- e.preventDefault();canvas.setPointerCapture(e.pointerId);
- const pos=pointEvent(e);state.pointers.set(e.pointerId,pos);
+ if(e.pointerType==='mouse'&&e.button!==0)return; // primary/left button only
+ e.preventDefault();
+ canvas.setPointerCapture(e.pointerId);
+ const pos=pointEvent(e);
+ state.pointers.set(e.pointerId,pos);
  if(state.pointers.size===2){
   const arr=[...state.pointers.values()];
   state.pinch={gap:dist(arr[0],arr[1]),mid:[(arr[0][0]+arr[1][0])/2,(arr[0][1]+arr[1][1])/2],zoom:view.zoom};
@@ -343,7 +356,12 @@ function pointerDown(e){
   if(state.working.length>=3&&dist(q,state.working[0])<10/view.zoom){finishPolygon();return}
   state.working.push(q);requestDraw();return;
  }
- if(state.tool==='people'){snapshot();addPerson(q);state.drag={action:'people'};return}
+ if(state.tool==='people'){
+  snapshot();const brush=makeCrowdStroke(data.people);
+  state.drag={action:'people',brush};
+  if(brush.start(q,appendPerson)){updatePeopleHint();changed()}
+  return;
+ }
  if(state.tool==='tree'){snapshot();const treeId=$('tree-cycle').checked?TREE_VARIANTS[state.treeIndex%TREE_VARIANTS.length].id:state.treeVariant;data.trees.push({point:q.map(x=>+x.toFixed(3)),radius:Number($('tree-radius').value),variant:treeId,rotation:Math.round((state.treeIndex*47)%360),scale:.88+(state.treeIndex%5)*.06,source:'manual'});state.treeIndex++;changed();return}
  if(state.tool==='fence'||state.tool==='chair'){snapshot();addFurniture(state.tool,q,Number($('furniture-angle').value)||0);changed();return}
  if(state.tool==='fence-row'||state.tool==='chair-row'){state.drag={action:'furniture-row',type:state.tool==='fence-row'?'fence':'chair',start:q,end:q};requestDraw();return}
@@ -351,46 +369,86 @@ function pointerDown(e){
  if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
  if(state.tool==='erase'){snapshot();eraseAt(q);state.drag={action:'erase'};return}
  if(state.tool==='select'){
-  state.selected=selectAt(q,pos);updateCounts();
-  if(state.selected){snapshot();state.drag={action:'select',pos,lastWorld:q,selection:{...state.selected}}}
+  const hit=selectAt(q);
+  const ctrl=e.ctrlKey||e.metaKey,shift=e.shiftKey;
+  const existing=state.selectedItems.map(o=>({...o}));
+  if(ctrl&&hit&&!shift){
+   setSelection(toggleInSelection(existing,hit));
+   return;
+  }
+  // Empty canvas => Windows rectangle. Shift forces a rectangle even over
+  // a polygon; Shift-click (no drag) adds/removes one item.
+  if(!hit||shift){
+   if(!ctrl&&!shift)clearSelection();
+   state.drag={action:'marquee',start:pos,end:pos,base:(ctrl||shift)?existing:[],additive:ctrl||shift,clicked:shift?hit:null};
+   requestDraw();return;
+  }
+  if(!selectionContains(hit.type,hit.index))setSelection([hit]);
+  state.drag={action:'select',pos,start:pos,selection:hit,items:state.selectedItems.map(o=>({...o})),moved:false};
   requestDraw();
  }
 }
 function pointerMove(e){
- const pos=pointEvent(e);const last=state.pointers.get(e.pointerId);if(last)state.pointers.set(e.pointerId,pos);
+ const pos=pointEvent(e);
+ const known=state.pointers.has(e.pointerId);
+ if(known)state.pointers.set(e.pointerId,pos);
  if(state.pointers.size>=2&&state.pinch){
   const pts=[...state.pointers.values()],gap=Math.max(1,dist(pts[0],pts[1]));
-  zoomAt(gap/state.pinch.gap,[ (pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2 ]);
+  zoomAt(gap/state.pinch.gap,[(pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2]);
   state.pinch.gap=gap;return;
  }
  const q=world(...pos);state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
  if(state.tool==='reference'){photoGuides?.pointerMove(pos);requestDraw();return}
- if(!state.drag){requestDraw();return}
- const a=state.drag,dx=(pos[0]-a.pos[0])/view.zoom,dy=-(pos[1]-a.pos[1])/view.zoom;
+ if(!state.drag||!known){requestDraw();return}
+ const a=state.drag,dx=(pos[0]-(a.pos?.[0]??pos[0]))/view.zoom,
+  dy=-(pos[1]-(a.pos?.[1]??pos[1]))/view.zoom;
  if(a.action==='pan'){view.cx-=dx;view.cy-=dy;a.pos=pos;requestDraw();return}
- if(a.action==='people'){if(!last||dist(pos,last)>2)addPerson(q);return}
+ if(a.action==='people'){
+  // Sample evenly along each pointer segment. Strokes are gap-free at any
+  // mouse speed, and one Ctrl+Z reverts the whole continuous stroke.
+  const spacing=Number($('public-spacing').value)||.22;
+  const added=a.brush.continue(q,spacing,p=>a.brush.placed<4500&&appendPerson(p));
+  if(added){updatePeopleHint();changed()}
+  return;
+ }
  if(a.action==='erase'){eraseAt(q);return}
  if(a.action==='furniture-row'){a.end=q;requestDraw();return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
+ if(a.action==='marquee'){a.end=pos;requestDraw();return}
  if(a.action==='select'){
-  const item=data[a.selection.type]?.[a.selection.index];if(!item)return;
-  if(item.poly){
-   if(a.selection.vertex>=0){item.poly[a.selection.vertex]=q.map(x=>+x.toFixed(3))}
-   else for(const p of item.poly){p[0]+=dx;p[1]+=dy}
-  }else if(item.point||item.position){const field=item.point?'point':'position';item[field]=q.map(x=>+x.toFixed(3))}
+  if(!a.moved&&dist(pos,a.start)<4)return;
+  if(!a.moved){snapshot();a.moved=true}
+  if(a.items.length===1&&a.selection.vertex>=0){
+   const obj=data[a.selection.type]?.[a.selection.index];
+   if(obj?.poly?.[a.selection.vertex])obj.poly[a.selection.vertex]=q.map(x=>+x.toFixed(3));
+  }else translateSelections(data,a.items,dx,dy);
   a.pos=pos;changed();
  }
 }
 function pointerUp(e){
- if(e.type!=='pointercancel'&&state.drag?.action==='furniture-row'){
-  const a=state.drag;snapshot();
+ const a=state.drag,ending=e.type!=='pointercancel';
+ if(ending&&a?.action==='furniture-row'){
+  snapshot();
   if(dist(a.start,a.end)>=.05)addFurnitureRow(a.type,a.start,a.end);
   else addFurniture(a.type,a.start,Number($('furniture-angle').value)||0);
   changed();
  }
+ if(ending&&a?.action==='marquee'){
+  if(dist(a.start,a.end)<4){
+   if(a.clicked)setSelection(toggleInSelection(a.base,a.clicked));
+   else setSelection(a.base);
+  }else{
+   const start=world(...a.start),end=world(...a.end);
+   const found=picksInRectangle(data,start,end,selectionVisibility);
+   const result=a.additive?unifySelections([...a.base,...found]):found;
+   setSelection(result);
+   show(result.length+' elementos seleccionados por área.','good');
+  }
+ }
  state.pointers.delete(e.pointerId);
  if(state.pointers.size<2)state.pinch=null;
  if(!state.pointers.size){state.drag=null;photoGuides?.pointerUp()}
+ requestDraw();
 }
 function downloadJSON(){
  const output={...data,metadata:{...data.metadata,exportedAt:new Date().toISOString()}};
