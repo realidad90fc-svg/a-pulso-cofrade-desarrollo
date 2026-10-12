@@ -49,7 +49,7 @@
  <div class="title-actions">
   <button id="save" title="Guardar en este navegador">Guardar</button>
   <button id="export" class="primary" title="Descargar JSON del diseño">Exportar mapa</button>
-  <button id="publish" class="primary" title="Guardar una versión aprobada en GitHub, para todos los jugadores">↑ Publicar mapa</button>
+  <button id="publish" class="primary" title="Publicar el mapa en el juego de desarrollo de Vercel mediante GitHub">↑ Publicar mapa</button>
   <a href="./" title="Probar los cambios guardados en la partida de este mismo dominio" style="white-space:nowrap">Probar en juego ↗</a>
  </div>
 </header>
@@ -231,7 +231,7 @@
     <p>1. Dibuja o mueve calles, personas, aceras y tejados.</p>
     <p>2. Pulsa <strong>Guardar</strong> para conservar el mapa y activarlo como borrador jugable en este dominio.</p>
     <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
-    <p>4. Pulsa <strong>Publicar mapa</strong> para enviar una versión aprobada a GitHub. Solo permite publicar a la cuenta propietaria; necesitarás un token temporal de GitHub con permiso sobre este repositorio. Vercel desplegará después el mapa para todos los jugadores.</p>
+    <p>4. Pulsa <strong>Publicar mapa</strong> para enviar una versión aprobada a GitHub. Solo permite publicar a la cuenta propietaria; necesitarás un token temporal de GitHub con permiso sobre este repositorio. Vercel desplegará después el mapa para todos los visitantes del juego de desarrollo. El enlace principal antiguo no cambia.</p>
     <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
    </div>
   </details>
@@ -239,9 +239,9 @@
 </main>
 <dialog id="publish-dialog" aria-labelledby="publish-title">
  <div class="stack">
-  <h2 id="publish-title">↑ Publicar mapa para todos los jugadores</h2>
+  <h2 id="publish-title">↑ Publicar mapa en A Pulso (Vercel)</h2>
   <p id="publish-summary"></p>
-  <p class="notice"><strong>Publicación protegida.</strong> Se guardará el diseño aprobado en el repositorio de A Pulso. GitHub conservará las versiones anteriores para poder revertirlas. El juego público se actualizará cuando Vercel complete el despliegue.</p>
+  <p class="notice"><strong>Publicación protegida.</strong> Se guardará el diseño aprobado en el repositorio de A Pulso. GitHub conservará las versiones anteriores para poder revertirlas. El juego de desarrollo de Vercel se actualizará para todos sus visitantes cuando Vercel complete el despliegue. El enlace principal anterior de ChatGPT Sites no cambia.</p>
   <p><strong>Acceso del propietario:</strong> crea un <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">token de acceso restringido de GitHub</a> para la cuenta propietaria, concediendo únicamente <strong>Contents: Read and write</strong> al repositorio <code>a-pulso-cofrade-desarrollo</code>.</p>
   <label for="publish-token">Token de GitHub (solo para esta publicación)</label>
   <input id="publish-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" aria-describedby="publish-privacy">
