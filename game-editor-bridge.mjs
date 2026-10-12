@@ -144,6 +144,9 @@ export class RuntimeEditorDraft{
   for(const o of this.layers.signs)if(valid(o.point)){
    const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;
    ctx.beginPath();ctx.arc(x,y,.10,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.save();ctx.translate(x,y);ctx.rotate(-(o.angle||0)*Math.PI/180);
+   ctx.strokeStyle='#842a2c';ctx.lineWidth=.025;ctx.beginPath();
+   ctx.moveTo(-.065,.065);ctx.lineTo(.065,-.065);ctx.stroke();ctx.restore();
   }
   for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
   for(const cp of this.layers.checkpoints||[])if(valid(cp.position)){
@@ -155,8 +158,10 @@ export class RuntimeEditorDraft{
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
    if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
-   if(image)ctx.drawImage(image,x-width/2,-y-height/2,width,height);
-   else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(x,-y,.095,0,2*Math.PI);ctx.fill()}
+   ctx.save();ctx.translate(x,-y);ctx.rotate(-(o.angle||0)*Math.PI/180);
+   if(image)ctx.drawImage(image,-width/2,-height/2,width,height);
+   else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(0,0,.095,0,2*Math.PI);ctx.fill()}
+   ctx.restore();
   }
   ctx.restore();
  }
