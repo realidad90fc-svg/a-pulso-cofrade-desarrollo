@@ -21,6 +21,23 @@
 #road-material,#sidewalk-material,#tree-variant,#public-mode{min-height:39px}
 #furniture-angle{background:#15232c;color:var(--text);border:1px solid var(--line);padding:8px;border-radius:8px;width:100%}
 @media(max-width:850px){#palettes{max-height:245px}#palettes .swatch{height:84px}#palettes .swatch img{height:51px}}
+
+/* Confirmed, owner-only map publication panel */
+#publish-dialog{color:var(--text);background:#152330;border:1px solid #64727d;border-radius:15px;
+ box-shadow:0 24px 70px #000b;max-width:min(94vw,510px);width:510px;max-height:85dvh;overflow:auto;padding:22px}
+#publish-dialog::backdrop{background:rgba(0,0,0,.73)}
+#publish-dialog h2{font-size:19px;line-height:1.3;margin:0 0 10px}
+#publish-dialog .stack{gap:12px}
+#publish-dialog input[type=password]{font:inherit;background:#0d1923;border:1px solid #687988;border-radius:8px;
+ color:var(--text);padding:11px 10px;width:100%;min-width:0}
+#publish-dialog label{font-size:13px}
+#publish-dialog a{word-break:break-word}
+#publish-notice{padding:9px 10px;min-height:20px;font-size:12px;line-height:1.4}
+#publish-notice[data-type=error]{color:#ffd0c7}
+#publish-notice[data-type=success]{color:#b7f5d5}
+#publish-dialog .actions{display:flex;gap:9px;flex-wrap:wrap}
+#publish-dialog .actions>button{flex:1}
+@media(max-width:620px){#publish-dialog{padding:15px}.brand img{display:none}.title-actions{gap:4px;flex-wrap:wrap;justify-content:flex-end}.title-actions button{font-size:11px;padding:5px 7px}}
 </style>
 </head>
 <body>
@@ -32,6 +49,7 @@
  <div class="title-actions">
   <button id="save" title="Guardar en este navegador">Guardar</button>
   <button id="export" class="primary" title="Descargar JSON del diseño">Exportar mapa</button>
+  <button id="publish" class="primary" title="Guardar una versión aprobada en GitHub, para todos los jugadores">↑ Publicar mapa</button>
   <a href="./" title="Probar los cambios guardados en la partida de este mismo dominio" style="white-space:nowrap">Probar en juego ↗</a>
  </div>
 </header>
@@ -213,12 +231,29 @@
     <p>1. Dibuja o mueve calles, personas, aceras y tejados.</p>
     <p>2. Pulsa <strong>Guardar</strong> para conservar el mapa y activarlo como borrador jugable en este dominio.</p>
     <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
-    <p>4. Adjunta aquí ese JSON cuando quieras que lo integre en la web del juego.</p>
+    <p>4. Pulsa <strong>Publicar mapa</strong> para enviar una versión aprobada a GitHub. Solo permite publicar a la cuenta propietaria; necesitarás un token temporal de GitHub con permiso sobre este repositorio. Vercel desplegará después el mapa para todos los jugadores.</p>
     <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
    </div>
   </details>
  </aside>
 </main>
+<dialog id="publish-dialog" aria-labelledby="publish-title">
+ <div class="stack">
+  <h2 id="publish-title">↑ Publicar mapa para todos los jugadores</h2>
+  <p id="publish-summary"></p>
+  <p class="notice"><strong>Publicación protegida.</strong> Se guardará el diseño aprobado en el repositorio de A Pulso. GitHub conservará las versiones anteriores para poder revertirlas. El juego público se actualizará cuando Vercel complete el despliegue.</p>
+  <p><strong>Acceso del propietario:</strong> crea un <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">token de acceso restringido de GitHub</a> para la cuenta propietaria, concediendo únicamente <strong>Contents: Read and write</strong> al repositorio <code>a-pulso-cofrade-desarrollo</code>.</p>
+  <label for="publish-token">Token de GitHub (solo para esta publicación)</label>
+  <input id="publish-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" aria-describedby="publish-privacy">
+  <p id="publish-privacy" class="muted">La autorización se envía a la función protegida de tu propio proyecto y a GitHub. No se guarda en el navegador, ni se incluye en el mapa o en las fotografías.</p>
+  <label class="flag"><input id="publish-confirm" type="checkbox"> He revisado y probado este mapa; autorizo sustituir su versión pública anterior.</label>
+  <div id="publish-notice" role="status" aria-live="polite"></div>
+  <div class="actions">
+   <button type="button" id="publish-close">Cerrar</button>
+   <button type="button" id="publish-now" class="primary" disabled>Confirmar publicación</button>
+  </div>
+ </div>
+</dialog>
 <script type="module" src="./editor-arenal.mjs"></script>
 </body>
 </html>
