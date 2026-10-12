@@ -38,6 +38,9 @@
 #publish-dialog .actions{display:flex;gap:9px;flex-wrap:wrap}
 #publish-dialog .actions>button{flex:1}
 @media(max-width:620px){#publish-dialog{padding:15px}.brand img{display:none}.title-actions{gap:4px;flex-wrap:wrap;justify-content:flex-end}.title-actions button{font-size:11px;padding:5px 7px}}
+#editor-canvas[data-tool=select],#editor-canvas[data-tool=people]{cursor:crosshair}
+#delete-selected:disabled,#clear-selected:disabled{opacity:.4}
+@media(max-width:620px){#delete-selected,#clear-selected{font-size:12px}}
 </style>
 </head>
 <body>
@@ -55,7 +58,7 @@
 </header>
 <nav class="toolbar" aria-label="Herramientas de edición">
  <button data-tool="pan" class="active">✋ Mover plano</button>
- <button data-tool="select">↖ Seleccionar</button>
+ <button data-tool="select" title="Clic para seleccionar, arrastrar desde un hueco vacío para selección por zona. Mayús + arrastrar fuerza la zona.">▧ Seleccionar</button>
  <button data-tool="road">▰ Calle</button>
  <button data-tool="people">♟ Público</button>
  <button data-tool="sidewalk">▤ Acera</button>
@@ -73,6 +76,8 @@
  <span class="toolbar-separator"></span>
  <button id="undo">↶ Deshacer</button>
  <button id="redo">↷ Rehacer</button>
+ <button id="delete-selected" title="Eliminar todos los elementos seleccionados" disabled>▤ Borrar selección</button>
+ <button id="clear-selected" title="Quitar todas las selecciones" disabled>× Deseleccionar</button>
  <button id="finish-shape" disabled>✓ Cerrar polígono</button>
  <button id="cancel-shape">× Cancelar puntos</button>
 </nav>
@@ -130,7 +135,7 @@
    <div>
     <p class="muted">9 cubiertas originales combinadas con cuatro tratamientos visuales: tradicional, envejecida, clara y oscura. Selecciona una y dibuja una casa, o selecciona una casa existente y pulsa «Aplicar a seleccionado».</p>
     <div class="swatches" id="palettes"></div>
-    <div class="actions"><button id="apply-roof" type="button">Aplicar tejado a edificio</button><button id="delete" class="danger" type="button">Eliminar seleccionado</button></div>
+    <div class="actions"><button id="apply-roof" type="button">Aplicar tejado a selección</button><button id="delete" class="danger" type="button">Eliminar selección</button></div>
    </div>
   </details>
   <details open>
@@ -140,7 +145,7 @@
     <select id="road-material"></select>
     <label for="sidewalk-material">Material de acera (12 tipos)</label>
     <select id="sidewalk-material"></select>
-    <div class="actions"><button id="apply-surface" type="button">Aplicar a elemento seleccionado</button></div>
+    <div class="actions"><button id="apply-surface" type="button">Aplicar a calles/aceras seleccionadas</button></div>
     <p class="muted">Los materiales se pueden asignar a las calles y aceras nuevas o a las ya dibujadas con «Seleccionar».</p>
    </div>
   </details>
@@ -167,7 +172,9 @@
     <label for="public-sprite">Personaje / referencia inicial</label>
     <select id="public-sprite"></select>
     <small id="public-next">Siguiente referencia: —</small>
-    <p class="muted">Al pintar público, el editor cambia automáticamente el número de referencia. Puedes volver al modo fijo cuando quieras.</p>
+    <p class="muted">Mantén pulsado el botón izquierdo y arrastra para poner público continuamente. Cada persona nueva avanza la referencia en modo rotativo. Todo el trazo se puede deshacer de una vez.</p>
+    <label for="public-spacing">Separación al arrastrar: <output id="public-spacing-value">0,22 m</output></label>
+    <input id="public-spacing" type="range" min="0.14" max="0.65" step="0.01" value="0.22">
     <label for="brush-size">Radio del borrador: <strong id="brush-value">0.35 m</strong></label>
     <input id="brush-size" type="range" min=".2" max="1.7" step=".05" value=".35">
    </div>
@@ -228,7 +235,8 @@
   <details>
    <summary>Cómo guardar y usar tu mapa</summary>
    <div>
-    <p>1. Dibuja o mueve calles, personas, aceras y tejados.</p>
+    <p>1. Dibuja o mueve calles, personas, aceras y tejados. Con <strong>Público</strong>, mantén pulsado el clic izquierdo y arrastra para poner muchas personas seguidas.</p>
+    <p>Con <strong>Seleccionar</strong>, arrastra desde un espacio vacío para dibujar un rectángulo como en Windows. Se seleccionan los elementos completamente dentro del área. <strong>Mayús + arrastrar</strong> inicia el rectángulo incluso encima de un objeto. <strong>Ctrl + clic</strong> suma o quita elementos. Arrastra un objeto seleccionado para mover todo el grupo y usa «Borrar selección» para eliminarlo.</p>
     <p>2. Pulsa <strong>Guardar</strong> para conservar el mapa y activarlo como borrador jugable en este dominio.</p>
     <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
     <p>4. Pulsa <strong>Publicar mapa</strong> para enviar una versión aprobada a GitHub. Solo permite publicar a la cuenta propietaria; necesitarás un token temporal de GitHub con permiso sobre este repositorio. Vercel desplegará después el mapa para todos los visitantes del juego de desarrollo. El enlace principal antiguo no cambia.</p>
