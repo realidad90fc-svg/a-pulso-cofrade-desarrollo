@@ -1,0 +1,146 @@
+// Apply editor layers to real-time game preview on the SAME origin as the editor.
+// The production game retains its native source data; local drafts are opt-in
+// by existence and can be disabled via ?editor=off.
+import {multiply,inverse} from './original-scene.mjs';
+import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS} from './editor-materials.mjs';
+import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
+import {pointInPolygon} from './engine.mjs';
+
+const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
+const polygon=poly=>Array.isArray(poly)&&poly.length>=3&&poly.length<=5000&&poly.every(valid);
+const bbox=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
+const hits=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const segment=(a,b,c,d)=>{
+ const orient=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
+ const x=orient(a,b,c),y=orient(a,b,d),z=orient(c,d,a),w=orient(c,d,b);
+ return ((x>1e-9&&y< -1e-9)||(x< -1e-9&&y>1e-9))&&((z>1e-9&&w< -1e-9)||(z< -1e-9&&w>1e-9));
+};
+function overlaps(a,b){
+ if(!hits(bbox(a),bbox(b)))return false;
+ if(a.some(p=>pointInPolygon(p,b))||b.some(p=>pointInPolygon(p,a)))return true;
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  if(segment(a[i],a[(i+1)%a.length],b[j],b[(j+1)%b.length]))return true;
+ }
+ return false;
+}
+function around(center,width,height,angle=0){
+ const c=Math.cos(angle*Math.PI/180),s=Math.sin(angle*Math.PI/180);
+ return [[-width/2,-height/2],[width/2,-height/2],[width/2,height/2],[-width/2,height/2]].map(([x,y])=>[center[0]+x*c-y*s,center[1]+x*s+y*c]);
+}
+function shapePolygon(w){
+ if(w.circle)return Array.from({length:12},(_,i)=>[w.center[0]+Math.cos(i*Math.PI/6)*w.radius,w.center[1]+Math.sin(i*Math.PI/6)*w.radius]);
+ return w.points||[];
+}
+function obstaclesFor(layers){
+ const obstacles=[];
+ for(const o of layers.fences||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.95,.18,o.angle||0),reason:9});
+ for(const o of layers.chairs||[])if(valid(o.point))obstacles.push({poly:around(o.point,.40,.43,o.angle||0),reason:9});
+ for(const o of layers.houses||[])if(polygon(o.poly))obstacles.push({poly:o.poly,reason:2});
+ for(const o of layers.trees||[])if(valid(o.point)){
+  const r=Math.min(.65,Math.max(.10,(o.radius||.35)*(o.scale||1)*.43));
+  obstacles.push({poly:around(o.point,r*2,r*2),reason:2});
+ }
+ for(const o of layers.people||[])if(valid(o.point)){
+  const r=.065;obstacles.push({poly:around(o.point,r*2,r*2),reason:13});
+ }
+ return obstacles.map(o=>({...o,box:bbox(o.poly)}));
+}
+function readDraft(key){
+ try{
+  const raw=localStorage.getItem(GAME_PATCH_PREFIX+key);
+  if(!raw||raw.length>4500000)return null;
+  const obj=JSON.parse(raw);
+  if(obj?.schema!==EDITOR_PATCH_SCHEMA||obj.mapKey!==key||!obj.layers)return null;
+  const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
+   const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?3500:kind==='houses'?2000:2500):[]]
+  }));
+  if(MAP_KINDS.every(k=>!layers[k].length))return null;
+  return{mapKey:key,layers,total:MAP_KINDS.reduce((n,k)=>n+layers[k].length,0),
+   arenalWalkable:obj.arenalWalkable};
+ }catch(e){console.warn('A Pulso: no se pudo abrir el diseño guardado',e);return null}
+}
+export function attachEditorDraft(sim){
+ if(sim.tutorial||new URLSearchParams(location.search).get('editor')==='off')return null;
+ const key=sim.map.variant?.key||'native-'+sim.map.id;
+ const draft=readDraft(key);if(!draft)return null;
+ // Arenal's route adapter has one authoritative road polygon collection; applying
+ // a changed street there updates both simulation constraints and tile rendering.
+ if(key==='RegresoArenal'&&sim.routeAdapter&&Array.isArray(draft.arenalWalkable)&&draft.arenalWalkable.length&&draft.arenalWalkable.every(polygon)){
+  const route=sim.routeAdapter;
+  route.walkable=draft.arenalWalkable.map(p=>p.map(q=>[...q]));
+  route.roadBoxes=route.walkable.map(bbox);
+  route.tileCache?.clear();
+ }
+ sim.editorDraft=new RuntimeEditorDraft(draft);
+ return sim.editorDraft;
+}
+export class RuntimeEditorDraft{
+ constructor(draft){
+  this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;
+  this.obstacles=obstaclesFor(this.layers);
+  this.lastCollisionFrame=-1;
+ }
+ draw(ctx,project,images,canvas){
+  const inv=inverse(project);if(!inv)return;
+  const coords=[[0,0],[canvas.width,0],[canvas.width,canvas.height],[0,canvas.height]]
+   .map(([x,y])=>[inv[0]*x+inv[2]*y+inv[4],inv[1]*x+inv[3]*y+inv[5]]);
+  const bound=bbox(coords),viewScale=Math.hypot(project[0],project[1]);
+  // Y-flipped drawing plane makes polygon textures follow world coordinates,
+  // including camera rotation, without modifying the original camera.
+  const oriented=multiply(project,[1,0,0,-1,0,0]),px=(x,y)=>[x,-y];
+  const im=key=>images.get(key);
+  ctx.save();ctx.setTransform(...oriented);
+  ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
+  for(const [kind,materials]of [['sidewalks',SIDEWALK_MATERIALS],['roads',ROAD_MATERIALS]]){
+   const floor=images.get('sharedassets2.assets:373');
+   for(const o of this.layers[kind])if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
+    drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound);
+   }
+  }
+  for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound))drawRoof(ctx,o.poly,o.material||o.key,px,im,1);
+  for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
+  for(const o of this.layers.signs)if(valid(o.point)){
+   const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;
+   ctx.beginPath();ctx.arc(x,y,.10,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
+  for(const o of this.layers.people)if(valid(o.point)){
+   const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
+   const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
+   if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
+   if(image)ctx.drawImage(image,x-width/2,-y-height/2,width,height);
+   else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(x,-y,.095,0,2*Math.PI);ctx.fill()}
+  }
+  ctx.restore();
+ }
+ collision(sim){
+  if(sim.state.status!=='playing'||!this.obstacles.length||this.lastCollisionFrame===sim.frameCount)return;
+  this.lastCollisionFrame=sim.frameCount;
+  const s=sim,parts=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity);
+  for(const c of parts){
+   const poly=shapePolygon(c.world());if(!polygon(poly))continue;
+   const bounds=bbox(poly);
+   for(const o of this.obstacles)if(hits(bounds,o.box)&&overlaps(poly,o.poly)){
+    s.prefs.motivoGameOver=o.reason;
+    s.send(s.stepEntity,'gameOverMet');return;
+   }
+  }
+ }
+}
+export async function loadEditorDraftImages(layer,load,images){
+ if(!layer)return;
+ const all=[...new Set([
+  ...layer.layers.houses.map(o=>roofById(o.material||o.key).key),
+  ...layer.layers.people.map(o=>o.key),
+  ...(layer.layers.roads.length?['sharedassets2.assets:373']:[])
+ ].filter(Boolean))];
+ // Animation sprite identifiers use the same extracted asset paths as the base engine.
+ const sprites=layer.animationSprites||null;
+ const queue=all.filter(key=>!images.has(key));
+ let n=0;await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{while(n<queue.length){const key=queue[n++];
+  const match=/sharedassets2\.assets:(\d+)/.exec(key);if(!match)continue;
+  const path='assets/original-animation/sprite-'+match[1]+'.webp';
+  try{const image=await load(path);images.set(key,image)}catch(e){console.warn('No se pudo cargar sprite editado',key,e)}
+ }}));
+}
