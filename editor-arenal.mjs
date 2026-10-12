@@ -1,6 +1,7 @@
 import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
+import {createPhotoGuides} from './editor-photo-guides.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -13,7 +14,7 @@ const getId=(key)=>String(key).split(':').at(-1);
 const images=new Map();
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
 const state={tool:'pan',layer:'house',material:HOUSE_KEYS[0],audience:'sharedassets2.assets:379',selected:null,working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
-let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null;
+let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null;
 
 function show(message,type='info'){
  const el=$('status');el.textContent=message;
@@ -141,13 +142,7 @@ function draw(){
  if(!view.w||!view.h)return;
  ctx.setTransform(view.dpr,0,0,view.dpr,0,0);
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
- if(state.reference){
-  const im=state.reference.image,pos=state.reference.position;
-  const p=pixel(pos[0],pos[1]+state.reference.height*state.referenceScale);
-  ctx.globalAlpha=state.referenceOpacity;
-  ctx.drawImage(im,p[0],p[1],state.reference.width*state.referenceScale*view.zoom,state.reference.height*state.referenceScale*view.zoom);
-  ctx.globalAlpha=1;
- }
+ photoGuides?.draw('background');
  if(!data)return;
  if($('houses-on').checked)for(const o of data.houses)drawTexture(o.poly,o.key,'#b97357');
  if($('sidewalks-on').checked){
@@ -167,6 +162,7 @@ function draw(){
   ctx.beginPath();ctx.moveTo(p[0]-r*.7,p[1]+r*.7);ctx.lineTo(p[0]+r*.7,p[1]-r*.7);ctx.stroke();
  }
  drawGrid();
+ photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[]){
   const p=pixel(...cp.position);ctx.strokeStyle='#58f7dc';ctx.lineWidth=2;ctx.beginPath();
   ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]+9,p[1]);ctx.moveTo(p[0],p[1]-9);ctx.lineTo(p[0],p[1]+9);ctx.stroke();
@@ -191,6 +187,7 @@ function draw(){
    else if(item.point||item.position){const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],9,0,Math.PI*2);ctx.stroke()}
   }
  }
+ if(state.tool==='reference')photoGuides?.draw('handles');
  if(state.tool==='paso'||$('paso-on').checked)drawPaso();
  if(state.tool==='people'&&state.mouseWorld){
   const p=pixel(...state.mouseWorld);ctx.beginPath();ctx.arc(...p,.22*view.zoom,0,Math.PI*2);ctx.strokeStyle='#ffba57';ctx.lineWidth=2;ctx.stroke();
@@ -298,7 +295,7 @@ function pointerDown(e){
  }
  const q=world(...pos);state.mouseWorld=q;
  if(state.tool==='pan'){state.drag={action:'pan',pos};return}
- if(state.tool==='reference'&&state.reference){state.drag={action:'reference',pos,start:[...state.reference.position]};return}
+ if(state.tool==='reference'){photoGuides?.pointerDown(pos);return}
  if(state.tool==='paso'){snapshot();state.drag={action:'paso',pos};state.paso={...(state.paso||data.paso),x:q[0],y:q[1]};changed();return}
  if(['road','sidewalk','house'].includes(state.tool)){
   if(state.working.length>=3&&dist(q,state.working[0])<10/view.zoom){finishPolygon();return}
@@ -323,10 +320,10 @@ function pointerMove(e){
   state.pinch.gap=gap;return;
  }
  const q=world(...pos);state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
+ if(state.tool==='reference'){photoGuides?.pointerMove(pos);requestDraw();return}
  if(!state.drag){requestDraw();return}
  const a=state.drag,dx=(pos[0]-a.pos[0])/view.zoom,dy=-(pos[1]-a.pos[1])/view.zoom;
  if(a.action==='pan'){view.cx-=dx;view.cy-=dy;a.pos=pos;requestDraw();return}
- if(a.action==='reference'&&state.reference){state.reference.position[0]+=dx;state.reference.position[1]+=dy;a.pos=pos;requestDraw();return}
  if(a.action==='people'){if(!last||dist(pos,last)>2)addPerson(q);return}
  if(a.action==='erase'){eraseAt(q);return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
@@ -342,7 +339,7 @@ function pointerMove(e){
 function pointerUp(e){
  state.pointers.delete(e.pointerId);
  if(state.pointers.size<2)state.pinch=null;
- if(!state.pointers.size)state.drag=null;
+ if(!state.pointers.size){state.drag=null;photoGuides?.pointerUp()}
 }
 function downloadJSON(){
  const output={...data,metadata:{...data.metadata,exportedAt:new Date().toISOString()}};
@@ -421,7 +418,7 @@ function bind(){
   snapshot();data[state.selected.type].splice(state.selected.index,1);state.selected=null;changed();
  };
  $('undo').onclick=undo;$('redo').onclick=redo;
- $('save').onclick=saveLocal;$('export').onclick=downloadJSON;
+ $('save').onclick=()=>{saveLocal();void photoGuides?.flush()};$('export').onclick=downloadJSON;
  $('map-select').onchange=()=>switchMap($('map-select').value);
  $('import').onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
@@ -440,15 +437,8 @@ function bind(){
  $('zoom-in').onclick=()=>zoomAt(1.3);$('zoom-out').onclick=()=>zoomAt(1/1.3);
  $('paso-left').onclick=()=>{state.paso.angle=(state.paso.angle-5+360)%360;changed()};
  $('paso-right').onclick=()=>{state.paso.angle=(state.paso.angle+5)%360;changed()};
- $('reference-file').onchange=e=>{
-  const f=e.target.files?.[0];if(!f)return;
-  const url=URL.createObjectURL(f),im=new Image();
-  im.onload=()=>{state.reference={image:im,position:[view.cx-6,view.cy-5],width:12,height:12*im.naturalHeight/im.naturalWidth};requestDraw();show('Foto cargada. Usa «Ajustar foto» para desplazarla y la escala para cuadrarla.','good')};
-  im.src=url;e.target.value='';
- };
- $('reference-opacity').oninput=e=>{state.referenceOpacity=Number(e.target.value)/100;requestDraw()};
- $('reference-scale').oninput=e=>{state.referenceScale=Number(e.target.value)/100;requestDraw()};
- $('reference-clear').onclick=()=>{state.reference=null;requestDraw()};
+ // Photo guide images and positions are private browser data, separate from game geometry.
+ photoGuides?.bind();
  $('check').onclick=validate;
  canvas.addEventListener('pointerdown',pointerDown);
  canvas.addEventListener('pointermove',pointerMove);
@@ -503,7 +493,8 @@ function fitMap(){
 function switchMap(key){
  if(!EDITOR_MAPS.some(m=>m.key===key))return;
  if(data){clearTimeout(saveTimer);saveLocal()}
- activeMap=key;state.selected=null;state.working=[];state.reference=null;state.mouseWorld=null;
+ activeMap=key;state.selected=null;state.working=[];state.mouseWorld=null;
+ void photoGuides?.switchMap(key);
  state.history=[];state.future=[];state.pinch=null;state.drag=null;state.pointers.clear();
  baseline=buildEditorMap(key,animationData,nativeMaps,prepareMap);
  let saved=null;
@@ -539,6 +530,7 @@ async function init(){
    }
    selector.appendChild(group);
   }
+  photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view});
   palette();bind();resize();
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
