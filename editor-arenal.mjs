@@ -5,7 +5,7 @@ import {createPhotoGuides} from './editor-photo-guides.mjs';
 import {ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
-import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections} from './editor-interactions.mjs';
+import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -127,8 +127,10 @@ function drawPeople(){
   if(x<v[0]-.2||x>v[2]+.2||y<v[1]-.2||y>v[3]+.2)continue;
   const img=getImage(a.key),dims=spriteDims(a.key),p=pixel(x,y);
   const w=Math.max(2,dims[0]*view.zoom),h=Math.max(2,dims[1]*view.zoom);
-  if(img){ctx.drawImage(img,p[0]-w/2,p[1]-h/2,w,h)}
-  else{ctx.fillStyle='#d4a47c';ctx.beginPath();ctx.arc(p[0],p[1],Math.max(2,w/2),0,Math.PI*2);ctx.fill()}
+  ctx.save();ctx.translate(...p);ctx.rotate(-(a.angle||0)*Math.PI/180);
+  if(img){ctx.drawImage(img,-w/2,-h/2,w,h)}
+  else{ctx.fillStyle='#d4a47c';ctx.beginPath();ctx.arc(0,0,Math.max(2,w/2),0,Math.PI*2);ctx.fill()}
+  ctx.restore();
  }
 }
 function drawGrid(){
@@ -161,7 +163,8 @@ function draw(){
  if($('signs-on').checked)for(const t of data.signs||[]){
   const p=pixel(...t.point),r=Math.max(4,Math.min(10,.20*view.zoom));
   ctx.fillStyle='#e7d5b7';ctx.strokeStyle='#c23b36';ctx.lineWidth=2;ctx.beginPath();ctx.arc(...p,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-  ctx.beginPath();ctx.moveTo(p[0]-r*.7,p[1]+r*.7);ctx.lineTo(p[0]+r*.7,p[1]-r*.7);ctx.stroke();
+  ctx.save();ctx.translate(...p);ctx.rotate(-(t.angle||0)*Math.PI/180);
+  ctx.beginPath();ctx.moveTo(-r*.7,r*.7);ctx.lineTo(r*.7,-r*.7);ctx.stroke();ctx.restore();
  }
  drawGrid();
  photoGuides?.draw('overlay');
@@ -194,6 +197,17 @@ function draw(){
   }else if(item.point||item.position){
    if(selection.type==='fences'||selection.type==='chairs')drawFurniture(ctx,item,selection.type==='fences'?'fence':'chair',pixel,view.zoom,true);
    else {const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],7,0,Math.PI*2);ctx.stroke()}
+  }
+ }
+ if(state.tool==='select'&&state.selectedItems.length){
+  const position=rotationHandlePosition();
+  if(position){
+   const [cx,hy]=position.handle,[ax,ay]=position.anchor;
+   ctx.save();ctx.strokeStyle='#f4cd77';ctx.lineWidth=2.5;
+   ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(cx,hy);ctx.stroke();
+   ctx.fillStyle='#142b36';ctx.beginPath();ctx.arc(cx,hy,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.font='bold 17px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.fillStyle='#f8e4a6';ctx.fillText('↻',cx,hy+.5);ctx.restore();
   }
  }
  if(state.drag?.action==='marquee'){
@@ -336,6 +350,19 @@ function finishPolygon(){
  data[kind].push(kind==='houses'?{poly,key:roofById(state.material).key,material:state.material,kind:'manual'}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
  state.working=[];changed();show('Polígono añadido. Revisa si invade otra capa.','good');
 }
+function rotationHandlePosition(){
+ const geometry=selectionGeometry(data,state.selectedItems);
+ if(!geometry)return null;
+ const box=geometry.bounds,center=geometry.center;
+ const top=pixel(center[0],box[3]);
+ const hy=Math.max(22,Math.min(view.h-22,top[1]-38));
+ return{center,handle:[top[0],hy],anchor:[top[0],Math.max(8,Math.min(view.h-8,top[1]))]};
+}
+function onRotationHandle(pos){
+ if(state.tool!=='select'||!state.selectedItems.length)return null;
+ const handle=rotationHandlePosition();
+ return handle&&dist(pos,handle.handle)<17?handle:null;
+}
 function pointEvent(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
 function pointerDown(e){
  if(e.pointerType==='mouse'&&e.button!==0)return; // primary/left button only
@@ -369,6 +396,13 @@ function pointerDown(e){
  if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
  if(state.tool==='erase'){snapshot();eraseAt(q);state.drag={action:'erase'};return}
  if(state.tool==='select'){
+  const rotate=onRotationHandle(pos);
+  if(rotate){
+   state.drag={action:'rotate',center:rotate.center,items:state.selectedItems.map(o=>({...o})),
+    originals:captureSelection(data,state.selectedItems),angle:mouseAngle(rotate.center,q),
+    total:0,moved:false};
+   requestDraw();return;
+  }
   const hit=selectAt(q);
   const ctrl=e.ctrlKey||e.metaKey,shift=e.shiftKey;
   const existing=state.selectedItems.map(o=>({...o}));
@@ -415,6 +449,14 @@ function pointerMove(e){
  if(a.action==='furniture-row'){a.end=q;requestDraw();return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
  if(a.action==='marquee'){a.end=pos;requestDraw();return}
+ if(a.action==='rotate'){
+  const current=mouseAngle(a.center,q);
+  const step=angleDelta(a.angle,current);a.angle=current;
+  if(!Number.isFinite(step)||Math.abs(step)<.01)return;
+  if(!a.moved){snapshot();a.moved=true}
+  a.total+=step;rotateSelections(data,a.items,a.center,a.total,a.originals);
+  changed();return;
+ }
  if(a.action==='select'){
   if(!a.moved&&dist(pos,a.start)<4)return;
   if(!a.moved){snapshot();a.moved=true}
