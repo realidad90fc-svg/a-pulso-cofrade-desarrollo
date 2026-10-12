@@ -380,9 +380,10 @@ function setData(loaded){
  if(!data.paso)data.paso={...baseline.paso};
  if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
  if(!data.labels)data.labels=[];
- for(const kind of ['trees','signs','checkpoints'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
+ for(const kind of ['trees','signs','checkpoints','fences','chairs'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
  if(!data.bounds)data.bounds=baseline.bounds;
- state.paso={...data.paso};changed();
+ state.paso={...data.paso};state.peopleIndex=data.people.length;state.treeIndex=data.trees.length;
+ if($('public-sprite').options.length)updatePeopleHint();changed();
 }
 function makeSegments(){
  return ARENAL_MAP.modules.map(m=>{
@@ -415,30 +416,74 @@ function prepareMap(animation){
  };
 }
 function palette(){
- const parent=$('palettes');parent.innerHTML='';
- for(const id of [569,416,463,480,495,562,566,581,554]){
-  const key='sharedassets2.assets:'+id,button=document.createElement('button');
-  button.className='swatch'+(state.material===key?' chosen':'');button.title='Edificio original '+id;button.type='button';
-  const image=document.createElement('img');image.src='./assets/original-animation/sprite-'+id+'.webp';image.alt='Tejado '+id;
-  button.appendChild(image);button.onclick=()=>{state.material=key;palette();requestDraw()};
+ const parent=$('palettes');parent.replaceChildren();
+ for(const roof of ROOF_MATERIALS){
+  const id=Number(roof.key.split(':').at(-1)),button=document.createElement('button');
+  button.className='swatch'+(state.material===roof.id?' chosen':'');
+  button.title=roof.name+' · material del juego '+id;button.type='button';
+  const im=document.createElement('img');im.loading='lazy';im.src='./assets/original-animation/sprite-'+id+'.webp';
+  im.alt=roof.name;im.style.filter=roof.filter;
+  if(roof.family===2)im.style.backgroundColor='#d7cdb8';
+  const name=document.createElement('small');name.textContent=roof.name;
+  button.append(im,name);button.onclick=()=>{state.material=roof.id;palette();requestDraw()};
   parent.appendChild(button);
  }
- const audience=$('public-sprite');audience.innerHTML='';
+ function options(select,items,chosen){
+  select.replaceChildren();
+  for(const item of items){const o=document.createElement('option');o.value=item.id;o.textContent=item.name;select.appendChild(o)}
+  select.value=chosen;
+ }
+ options($('road-material'),ROAD_MATERIALS,state.roadMaterial);
+ options($('sidewalk-material'),SIDEWALK_MATERIALS,state.sidewalkMaterial);
+ options($('tree-variant'),TREE_VARIANTS,state.treeVariant);
+ const audience=$('public-sprite');audience.replaceChildren();
  const ids=[379,596,549,427,419,426,418,380,508,386,607,516,394,458,454,423,428,391];
  for(const id of ids){
   const key='sharedassets2.assets:'+id;if(!sprites[key])continue;
   const op=document.createElement('option');op.value=key;op.textContent='Persona '+id;audience.appendChild(op);
  }
- audience.value=state.audience;audience.onchange=()=>{state.audience=audience.value};
+ audience.value=state.audience;
+ audience.onchange=()=>{
+  state.audience=audience.value;
+  if($('public-mode').value==='cycle')state.peopleIndex=Math.max(0,[...audience.options].findIndex(o=>o.value===audience.value));
+  updatePeopleHint();
+ };
+ updatePeopleHint();
 }
 function bind(){
  for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>configureTool(button.dataset.tool);
- for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on'])$(id).onchange=requestDraw;
+ for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
  $('delete').onclick=()=>{
-  if(!state.selected){show('Selecciona una casa, calle, acera o persona.','error');return}
+  if(!state.selected){show('Selecciona un elemento que quieras borrar.','error');return}
   snapshot();data[state.selected.type].splice(state.selected.index,1);state.selected=null;changed();
+ };
+ $('road-material').onchange=e=>{state.roadMaterial=e.target.value};
+ $('sidewalk-material').onchange=e=>{state.sidewalkMaterial=e.target.value};
+ $('tree-variant').onchange=e=>{state.treeVariant=e.target.value};
+ $('public-mode').onchange=updatePeopleHint;
+ $('furniture-spacing').oninput=e=>{$('furniture-spacing-value').textContent=Number(e.target.value).toFixed(2)};
+ $('apply-roof').onclick=()=>{
+  const sel=state.selected;
+  if(sel?.type!=='houses'){show('Selecciona primero una casa existente.','error');return}
+  snapshot();const roof=roofById(state.material),o=data.houses[sel.index];o.material=roof.id;o.key=roof.key;changed();
+ };
+ $('apply-surface').onclick=()=>{
+  const sel=state.selected;if(!sel||!['roads','sidewalks'].includes(sel.type)){show('Selecciona una calle o una acera.','error');return}
+  snapshot();data[sel.type][sel.index].material=sel.type==='roads'?state.roadMaterial:state.sidewalkMaterial;changed();
+ };
+ const selectedFurniture=()=>state.selected&&['fences','chairs'].includes(state.selected.type)?data[state.selected.type][state.selected.index]:null;
+ const rotateSelected=degrees=>{
+  const o=selectedFurniture();if(!o){show('Selecciona una valla o silla.','error');return}
+  snapshot();o.angle=((o.angle||0)+degrees+360)%360;changed();
+ };
+ $('rotate-selected-left').onclick=()=>rotateSelected(-15);
+ $('rotate-selected-right').onclick=()=>rotateSelected(15);
+ $('duplicate-selected').onclick=()=>{
+  const o=selectedFurniture();if(!o){show('Selecciona una valla o silla.','error');return}
+  snapshot();data[state.selected.type].push({...o,point:[o.point[0]+.3,o.point[1]+.3]});
+  state.selected.index=data[state.selected.type].length-1;changed();
  };
  $('undo').onclick=undo;$('redo').onclick=redo;
  $('save').onclick=()=>{saveLocal();void photoGuides?.flush()};$('export').onclick=downloadJSON;
