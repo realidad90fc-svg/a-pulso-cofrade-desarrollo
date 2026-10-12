@@ -11,6 +11,7 @@ import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
 import {Renderer} from './renderer.mjs';
+import {attachEditorDraft,loadEditorDraftImages} from './game-editor-bridge.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
 let customMenu,modeNavigation,allowLegacyHome=false;
@@ -86,12 +87,14 @@ async function startGame(scene=2,snapshot=null){
   const map=tutorial?{id:0,nodes:[],name:'Tutorial'}:customMap(maps[Math.max(0,Math.min(9,((choice?.mapId||saved.prefs.mapaElegido)||1)-1))],choice?choice.mapKey:saved.prefs.customRoute,choice),step=tutorial?{id:0,code:'Tuto',nodes:[],name:'Tutorial'}:customStep(steps[Math.max(0,Math.min(6,((chosenStep?.engineId||choice?.stepId||saved.prefs.pasoElegido)||1)-1))],choice?(chosenStep?.engineVariant||choice.stepKey):saved.prefs.customStep);
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
   const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
+  const editorDraft=attachEditorDraft(next);
   await loadSceneImages(next,loadImage,images,(done,total)=>{if(run===loading)$('load-detail').textContent=`Cargando la calle y la cuadrilla… ${done}/${total}`;});
+  await loadEditorDraftImages(editorDraft,loadImage,images);
   if(run!==loading)return;
   sim=next;menus.destroy();hud?.destroy();hud=new OriginalLayout(r.layouts,tutorial?r.controls.tutorial.step.canvasKey:r.layouts.gameplayCanvases[step.code],$('original-hud'),{excludeButtons:true});
   buildButtons();$('now-playing').textContent='';
   document.querySelector('.hud-fallback').hidden=true;
-  setScreen('game');resize();processEvents();saveActive();
+  setScreen('game');resize();if(editorDraft)toast('Mapa de prueba del editor activo · '+editorDraft.total+' cambios · sin fotos',5);processEvents();saveActive();
  }catch(error){if(run!==loading)return;loading++;console.error(error);$('load-detail').textContent='No se ha podido terminar la carga. '+error.message;$('load-retry').hidden=false;}
 }
 function buildButtons(){
@@ -175,7 +178,7 @@ function keyboard(event){
 function frame(now){
  const dt=Math.min((now-last)/1000,.05)||0;last=now;
  try{
-  if(screen==='game'&&sim){sim.tick(dt);campaignRun?.observe(sim,now);processEvents();updateHud();if(now-lastSave>4000){saveActive();lastSave=now;}}
+  if(screen==='game'&&sim){sim.tick(dt);sim.editorDraft?.collision(sim);campaignRun?.observe(sim,now);processEvents();updateHud();if(now-lastSave>4000){saveActive();lastSave=now;}}
   else if(screen==='menu')menus?.tick(dt);
   if(sim&&['game','pause','result'].includes(screen))renderer.render(sim,images,screen==='game');
  }catch(e){console.error(e);if(screen==='game'){pause();toast('Se ha detenido la partida: '+e.message,8);}else if(screen==='menu')toast(e.message,6);}
