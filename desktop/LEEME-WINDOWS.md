@@ -1,12 +1,13 @@
-# A Pulso Cofrade para Windows
+# A Pulso Cofrade - Editor de Mapas para Windows
 
-Este proyecto empaqueta el editor y el juego original en un instalador .exe
-mediante Electron y GitHub Actions, sin alterar el sitio web de Vercel.
+Este instalador .exe abre directamente el Taller de Mapas de A Pulso Cofrade,
+el mismo editor del sitio web de Vercel. El motor del juego se incluye
+únicamente para permitir la vista previa desde «Probar en juego».
 
 ## Instalación
-1. GitHub > Actions > "Crear instalador Windows - A Pulso".
+1. GitHub > Actions > "Editor de mapas A Pulso - Windows".
 2. Abre la ejecución más reciente que termine en verde.
-3. Descarga el artefacto "A-Pulso-Cofrade-Windows-Instalador".
+3. Descarga el artefacto "A-Pulso-Editor-de-Mapas-Windows-Instalador".
 4. Descomprime el ZIP y ejecuta el instalador EXE.
 5. La aplicación no está firmada; Windows SmartScreen podría pedir confirmación.
 
@@ -18,7 +19,7 @@ mediante Electron y GitHub Actions, sin alterar el sitio web de Vercel.
 - Archivo > Restaurar copia de seguridad permite recuperar una copia completa.
 - Instalar una actualización NO borra tus datos. Evita borrar manualmente
   %APPDATA%\A Pulso Cofrade - Windows.
-- El editor y el juego empaquetados funcionan sin Internet; publicar mapas en
+- El Taller de Mapas y su vista previa funcionan sin Internet; publicar mapas en
   GitHub sí requiere conexión.
 
 ## ¡Importante! Tus datos actuales del navegador no aparecen automáticamente
@@ -31,6 +32,8 @@ Antes de abandonar el editor Vercel:
 5. Comprueba que todo aparece y crea una copia desde Archivo.
 
 El instalador no elimina ni modifica datos del editor web.
+La carpeta de datos de la versión anterior 1.0.1 se sigue utilizando;
+no se cambia el perfil al renombrar la aplicación.
 No requiere despliegue de Vercel para ejecutarse; incorpora una copia del
 código de este repositorio en el momento de la compilación.
 

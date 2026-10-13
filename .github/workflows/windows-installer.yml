@@ -1,4 +1,4 @@
-name: Crear instalador Windows - A Pulso
+name: Editor de mapas A Pulso - Windows
 on:
   push:
     branches: [main]
@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   installer:
-    name: Crear EXE en Windows
+    name: Compilar Editor de Mapas EXE
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -21,7 +21,7 @@ jobs:
       - name: Instalar Electron y empaquetador
         working-directory: desktop
         run: npm install --no-audit --no-fund
-      - name: Preparar editor y juego para funcionar sin Internet
+      - name: Preparar Taller de Mapas con vista previa sin Internet
         run: node desktop/prepare-assets.cjs
       - name: Verificar sintaxis y almacenamiento
         shell: pwsh
@@ -37,7 +37,7 @@ jobs:
       - name: Publicar EXE para descargar
         uses: actions/upload-artifact@v4
         with:
-          name: A-Pulso-Cofrade-Windows-Instalador
+          name: A-Pulso-Editor-de-Mapas-Windows-Instalador
           path: desktop/dist/*.exe
           if-no-files-found: error
           retention-days: 30

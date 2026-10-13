@@ -1,8 +1,8 @@
 {
   "name": "a-pulso-cofrade-windows",
-  "version": "1.0.1",
-  "productName": "A Pulso Cofrade",
-  "description": "Editor y juego de mapas de Semana Santa para Windows, con almacenamiento y copias de seguridad independientes",
+  "version": "1.0.2",
+  "productName": "A Pulso Cofrade - Editor de Mapas",
+  "description": "Taller de mapas A Pulso Cofrade para Windows, con fotografías, guardados persistentes y copias de seguridad independientes del navegador",
   "author": "A Pulso Cofrade",
   "license": "UNLICENSED",
   "private": true,
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "es.realidad90fc.apulso.editor",
-    "productName": "A Pulso Cofrade",
+    "productName": "A Pulso Cofrade - Editor de Mapas",
     "directories": {
       "output": "dist"
     },
@@ -36,14 +36,14 @@
           ]
         }
       ],
-      "artifactName": "A-Pulso-Cofrade-Setup-${version}-${arch}.${ext}"
+      "artifactName": "A-Pulso-Editor-de-Mapas-Setup-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "A Pulso Cofrade",
+      "shortcutName": "A Pulso Cofrade - Editor de Mapas",
       "deleteAppDataOnUninstall": false
     }
   }

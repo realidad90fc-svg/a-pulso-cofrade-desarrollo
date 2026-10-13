@@ -1,6 +1,9 @@
 'use strict';
 
-// A Pulso Cofrade para Windows. La web se sirve desde el instalador mediante
+// Taller de Mapas de A Pulso Cofrade para Windows. El programa abre
+// siempre el EDITOR; el motor de juego solo se conserva para el botón
+// opcional «Probar en juego», sin crear otro programa o perfil de datos.
+// La web se sirve desde el instalador mediante
 // un protocolo local seguro, sin Chrome/Edge y sin depender de Vercel.
 const {app,BrowserWindow,Menu,dialog,protocol,shell,session,net} = require('electron');
 const fs=require('node:fs');
@@ -194,7 +197,7 @@ function menu(){
 function createWindow(){
  mainWindow=new BrowserWindow({
   width:1500,height:950,minWidth:900,minHeight:640,
-  title:'A Pulso Cofrade · Editor de mapas',backgroundColor:'#15202a',
+  title:'A Pulso Cofrade · Editor de Mapas',backgroundColor:'#15202a',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}
  });
  mainWindow.webContents.setWindowOpenHandler(({url})=>{
