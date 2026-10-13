@@ -1,10 +1,11 @@
 // Pure editor operations: continuous crowd brush and Windows-style area selection.
 // Coordinates are always map-world units, independent of zoom or device pixels.
-export const PICKABLE_TYPES=['checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
+export const PICKABLE_TYPES=['labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
 export const PUBLIC_MIN_DISTANCE=.135;
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const length=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 const round=n=>Math.round(n*1000)/1000;
+export const editorPoint=item=>Array.isArray(item)&&typeof item[0]==='string'?item[1]:item?.point||item?.position;
 const contains=(b,p)=>p[0]>=b[0]&&p[0]<=b[2]&&p[1]>=b[1]&&p[1]<=b[3];
 export function rectangle(a,b){
  return[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];
@@ -19,7 +20,7 @@ export function picksInRectangle(map,start,end,visible=()=>true){
     // all polygon vertices fit inside the blue selection rectangle.
     if(item.poly.length>=3&&item.poly.every(p=>valid(p)&&contains(bounds,p)))found.push({type,index,vertex:-1});
    }else{
-    const point=item.point||item.position;
+    const point=editorPoint(item);
     if(valid(point)&&contains(bounds,point))found.push({type,index,vertex:-1});
    }
   }
@@ -41,7 +42,7 @@ export function translateSelections(map,selections,dx,dy){
   const item=map[type]?.[index];if(!item)continue;
   if(Array.isArray(item.poly))for(const p of item.poly){p[0]=round(p[0]+dx);p[1]=round(p[1]+dy)}
   else{
-   const point=item.point||item.position;
+   const point=editorPoint(item);
    if(point){point[0]=round(point[0]+dx);point[1]=round(point[1]+dy)}
   }
  }
@@ -113,7 +114,7 @@ export function selectionGeometry(map,selections){
  for(const {type,index}of unifySelections(selections)){
   const item=map[type]?.[index];if(!item)continue;
   if(Array.isArray(item.poly)){points.push(...item.poly);continue}
-  const p=item.point||item.position;if(!valid(p))continue;
+  const p=editorPoint(item);if(!valid(p))continue;
   const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):.2;
   points.push([p[0]-half,p[1]-half],[p[0]+half,p[1]+half]);
  }
@@ -133,9 +134,11 @@ export function rotateSelections(map,selections,center,degrees,originals){
   if(!item||!origin)continue;
   if(Array.isArray(origin.poly))item.poly=origin.poly.map(rotate);
   else{
-   const field=origin.point?'point':'position',p=origin[field];if(valid(p))item[field]=rotate(p);
-   const angleKey=type==='trees'?'rotation':'angle';
-   item[angleKey]=clampRound((((Number(origin[angleKey])||0)+degrees)%360+360)%360);
+   const field=type==='labels'?1:(origin.point?'point':'position'),p=origin[field];if(valid(p))item[field]=rotate(p);
+   if(type!=='labels'){
+    const angleKey=type==='trees'?'rotation':'angle';
+    item[angleKey]=clampRound((((Number(origin[angleKey])||0)+degrees)%360+360)%360);
+   }
   }
  }
 }
