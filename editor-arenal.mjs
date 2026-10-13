@@ -29,6 +29,7 @@ function selectionContains(type,index){return state.selectedItems.some(o=>o.type
 function setSelection(items){
  state.selectedItems=unifySelections(items).filter(o=>data?.[o.type]?.[o.index]);
  state.selected=state.selectedItems.at(-1)||null;
+ if(state.selected?.type==='labels')$('street-name-text').value=data.labels[state.selected.index]?.[0]||'';
  updateCounts();requestDraw();
 }
 function clearSelection(){setSelection([])}
@@ -39,14 +40,14 @@ function deleteSelected(){
 }
 function updateCounts(){
  if(!data)return;
- $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas';
- $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
+ $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas · '+count('labels')+' nombres';
+ $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
  const chosen=state.selectedItems.length;
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
 }
-function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint'}[type]||type}
+function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle'}[type]||type}
 function snapshot(){
  if(!data)return;
  state.history.push(JSON.stringify(data));
@@ -178,6 +179,13 @@ function draw(){
    const xy=pixel(...p);ctx.font='600 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#171a20';ctx.strokeText(name,xy[0]+6,xy[1]);ctx.fillStyle='#fff5e7';ctx.fillText(name,xy[0]+6,xy[1]);
   }
  }
+ if(state.drag?.action==='people-row'){
+  const a=state.drag,start=pixel(...a.start),end=pixel(...a.end),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
+  const span=dist(a.start,a.end),count=Math.min(180,Math.floor(span/spacing)+1);
+  ctx.save();ctx.strokeStyle='#f3d07a';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(...start);ctx.lineTo(...end);ctx.stroke();ctx.setLineDash([]);
+  for(let i=0;i<count;i++){const t=count<=1?0:i/(count-1),pos=pixel(a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t);ctx.beginPath();ctx.arc(...pos,3,0,Math.PI*2);ctx.fillStyle='#ffdfa6';ctx.fill()}
+  ctx.restore();
+ }
  if(state.drag?.action==='furniture-row'){
   const a=state.drag,q=pixel(...a.start),p=pixel(...a.end);ctx.strokeStyle='#ef7264';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(...q);ctx.lineTo(...p);ctx.stroke();
  }
@@ -191,7 +199,9 @@ function draw(){
   const item=data[selection.type]?.[selection.index];
   if(!item)continue;
   ctx.strokeStyle=colors.selected;ctx.lineWidth=2;
-  if(item.poly){
+  if(selection.type==='labels'&&Array.isArray(item)){
+   const p=pixel(...item[1]);ctx.save();ctx.font='600 12px system-ui';const w=Math.max(22,ctx.measureText(item[0]).width);ctx.strokeRect(p[0]+3,p[1]-14,w+8,19);ctx.restore();
+  }else if(item.poly){
    polygon(item.poly);ctx.stroke();
    if(state.selectedItems.length===1)for(const q of item.poly){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-4,p[1]-4,8,8)}
   }else if(item.point||item.position){
@@ -269,6 +279,16 @@ function focusAt(x,y,zoom){
  requestDraw();
 }
 function selectAt(p,px){
+ if($('labels-on').checked){
+  const c=pixel(...p);ctx.save();ctx.font='600 12px system-ui';
+  for(let i=data.labels.length-1;i>=0;i--){
+   const [name,loc]=data.labels[i]||[];if(!Array.isArray(loc)||!name)continue;
+   const a=pixel(...loc),width=Math.max(22,ctx.measureText(name).width);
+   if(c[0]>=a[0]&&c[0]<=a[0]+width+13&&c[1]>=a[1]-19&&c[1]<=a[1]+9){ctx.restore();return{type:'labels',index:i,vertex:-1}}
+  }
+  ctx.restore();
+ }
+
  for(const [type,checkbox] of [['checkpoints','checkpoints-on'],['signs','signs-on'],['trees','trees-on'],['fences','fences-on'],['chairs','chairs-on']]){
   if(!$(checkbox).checked)continue;
   const items=data[type]||[];
@@ -316,7 +336,7 @@ function appendPerson(q){
 function selectionVisibility(type){
  return $( {roads:'roads-on',sidewalks:'sidewalks-on',houses:'houses-on',
   people:'public-on',trees:'trees-on',fences:'fences-on',chairs:'chairs-on',
-  signs:'signs-on',checkpoints:'checkpoints-on'}[type]).checked;
+  signs:'signs-on',checkpoints:'checkpoints-on',labels:'labels-on'}[type]).checked;
 }
 function toggleInSelection(base,item){
  if(!item)return base;
