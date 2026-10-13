@@ -7,6 +7,7 @@ import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
 import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
+import {nextRoofId} from './editor-roof-cycle.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -386,8 +387,13 @@ function finishPolygon(){
  const a=Math.abs(poly.reduce((v,p,i)=>{const q=poly[(i+1)%poly.length];return v+p[0]*q[1]-p[1]*q[0]},0))/2;
  if(a<.015){show('Polígono demasiado estrecho o cruzado. Corrige sus puntos.','error');return}
  snapshot();
- data[kind].push(kind==='houses'?{poly,key:roofById(state.material).key,material:state.material,kind:'manual'}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
- state.working=[];changed();show('Polígono añadido. Revisa si invade otra capa.','good');
+ const roof=roofById(state.material);
+ data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual'}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
+ state.working=[];changed();
+ if(kind==='houses'){
+  advanceRoof();
+  show('Casa terminada: '+roof.name+'. Próximo tejado: '+roofById(state.material).name+'.','good');
+ }else show('Polígono añadido. Revisa si invade otra capa.','good');
 }
 function rotationHandlePosition(){
  const geometry=selectionGeometry(data,state.selectedItems);
@@ -620,12 +626,22 @@ function prepareMap(animation){
   ]
  };
 }
+function roofsInCategory(group=$('roof-category').value){
+ return group==='temple'?[...LANDMARK_ROOF_MATERIALS.filter(m=>['cathedral','salvador','santaAna','baratillo'].includes(m.landmark)),...TEMPLE_ROOF_MATERIALS]:
+  group==='landmark'?LANDMARK_ROOF_MATERIALS:ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
+}
+function advanceRoof(){
+ state.material=nextRoofId(roofsInCategory(),state.material,$('roof-mode').value);
+ palette();
+}
 function palette(){
  const parent=$('palettes');parent.replaceChildren();
- const group=$('roof-category').value;
- const roofs=group==='temple'?[...LANDMARK_ROOF_MATERIALS.filter(m=>['cathedral','salvador','santaAna','baratillo'].includes(m.landmark)),...TEMPLE_ROOF_MATERIALS]:group==='landmark'?LANDMARK_ROOF_MATERIALS:
-  ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
- $('roof-selected').textContent='Seleccionado: '+roofById(state.material).name;
+ const roofs=roofsInCategory();
+ const mode=$('roof-mode').value;
+ $('roof-selected').textContent=(mode==='fixed'?'Tejado elegido: ':'Próximo tejado: ')+roofById(state.material).name;
+ $('roof-mode-help').textContent=mode==='fixed'?'Se mantendrá el mismo tejado hasta que lo cambies.':
+  mode==='random'?'Cada casa tendrá un acabado aleatorio distinto del anterior.':
+  'Al cerrar cada casa, cambiará automáticamente al siguiente tejado de la categoría.';
  for(const roof of roofs){
   const id=Number(roof.key.split(':').at(-1)),button=document.createElement('button');
   button.className='swatch'+(state.material===roof.id?' chosen':'');
@@ -700,7 +716,13 @@ function bind(){
  $('road-material').onchange=e=>{state.roadMaterial=e.target.value};
  $('sidewalk-material').onchange=e=>{state.sidewalkMaterial=e.target.value};
  $('tree-variant').onchange=e=>{state.treeVariant=e.target.value};
- $('roof-category').onchange=palette;
+ $('roof-category').onchange=()=>{
+  const category=$('roof-category').value,roofs=roofsInCategory(category);
+  state.material=roofs[0]?.id||state.material;
+  $('roof-mode').value=(category==='temple'||category==='landmark')?'fixed':'cycle';
+  palette();
+ };
+ $('roof-mode').onchange=palette;
  $('public-mode').onchange=updatePeopleHint;
  $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
  $('people-row-spacing').oninput=e=>{$('people-row-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
@@ -721,9 +743,14 @@ function bind(){
  $('apply-roof').onclick=()=>{
   const selected=state.selectedItems.filter(o=>o.type==='houses');
   if(!selected.length){show('Selecciona primero una o varias casas.','error');return}
-  snapshot();const roof=roofById(state.material);
-  for(const sel of selected){const obj=data.houses[sel.index];if(obj){obj.material=roof.id;obj.key=roof.key}}
-  changed();show('Tejado aplicado a '+selected.length+' edificios.','good');
+  snapshot();const mode=$('roof-mode').value;
+  let count=0;
+  for(const sel of selected){
+   const obj=data.houses[sel.index];if(!obj)continue;
+   const roof=roofById(state.material);obj.material=roof.id;obj.key=roof.key;
+   count++;state.material=nextRoofId(roofsInCategory(),roof.id,mode);
+  }
+  changed();palette();show('Tejado aplicado a '+count+' edificios'+(mode==='fixed'?'.':' con alternancia.'),'good');
  };
  $('apply-surface').onclick=()=>{
   const selected=state.selectedItems.filter(o=>o.type==='roads'||o.type==='sidewalks');

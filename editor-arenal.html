@@ -42,7 +42,7 @@
 #street-name-text{width:100%;padding:10px;color:var(--text);border:1px solid var(--line);background:#15232c;border-radius:8px}
 #delete-selected:disabled,#clear-selected:disabled{opacity:.4}
 @media(max-width:620px){#delete-selected,#clear-selected{font-size:12px}}
-#roof-category{width:100%;margin:7px 0 11px;padding:9px;color:var(--text);background:#15232c;border:1px solid var(--line);border-radius:8px}
+#roof-category,#roof-mode{width:100%;margin:7px 0 11px;padding:9px;color:var(--text);background:#15232c;border:1px solid var(--line);border-radius:8px}
 #palettes.swatches{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:9px}
 #palettes .swatch{height:110px;flex-direction:column;gap:3px;padding:5px;white-space:normal;line-height:1.1;font-size:12px}
 #palettes .swatch img,#palettes .swatch canvas{height:78px;width:100%;object-fit:contain;border-radius:4px}
@@ -159,7 +159,7 @@
  <details open>
   <summary>Tejados, edificios y templos</summary>
    <div>
-    <p class="muted">Cubiertas normales, edificios emblemáticos y templos de Sevilla. Los modelos de templos incluyen basílicas, iglesias y capillas de Semana Santa. Son recreaciones cenitales estilizadas, no planos arquitectónicos exactos.</p>
+    <p class="muted">Los tejados normales pueden alternarse automáticamente para dar variedad a las calles. Los monumentos y templos permanecen fijos por defecto para elegir el edificio exacto.</p>
     <label for="roof-category">Tipo de tejado</label>
     <select id="roof-category">
      <option value="common">Comunes · 9 cubiertas</option>
@@ -167,6 +167,13 @@
      <option value="temple">Templos de Sevilla · 20 modelos</option>
      <option value="extra">Otros acabados · 27 variantes</option>
     </select>
+    <label for="roof-mode"><strong>Cómo alternar los tejados</strong></label>
+    <select id="roof-mode">
+     <option value="cycle">Rotativo automático (recomendado)</option>
+     <option value="random">Aleatorio, sin repetir el anterior</option>
+     <option value="fixed">Tejado fijo</option>
+    </select>
+    <p id="roof-mode-help" class="muted">Al terminar una casa, el siguiente tejado será diferente.</p>
     <div class="swatches" id="palettes"></div>
     <small id="roof-selected" class="muted" aria-live="polite"></small>
     <button id="apply-roof" type="button">Aplicar a edificios seleccionados</button>
