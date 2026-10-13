@@ -424,6 +424,13 @@ function pointerDown(e){
   if(brush.start(q,appendPerson)){updatePeopleHint();changed()}
   return;
  }
+ if(state.tool==='street-name'){
+  const name=$('street-name-text').value.trim();
+  if(!name){show('Escribe el nombre de calle en el panel antes de colocarlo.','error');return}
+  snapshot();data.labels.push([name.slice(0,90),q.map(v=>+v.toFixed(3))]);
+  setSelection([{type:'labels',index:data.labels.length-1,vertex:-1}]);changed();return;
+ }
+ if(state.tool==='people-row'){state.drag={action:'people-row',start:q,end:q};requestDraw();return}
  if(state.tool==='tree'){snapshot();const treeId=$('tree-cycle').checked?TREE_VARIANTS[state.treeIndex%TREE_VARIANTS.length].id:state.treeVariant;data.trees.push({point:q.map(x=>+x.toFixed(3)),radius:Number($('tree-radius').value),variant:treeId,rotation:Math.round((state.treeIndex*47)%360),scale:.88+(state.treeIndex%5)*.06,source:'manual'});state.treeIndex++;changed();return}
  if(state.tool==='fence'||state.tool==='chair'){snapshot();addFurniture(state.tool,q,0);changed();return}
  if(state.tool==='fence-row'||state.tool==='chair-row'){state.drag={action:'furniture-row',type:state.tool==='fence-row'?'fence':'chair',start:q,end:q};requestDraw();return}
@@ -481,7 +488,7 @@ function pointerMove(e){
   return;
  }
  if(a.action==='erase'){eraseAt(q);return}
- if(a.action==='furniture-row'){a.end=q;requestDraw();return}
+ if(a.action==='furniture-row'||a.action==='people-row'){a.end=q;requestDraw();return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
  if(a.action==='rotate-paso'){
   const p=state.paso||data.paso,angle=mouseAngle([p.x,p.y],q),step=angleDelta(a.angle,angle);
@@ -511,6 +518,13 @@ function pointerMove(e){
 }
 function pointerUp(e){
  const a=state.drag,ending=e.type!=='pointercancel';
+ if(ending&&a?.action==='people-row'){
+  snapshot();const brush=makeCrowdStroke(data.people),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
+  let n=brush.start(a.start,appendPerson);
+  if(dist(a.start,a.end)>.001)n+=brush.continue(a.end,spacing,p=>brush.placed<4500&&appendPerson(p));
+  if(n){updatePeopleHint();changed();show(n+' personas colocadas en fila. Puedes deshacer toda la fila con Ctrl+Z.','good')}
+  else{state.history.pop();show('No hay espacio libre para añadir público en esa fila.','info')}
+ }
  if(ending&&a?.action==='furniture-row'){
   snapshot();
   if(dist(a.start,a.end)>=.05)addFurnitureRow(a.type,a.start,a.end);
@@ -649,6 +663,20 @@ function bind(){
  $('roof-category').onchange=palette;
  $('public-mode').onchange=updatePeopleHint;
  $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
+ $('people-row-spacing').oninput=e=>{$('people-row-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
+ $('rename-street').onclick=()=>{
+  const selected=state.selectedItems.filter(x=>x.type==='labels'),name=$('street-name-text').value.trim();
+  if(!selected.length){show('Selecciona antes el nombre de calle que quieres cambiar.','error');return}
+  if(!name){show('Escribe el nuevo nombre antes de renombrar.','error');return}
+  snapshot();for(const sel of selected)if(data.labels[sel.index])data.labels[sel.index][0]=name.slice(0,90);
+  changed();show(selected.length+' nombres de calle actualizados.','good');
+ };
+ $('remove-street').onclick=()=>{
+  const selected=state.selectedItems.filter(x=>x.type==='labels');
+  if(!selected.length){show('Selecciona antes uno o varios nombres de calle.','error');return}
+  snapshot();const n=deleteSelections(data,selected);clearSelection();changed();show(n+' nombres de calle eliminados.','good');
+ };
+ $('street-name-text').addEventListener('keydown',e=>{if(e.key==='Enter'){$('rename-street').click();e.preventDefault()}});
  $('furniture-spacing').oninput=e=>{$('furniture-spacing-value').textContent=Number(e.target.value).toFixed(2)};
  $('apply-roof').onclick=()=>{
   const selected=state.selectedItems.filter(o=>o.type==='houses');
