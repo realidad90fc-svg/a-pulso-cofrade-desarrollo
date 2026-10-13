@@ -11,6 +11,124 @@ export const ROOF_MATERIALS=NATIVE_ROOF_IDS.flatMap((id,i)=>roofModes.map((v,j)=
  id:'roof-'+i+'-'+j,key:'sharedassets2.assets:'+id,name:v.name+' · '+(i+1),
  family:j,filter:v.filter,tint:v.tint,detail:v.detail
 })));
+// Stylized, top-down Sevillian landmark roofs. Unlike flat recolors these
+// are drawn as distinct plans, compatible with the editor and gameplay bridge.
+// Existing 36 native styles retain their IDs for old saved maps.
+export const LANDMARK_ROOF_MATERIALS=[
+ {id:'landmark-catedral',name:'Catedral de Sevilla',landmark:'cathedral',description:'Naves, crucero y bóvedas góticas',key:'sharedassets2.assets:569',group:'landmark'},
+ {id:'landmark-giralda',name:'La Giralda',landmark:'giralda',description:'Torre almohade y cuerpo de campanas',key:'sharedassets2.assets:416',group:'landmark'},
+ {id:'landmark-torre-oro',name:'Torre del Oro',landmark:'goldTower',description:'Planta dodecagonal y linterna',key:'sharedassets2.assets:463',group:'landmark'},
+ {id:'landmark-salvador',name:'Iglesia del Salvador',landmark:'salvador',description:'Cubiertas de teja y nave central',key:'sharedassets2.assets:480',group:'landmark'},
+ {id:'landmark-santa-ana',name:'Santa Ana de Triana',landmark:'santaAna',description:'Naves mudéjares, teja y aleros',key:'sharedassets2.assets:495',group:'landmark'},
+ {id:'landmark-baratillo',name:'Capilla del Baratillo',landmark:'baratillo',description:'Capilla encalada, tejas y espadaña',key:'sharedassets2.assets:562',group:'landmark'},
+ {id:'landmark-maestranza',name:'Real Maestranza',landmark:'maestranza',description:'Graderío anular en torno al ruedo',key:'sharedassets2.assets:566',group:'landmark'},
+ {id:'landmark-archivo-indias',name:'Archivo de Indias',landmark:'archivo',description:'Cuatro crujías y patio interior',key:'sharedassets2.assets:581',group:'landmark'},
+ {id:'landmark-san-telmo',name:'Palacio de San Telmo',landmark:'sanTelmo',description:'Tejados palaciegos y patio central',key:'sharedassets2.assets:554',group:'landmark'},
+ {id:'landmark-alcazar',name:'Real Alcázar',landmark:'alcazar',description:'Cubiertas, patios y alicatados mudéjares',key:'sharedassets2.assets:569',group:'landmark'}
+];
+function drawLandmarkRoof(ctx,m,p,w,h){
+ if(!(w>0&&h>0))return;
+ ctx.save();ctx.translate(p[0],p[1]);ctx.scale(w,h);
+ const fill=(x,y,ww,hh,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,ww,hh)};
+ const border=(x,y,ww,hh,color='#755e47',line=.014)=>{
+  ctx.strokeStyle=color;ctx.lineWidth=line;ctx.strokeRect(x,y,ww,hh)
+ };
+ const ellipse=(x,y,rx,ry,color,stroke=null,width=.014)=>{
+  ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,2*Math.PI);
+  ctx.fillStyle=color;ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}
+ };
+ const roof=(x,y,ww,hh,color='#b76e4e')=>{
+  fill(x,y,ww,hh,color);border(x,y,ww,hh,'#6e4738',.009);
+  ctx.strokeStyle='rgba(248,207,160,.6)';ctx.lineWidth=.007;
+  for(let k=y+.035;k<y+hh-.012;k+=.06){ctx.beginPath();ctx.moveTo(x+.008,k);ctx.lineTo(x+ww-.008,k);ctx.stroke()}
+  ctx.strokeStyle='#80503e';ctx.lineWidth=.014;ctx.beginPath();
+  ctx.moveTo(x+ww/2,y+.01);ctx.lineTo(x+ww/2,y+hh-.01);ctx.stroke()
+ };
+ const blocks=(x,y,ww,hh,nx,ny)=>{
+  ctx.strokeStyle='rgba(92,74,52,.29)';ctx.lineWidth=.004;
+  for(let i=1;i<nx;i++){let z=x+i*ww/nx;ctx.beginPath();ctx.moveTo(z,y);ctx.lineTo(z,y+hh);ctx.stroke()}
+  for(let j=1;j<ny;j++){let z=y+j*hh/ny;ctx.beginPath();ctx.moveTo(x,z);ctx.lineTo(x+ww,z);ctx.stroke()}
+ };
+ const polygon=(x,y,r,n,color,stroke='#76583c')=>{
+  ctx.beginPath();
+  for(let i=0;i<n;i++){let a=-Math.PI/2+2*Math.PI*i/n,q=[x+Math.cos(a)*r,y+Math.sin(a)*r];i?ctx.lineTo(...q):ctx.moveTo(...q)}
+  ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=.013;ctx.stroke()
+ };
+ const shine=()=>{ctx.strokeStyle='rgba(255,244,210,.65)';ctx.lineWidth=.012;ctx.strokeRect(.025,.025,.95,.95)};
+ switch(m.landmark){
+  case 'cathedral':
+   fill(0,0,1,1,'#baaa86');blocks(0,0,1,1,11,7);
+   fill(.14,.12,.72,.76,'#c9b997');border(.14,.12,.72,.76,'#78684c',.022);
+   fill(.34,.08,.32,.84,'#dac8a0');fill(.08,.36,.84,.28,'#d0be9c');
+   for(let i=0;i<7;i++)for(let j=0;j<3;j++){
+    let x=.38+j*.105,y=.14+i*.102;
+    border(x,y,.085,.082,'#907a56',.007);
+    ctx.strokeStyle='#9d8868';ctx.lineWidth=.008;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+.085,y+.082);ctx.moveTo(x+.085,y);ctx.lineTo(x,y+.082);ctx.stroke()
+   }
+   fill(.39,.4,.22,.2,'#a99571');border(.39,.4,.22,.2,'#68573f',.016);
+   shine();break;
+  case 'giralda':
+   fill(0,0,1,1,'#af8154');blocks(0,0,1,1,6,6);
+   fill(.13,.13,.74,.74,'#cea06d');border(.13,.13,.74,.74,'#674f3b',.032);
+   for(let i=0;i<4;i++){fill(.24+i*.145,.15,.065,.11,'#69563f');fill(.24+i*.145,.74,.065,.11,'#69563f')}
+   for(let i=0;i<4;i++){fill(.15,.24+i*.145,.11,.065,'#69563f');fill(.74,.24+i*.145,.11,.065,'#69563f')}
+   fill(.29,.29,.42,.42,'#dec493');border(.29,.29,.42,.42,'#795b41',.026);
+   polygon(.5,.5,.17,8,'#b78a58','#745337');ellipse(.5,.5,.062,.062,'#f4d38d','#755637');
+   shine();break;
+  case 'goldTower':
+   fill(0,0,1,1,'#827a63');polygon(.5,.5,.47,12,'#b4a076');
+   polygon(.5,.5,.39,12,'#d7c391');polygon(.5,.5,.3,12,'#b59d6d');
+   for(let i=0;i<12;i++){let a=-Math.PI/2+i*Math.PI/6;ctx.strokeStyle='#886f4b';ctx.lineWidth=.018;ctx.beginPath();ctx.moveTo(.5+Math.cos(a)*.18,.5+Math.sin(a)*.18);ctx.lineTo(.5+Math.cos(a)*.43,.5+Math.sin(a)*.43);ctx.stroke()}
+   polygon(.5,.5,.19,12,'#e4c987');ellipse(.5,.5,.07,.07,'#9d7a4b','#6f5137');break;
+  case 'salvador':
+   fill(0,0,1,1,'#e0c99f');roof(.1,.12,.27,.76,'#b65d42');roof(.63,.12,.27,.76,'#b25d43');
+   roof(.36,.07,.28,.86,'#cb754a');fill(.36,.41,.28,.13,'#ddae78');
+   for(let i=0;i<5;i++){border(.15,.18+i*.14,.17,.1,'#eee1be',.011);border(.69,.18+i*.14,.17,.1,'#eee1be',.011)}
+   shine();break;
+  case 'santaAna':
+   fill(0,0,1,1,'#e1d2ad');
+   roof(.08,.1,.26,.8,'#bc6647');roof(.37,.1,.26,.8,'#cd8153');roof(.66,.1,.26,.8,'#ad5a43');
+   for(let i=0;i<8;i++){ctx.strokeStyle='#e8cfab';ctx.lineWidth=.01;ctx.beginPath();ctx.moveTo(.08,.14+i*.1);ctx.lineTo(.92,.14+i*.1);ctx.stroke()}
+   fill(.33,.06,.34,.085,'#e5bf83');fill(.33,.86,.34,.085,'#e5bf83');shine();break;
+  case 'baratillo':
+   fill(0,0,1,1,'#f0e3c9');border(.045,.045,.91,.91,'#ad916c',.025);
+   roof(.18,.13,.64,.65,'#b86b49');fill(.1,.78,.8,.16,'#f5ead1');
+   fill(.41,.78,.18,.11,'#c6a777');border(.41,.78,.18,.11,'#8a7051');
+   fill(.455,.8,.09,.08,'#e3cf9c');
+   ellipse(.5,.17,.095,.095,'#e4c98f','#745e46');ellipse(.5,.17,.043,.043,'#866549');
+   shine();break;
+  case 'maestranza':
+   fill(0,0,1,1,'#e6d2b0');
+   ellipse(.5,.5,.47,.43,'#e9e0c7','#b39a7a',.027);
+   ellipse(.5,.5,.39,.35,'#9d865f','#554636',.015);
+   ellipse(.5,.5,.34,.3,'#c3aa81','#8b795c',.015);
+   ellipse(.5,.5,.26,.23,'#e7c38b','#d3a971',.014);
+   for(let i=0;i<24;i++){const a=i*Math.PI/12;ctx.strokeStyle='#f0e5cb';ctx.lineWidth=.008;ctx.beginPath();ctx.moveTo(.5+Math.cos(a)*.35,.5+Math.sin(a)*.31);ctx.lineTo(.5+Math.cos(a)*.45,.5+Math.sin(a)*.4);ctx.stroke()}
+   break;
+  case 'archivo':
+   fill(0,0,1,1,'#ddc8a5');roof(.05,.05,.9,.21,'#a96446');roof(.05,.74,.9,.21,'#ab6645');
+   roof(.05,.24,.21,.52,'#c1794e');roof(.74,.24,.21,.52,'#bd724b');
+   fill(.27,.27,.46,.46,'#e6d7b9');border(.27,.27,.46,.46,'#866b4f',.022);
+   fill(.31,.31,.38,.38,'#c7bd9e');blocks(.31,.31,.38,.38,5,5);
+   shine();break;
+  case 'sanTelmo':
+   fill(0,0,1,1,'#edd7b5');roof(.08,.08,.84,.22,'#bc744e');
+   roof(.08,.7,.84,.22,'#b46a49');roof(.08,.28,.22,.44,'#c47a55');roof(.70,.28,.22,.44,'#b76f50');
+   fill(.33,.33,.34,.34,'#d7c8a7');border(.33,.33,.34,.34,'#927c62',.023);
+   fill(.47,.3,.06,.4,'#a6b1a2');fill(.33,.47,.34,.06,'#a6b1a2');
+   ellipse(.5,.5,.082,.082,'#e9ce9a','#95744f');shine();break;
+  case 'alcazar':
+   fill(0,0,1,1,'#d3c0a0');roof(.06,.06,.37,.25,'#c78353');roof(.57,.06,.37,.25,'#b66e48');
+   roof(.06,.67,.37,.27,'#bb6848');roof(.57,.67,.37,.27,'#cb8752');
+   roof(.06,.32,.18,.34,'#c58152');roof(.76,.32,.18,.34,'#c58152');
+   fill(.26,.33,.48,.33,'#e5d9be');border(.26,.33,.48,.33,'#856d50',.017);
+   fill(.31,.38,.38,.23,'#67938c');border(.31,.38,.38,.23,'#d6c699');
+   ellipse(.5,.5,.04,.04,'#f2e3c8','#a08768');
+   for(let i=0;i<4;i++){ellipse(.12+i*.24,.16,.028,.026,'#4c7d53');ellipse(.12+i*.24,.84,.028,.026,'#4c7d53')}shine();break;
+ }
+ ctx.restore();
+}
 const surfaces=[
  ['Asfalto clásico','#45474a','#6e6c6a','asphalt'],
  ['Asfalto renovado','#34383d','#4c5156','asphalt'],
@@ -56,7 +174,7 @@ const polygonPath=(ctx,poly,pixel)=>{
  ctx.beginPath();poly.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();
 };
 const bounds=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
-export const roofById=id=>ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
+export const roofById=id=>LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
 export const surfaceById=(id,kind='roads')=>{
  const list=kind==='sidewalks'?SIDEWALK_MATERIALS:ROAD_MATERIALS;
  return list.find(m=>m.id===id)||list[0];
@@ -66,6 +184,7 @@ export function drawRoof(ctx,poly,material,pixel,getImage,zoom){
  const m=roofById(material),b=bounds(poly),img=getImage(m.key);
  ctx.save();polygonPath(ctx,poly,pixel);ctx.clip();
  const p=pixel(b[0],b[3]),w=(b[2]-b[0])*zoom,h=(b[3]-b[1])*zoom;
+ if(m.landmark){drawLandmarkRoof(ctx,m,p,w,h);ctx.restore();return}
  ctx.fillStyle='#aa8974';ctx.fillRect(p[0],p[1],w,h);
  if(img){
   ctx.filter=m.filter;ctx.imageSmoothingEnabled=false;
