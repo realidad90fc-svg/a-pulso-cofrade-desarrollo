@@ -8,6 +8,7 @@ import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
 import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
 import {nextRoofId} from './editor-roof-cycle.mjs';
+import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -41,8 +42,14 @@ function restorePreviewStart(){if(savedStart())state.paso={...savedStart()};upda
 function updateStartStatus(){
  if(!data)return;
  const start=savedStart(),fixed=!!data.startPose;
- $('start-status').textContent=fixed?'INICIO FIJADO: X '+start.x.toFixed(2)+' · Y '+start.y.toFixed(2)+' · '+start.angle.toFixed(1)+'°':'Inicio original del mapa';
+ $('start-status').textContent=fixed?'INICIO FIJADO: X '+start.x.toFixed(2)+' · Y '+start.y.toFixed(2)+' · '+start.angle.toFixed(1)+'° · frente hacia el '+pasoFacingName(start.angle):'Inicio original del mapa';
+ updatePasoDirectionStatus();
  $('clear-start').disabled=!fixed;
+}
+function updatePasoDirectionStatus(){
+ const p=state.paso||data?.paso;if(!p)return;
+ const angle=((p.angle||0)%360+360)%360;
+ $('paso-direction').textContent='AVANCE REAL: '+pasoFacingName(angle).toUpperCase()+' · '+angle.toFixed(1)+'° (motor del juego)';
 }
 function deleteSelected(){
  if(!state.selectedItems.length)return;
@@ -193,9 +200,9 @@ function draw(){
   }
  }
  if(data.startPose){
-   const start=data.startPose,q=pixel(start.x,start.y),a=(start.angle-90)*Math.PI/180;
+   const start=data.startPose,q=pixel(start.x,start.y),front=pasoPoint(start,0,.9),end=pixel(...front);
    ctx.save();ctx.strokeStyle='#f1c75b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(q[0],q[1],11,0,Math.PI*2);ctx.stroke();
-   ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]+Math.cos(a)*28,q[1]-Math.sin(a)*28);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(...end);ctx.stroke();
    ctx.fillStyle='#f1c75b';ctx.font='bold 12px system-ui';ctx.fillText('INICIO',q[0]+15,q[1]-15);ctx.restore();
   }
   if(state.drag?.action==='urban-mark'){
@@ -257,25 +264,43 @@ function draw(){
  }
 }
 function drawPaso(){
- const p=state.paso||data.paso; if(!p)return;
- const angle=(p.angle-90)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),w=1.0386,h=2.15;
- const corners=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>[p.x+x*c-y*s,p.y+x*s+y*c]);
- polygon(corners);ctx.fillStyle='rgba(123,65,170,.5)';ctx.fill();
- ctx.strokeStyle='#dfb559';ctx.lineWidth=3;ctx.stroke();
- const center=pixel(p.x,p.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(center[0],center[1],3,0,Math.PI*2);ctx.fill();
- if(state.tool==='paso'){
-  const handle=[center[0],center[1]-Math.max(52,1.15*view.zoom)];
-  ctx.save();ctx.strokeStyle='#ffdc83';ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.moveTo(center[0],center[1]);ctx.lineTo(...handle);ctx.stroke();
-  ctx.fillStyle='#182a32';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText('↻',handle[0],handle[1]);ctx.restore();
+ const p=state.paso||data.paso;if(!p)return;
+ const corners=pasoFootprint(p);if(!corners.length)return;
+ updatePasoDirectionStatus();
+ ctx.save();polygon(corners);
+ ctx.fillStyle='rgba(108,59,151,.58)';ctx.fill();
+ ctx.lineWidth=2.5;ctx.strokeStyle='#efc96e';ctx.stroke();
+ const frontLine=[pasoPoint(p,-.5193,1.075),pasoPoint(p,.5193,1.075)];
+ const backLine=[pasoPoint(p,-.5193,-1.075),pasoPoint(p,.5193,-1.075)];
+ for(const [line,color] of [[frontLine,'#4af2ce'],[backLine,'#e89984']]){
+  const a=pixel(...line[0]),b=pixel(...line[1]);
+  ctx.strokeStyle=color;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
  }
+ // Forward arrow uses the same axis as sim.setAngle() in the native engine.
+ const begin=pixel(...pasoPoint(p,0,.53)),tip=pixel(...pasoPoint(p,0,1.5));
+ const dx=tip[0]-begin[0],dy=tip[1]-begin[1],n=Math.hypot(dx,dy)||1,ux=dx/n,uy=dy/n;
+ ctx.beginPath();ctx.moveTo(...begin);ctx.lineTo(...tip);
+ ctx.strokeStyle='#4af2ce';ctx.lineWidth=3.5;ctx.stroke();
+ ctx.beginPath();ctx.moveTo(...tip);
+ ctx.lineTo(tip[0]-ux*12-uy*6,tip[1]-uy*12+ux*6);
+ ctx.lineTo(tip[0]-ux*12+uy*6,tip[1]-uy*12-ux*6);
+ ctx.closePath();ctx.fillStyle='#4af2ce';ctx.fill();
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.font='bold 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#142331';
+ const frontLabel=[tip[0]+ux*24,tip[1]+uy*24];ctx.strokeText('FRENTE',...frontLabel);ctx.fillStyle='#b7fff0';ctx.fillText('FRENTE',...frontLabel);
+ const backLabel=pixel(...pasoPoint(p,0,-1.35));
+ ctx.font='bold 10px system-ui';ctx.strokeText('TRASERA',...backLabel);ctx.fillStyle='#ffd6c0';ctx.fillText('TRASERA',...backLabel);
+ const center=pixel(p.x,p.y);ctx.beginPath();ctx.arc(...center,3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
  if(state.tool==='paso'){
-  const okay=corners.every(x=>data.roads.some(o=>inPolygon(x,o.poly)));
-  $('paso-test').textContent=okay?'Paso dentro de la calzada':'Paso invade el exterior de la calzada';
+  const handle=pasoRotationHandle(p,view.zoom,pixel);
+  ctx.strokeStyle='#ffdc83';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(...tip);ctx.lineTo(...handle);ctx.stroke();
+  ctx.fillStyle='#142b36';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.fillText('↻',...handle);
+  const okay=corners.every(pt=>data.roads.some(o=>inPolygon(pt,o.poly)));
+  $('paso-test').textContent=!data.roads.length?'Dibuja la calzada alrededor del paso':okay?'Paso dentro de la calzada':'Paso invade el exterior de la calzada';
   $('paso-test').dataset.ok=okay?'yes':'no';
  }
+ ctx.restore();
 }
 function requestDraw(){if(!frames){frames=true;requestAnimationFrame(draw)}}
 function resize(){
@@ -440,7 +465,7 @@ function pointerDown(e){
  if(state.tool==='reference'){photoGuides?.pointerDown(pos);return}
  if(state.tool==='paso'){
   const current=state.paso||data.paso,center=pixel(current.x,current.y),
-   handle=[center[0],center[1]-Math.max(52,1.15*view.zoom)];
+   handle=pasoRotationHandle(current,view.zoom,pixel);
   if(dist(pos,handle)<17){
    state.drag={action:'rotate-paso',angle:mouseAngle([current.x,current.y],q),moved:false};return;
   }
@@ -819,9 +844,7 @@ function bind(){
   snapshot();delete data.startReset;data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
   updateStartStatus();changed();
   const inRoad=p=>(data.roads||[]).some(r=>r.poly&&inPolygon(p,r.poly));
-  const theta=(pose.angle-90)*Math.PI/180,c=Math.cos(theta),s=Math.sin(theta);
-  const complete=[[-.68,-1.50],[.68,-1.50],[.68,1.50],[-.68,1.50]]
-   .map(([x,y])=>[pose.x+x*c-y*s,pose.y+x*s+y*c]);
+  const complete=pasoFootprint(pose,1.36,3.0);
   if(!data.roads?.length)show('Inicio guardado, pero aún no hay calzada. Dibuja la calle alrededor de toda la huella, incluida la manigueta.','info');
   else if(complete.some(p=>!inRoad(p)))show('Inicio guardado con aviso: puede rozar una pared o estar fuera de la calzada. Revisa el espacio libre antes de jugar.','info');
   else show('Inicio guardado. Hay espacio aproximado; comprueba las colisiones reales al probar el juego.','good');
@@ -867,9 +890,7 @@ function validate(){
  }
  if(roofsOnRoad)warnings.push(roofsOnRoad+' edificios invaden o tocan el camino');
  if(pedestrianHouse)warnings.push(pedestrianHouse+' personas aparecen dentro de edificios');
- const paso=(state.paso||data.paso),angle=(paso.angle-90)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle);
- const footprint=[[-.5193,-1.075],[.5193,-1.075],[.5193,1.075],[-.5193,1.075]]
-  .map(([x,y])=>[paso.x+x*c-y*s,paso.y+x*s+y*c]);
+ const paso=state.paso||data.paso,footprint=pasoFootprint(paso);
  if(!footprint.every(inRoad))warnings.push('El paso de prueba queda fuera de la calzada');
  const result=$('validation');result.innerHTML='';
  const heading=document.createElement('strong');heading.textContent=warnings.length?'Revisión: '+warnings.length+' advertencias':'Comprobaciones básicas superadas';

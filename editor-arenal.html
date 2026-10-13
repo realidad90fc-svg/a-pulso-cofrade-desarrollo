@@ -148,6 +148,9 @@
  <div class="stack">
  <p class="muted">Pulsa <strong>✦ Probar paso</strong>, mueve el paso al punto de salida y gíralo usando ↻ hasta orientarlo bien. Después confirma.</p>
  <div id="start-status" class="notice">Inicio original del mapa</div>
+ <div id="paso-direction" class="notice" aria-live="polite">AVANCE REAL DEL PASO: aún sin definir</div>
+ <p class="muted"><strong>FRENTE</strong> (turquesa) señala la dirección de avance real; <strong>TRASERA</strong> (salmón) señala la parte posterior. El tirador ↻ se sitúa delante del paso.</p>
+ <p class="muted">La cámara del juego puede girar y hacer que el paso parezca orientado de otra forma en pantalla. La flecha representa la dirección sobre el mapa.</p>
  <button id="set-start" type="button" class="primary">📍 Establecer posición inicial</button>
  <div class="actions"><button id="go-start" type="button">Volver al inicio</button><button id="clear-start" type="button" class="danger">Inicio original</button></div>
  <p class="muted">Puedes definirlo antes de construir las calles. Se guarda y exporta con el mapa y no cambia los checkpoints.</p>
@@ -297,7 +300,7 @@
   </details>
   <details>
    <summary>Probar maniobra del paso</summary>
-   <div><p class="muted">Huella del paso (1,04 × 2,15 unidades). En «Probar paso», arrastra el círculo ↻ para girarlo.</p>
+   <div><p class="muted">La huella del paso (1,04 × 2,15 unidades) muestra una flecha turquesa para el FRENTE (dirección de avance del juego) y una barra salmón para la TRASERA. Gírala mediante ↻, que ahora sigue la orientación real.</p>
     <p class="muted">Esta vista previa orienta, pero las colisiones completas deben comprobarse jugando.</p>
    </div>
   </details>
