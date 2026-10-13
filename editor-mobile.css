@@ -1,6 +1,6 @@
 /* Mobile presentation only. Desktop editor, canvas geometry and persistence are unchanged. */
 .mobile-quick,.mobile-sheet-title,.mobile-file-actions,.mobile-edit-actions,
-.mobile-backdrop,.mobile-tray-title,.mobile-local-hint,#mobile-header-settings{display:none}
+.mobile-backdrop,.mobile-tray-title,.mobile-local-hint,.mobile-step-actions,#mobile-header-settings{display:none}
 
 @media (max-width:850px), (max-height:600px) and (pointer:coarse){
  :root{--ap-mobile-header:calc(57px + env(safe-area-inset-top,0px));--ap-mobile-dock:calc(74px + env(safe-area-inset-bottom,0px))}
@@ -100,6 +100,17 @@
  .mobile-edit-actions button{min-height:42px;font-size:12px;padding:7px 9px;
   background:#182b35ed;border:1px solid #5e8387;border-radius:10px}
  .mobile-edit-actions button:first-child{background:#b7e4d9;color:#142922;font-weight:800}
+ /* Compact touch rotation controls, only visible with the paso preview selected. */
+ .mobile-step-actions{position:absolute;right:8px;bottom:80px;z-index:6;
+  display:none;align-items:center;gap:6px;padding:6px 7px;
+  background:#172932f2;border:1px solid #507b81;border-radius:12px;
+  box-shadow:0 4px 20px #0005}
+ body.mobile-paso-mode .mobile-step-actions{display:flex}
+ .mobile-step-actions span{font-size:11px;font-weight:750;color:#b9e6e4;white-space:nowrap}
+ .mobile-step-actions button{min-width:57px;min-height:45px;
+  font-size:15px;font-weight:800;border:1px solid #61898b;background:#2a414a;
+  border-radius:9px;padding:8px}
+ .mobile-step-actions button:active{background:#a9e1d7;color:#132c2b}
  #publish-dialog{max-height:calc(90dvh - env(safe-area-inset-top,0px))}
 }
 @media(max-width:370px){
@@ -118,4 +129,5 @@
  nav.toolbar{max-height:67dvh}
  .mobile-file-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
  .mobile-edit-actions{top:55px}
+ .mobile-step-actions{bottom:10px;right:8px}
 }
