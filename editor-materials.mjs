@@ -232,15 +232,22 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
  }
  ctx.restore();
 }
+// The editor zoom is pixels/world-unit, but the game draws in world units
+// through its camera transform. Never impose a screen-pixel minimum on world units.
+export function treeDrawRadius(tree,zoom=1){
+ const radius=Number.isFinite(tree?.radius)?tree.radius:.35;
+ const scale=Number.isFinite(tree?.scale)?tree.scale:1;
+ return Math.max(.125,radius*scale)*Math.max(.00001,Number.isFinite(zoom)?zoom:1);
+}
 export function drawTree(ctx,tree,pixel,zoom,getImage){
  const variant=TREE_VARIANTS.find(m=>m.id===tree.variant)||TREE_VARIANTS[0],p=pixel(...tree.point),
-   r=Math.max(3,(tree.radius||.35)*(tree.scale||1)*zoom),a=(tree.rotation||0)*Math.PI/180;
+   r=treeDrawRadius(tree,zoom),a=(tree.rotation||0)*Math.PI/180;
  ctx.save();ctx.translate(...p);ctx.rotate(-a);
  const original=getImage('sharedassets2.assets:563');
  if(variant.id==='tree-0'&&original){ctx.imageSmoothingEnabled=false;ctx.drawImage(original,-r,-r,r*2,r*2);ctx.restore();return}
  ctx.fillStyle='#47392c';ctx.beginPath();ctx.arc(0,0,r*.2,0,Math.PI*2);ctx.fill();
- ctx.shadowColor='rgba(0,0,0,.27)';ctx.shadowBlur=Math.max(1,r*.22);
- ctx.fillStyle=variant.tone;ctx.strokeStyle='rgba(25,42,26,.75)';ctx.lineWidth=Math.max(1,r*.08);
+ ctx.shadowColor='rgba(0,0,0,.27)';ctx.shadowBlur=Math.max(.075*zoom,r*.22);
+ ctx.fillStyle=variant.tone;ctx.strokeStyle='rgba(25,42,26,.75)';ctx.lineWidth=Math.max(.04*zoom,r*.08);
  if(variant.shape==='palm'){
   for(let i=0;i<9;i++){const t=i*Math.PI*2/9;ctx.save();ctx.rotate(t);ctx.beginPath();ctx.ellipse(r*.37,0,r*.47,r*.13,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore()}
  }else if(variant.shape==='lobed'||variant.shape==='cluster'){
