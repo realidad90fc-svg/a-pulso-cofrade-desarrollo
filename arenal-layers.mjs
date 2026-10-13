@@ -289,7 +289,23 @@ export function paintArenalScene(route,ctx,images,r){
     ctx.drawImage(floor,322,40,110,110,px(x),py(y+1.12),1.12*p,1.12*p);
   ctx.restore();
  }
- // FOURTH-BUILT: buildings are strictly clipped fragments outside street,
+ // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
+ for(const sw of route.sidewalks){
+  if(!boxhit(sw.bbox,r))continue;
+  ctx.save();path(sw.poly);ctx.clip();
+  ctx.fillStyle='#a5a09a';ctx.fill();
+  ctx.strokeStyle='#b3ada6';ctx.lineWidth=.015*p;
+  const [x,y,xx,yy]=sw.bbox;
+  for(let u=Math.floor(x/.22)*.22;u<xx;u+=.22){
+   ctx.beginPath();ctx.moveTo(px(u),py(yy));ctx.lineTo(px(u),py(y));ctx.stroke();
+  }
+  for(let v=Math.floor(y/.22)*.22;v<yy;v+=.22){
+   ctx.beginPath();ctx.moveTo(px(x),py(v));ctx.lineTo(px(xx),py(v));ctx.stroke();
+  }
+  ctx.restore();
+ }
+ // Nivel superior: los tejados se dibujan sobre cualquier acera superpuesta.
+ // Los edificios quedan matemáticamente recortados fuera de la calle,
  // audience footprints and pavements. Any loose roofs are mathematically
  // impossible rather than painted over.
  for(const lot of route.buildings){
@@ -325,21 +341,6 @@ export function paintArenalScene(route,ctx,images,r){
      }
     }
    }
-  }
-  ctx.restore();
- }
- // THIRD-BUILT: continuous narrow sidewalks with native stone tone.
- for(const sw of route.sidewalks){
-  if(!boxhit(sw.bbox,r))continue;
-  ctx.save();path(sw.poly);ctx.clip();
-  ctx.fillStyle='#a5a09a';ctx.fill();
-  ctx.strokeStyle='#b3ada6';ctx.lineWidth=.015*p;
-  const [x,y,xx,yy]=sw.bbox;
-  for(let u=Math.floor(x/.22)*.22;u<xx;u+=.22){
-   ctx.beginPath();ctx.moveTo(px(u),py(yy));ctx.lineTo(px(u),py(y));ctx.stroke();
-  }
-  for(let v=Math.floor(y/.22)*.22;v<yy;v+=.22){
-   ctx.beginPath();ctx.moveTo(px(x),py(v));ctx.lineTo(px(xx),py(v));ctx.stroke();
   }
   ctx.restore();
  }

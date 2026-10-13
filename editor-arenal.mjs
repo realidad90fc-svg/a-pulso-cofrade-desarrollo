@@ -170,11 +170,13 @@ function renderStaticScene(){
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
  photoGuides?.draw('background');
  if(!data)return;
- if($('houses-on').checked)for(let i=0;i<data.houses.length;i++){const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o)}
+ // Orden visual fijo: los tejados se pintan sobre aceras y calzada,
+ // independientemente del orden de creación o del solapamiento de polígonos.
  if($('sidewalks-on').checked){
   for(let i=0;i<data.sidewalks.length;i++){const o=data.sidewalks[i];drawFloor(o.poly,'sidewalks',o.material||SIDEWALK_MATERIALS[i%SIDEWALK_MATERIALS.length].id)}
  }
  if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){const o=data.roads[i];drawFloor(o.poly,'roads',o.material||ROAD_MATERIALS[i%ROAD_MATERIALS.length].id)}
+ if($('houses-on').checked)for(let i=0;i<data.houses.length;i++){const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o)}
  if($('urban-on').checked)for(const o of data.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  if($('public-on').checked)drawPeople();
  if($('trees-on').checked)for(const t of data.trees||[])drawTree(ctx,t,pixel,view.zoom,getImage);
