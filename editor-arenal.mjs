@@ -2,7 +2,7 @@ import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
-import {ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {ROOF_MATERIALS,LANDMARK_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
@@ -113,7 +113,7 @@ function bboxHit(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1]}
 function drawTexture(poly,key,fallback,variant=0){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
  const base=roofById(key),baseIndex=Math.max(0,NATIVE_ROOF_IDS.indexOf(Number(String(base.key).split(':').at(-1))));
- const material=String(key||'').startsWith('roof-')?key:'roof-'+baseIndex+'-'+variant%4;
+ const material=/^(roof-|landmark-)/.test(String(key||''))?key:'roof-'+baseIndex+'-'+variant%4;
  drawRoof(ctx,poly,material,pixel,getImage,view.zoom);
 }
 function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
@@ -405,7 +405,7 @@ function pointerDown(e){
   return;
  }
  if(state.tool==='tree'){snapshot();const treeId=$('tree-cycle').checked?TREE_VARIANTS[state.treeIndex%TREE_VARIANTS.length].id:state.treeVariant;data.trees.push({point:q.map(x=>+x.toFixed(3)),radius:Number($('tree-radius').value),variant:treeId,rotation:Math.round((state.treeIndex*47)%360),scale:.88+(state.treeIndex%5)*.06,source:'manual'});state.treeIndex++;changed();return}
- if(state.tool==='fence'||state.tool==='chair'){snapshot();addFurniture(state.tool,q,Number($('furniture-angle').value)||0);changed();return}
+ if(state.tool==='fence'||state.tool==='chair'){snapshot();addFurniture(state.tool,q,0);changed();return}
  if(state.tool==='fence-row'||state.tool==='chair-row'){state.drag={action:'furniture-row',type:state.tool==='fence-row'?'fence':'chair',start:q,end:q};requestDraw();return}
  if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
  if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
@@ -494,7 +494,7 @@ function pointerUp(e){
  if(ending&&a?.action==='furniture-row'){
   snapshot();
   if(dist(a.start,a.end)>=.05)addFurnitureRow(a.type,a.start,a.end);
-  else addFurniture(a.type,a.start,Number($('furniture-angle').value)||0);
+  else addFurniture(a.type,a.start,0);
   changed();
  }
  if(ending&&a?.action==='marquee'){
@@ -567,15 +567,31 @@ function prepareMap(animation){
 }
 function palette(){
  const parent=$('palettes');parent.replaceChildren();
- for(const roof of ROOF_MATERIALS){
+ const group=$('roof-category').value;
+ const roofs=group==='landmark'?LANDMARK_ROOF_MATERIALS:
+  ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
+ $('roof-selected').textContent='Seleccionado: '+roofById(state.material).name;
+ for(const roof of roofs){
   const id=Number(roof.key.split(':').at(-1)),button=document.createElement('button');
   button.className='swatch'+(state.material===roof.id?' chosen':'');
-  button.title=roof.name+' · material del juego '+id;button.type='button';
-  const im=document.createElement('img');im.loading='lazy';im.src='./assets/original-animation/sprite-'+id+'.webp';
-  im.alt=roof.name;im.style.filter=roof.filter;
-  if(roof.family===2)im.style.backgroundColor='#d7cdb8';
+  button.title=roof.name+(roof.description?' · '+roof.description:'');
+  button.type='button';
+  if(roof.landmark){
+   const preview=document.createElement('canvas');preview.width=144;preview.height=90;
+   preview.setAttribute('aria-label','Vista cenital de '+roof.name);
+   drawRoof(preview.getContext('2d'),[[6,6],[138,6],[138,84],[6,84]],roof.id,
+    (x,y)=>[x,90-y],()=>null,1);
+   button.appendChild(preview);
+  }else{
+   const image=document.createElement('img');
+   image.loading='lazy';image.src='./assets/original-animation/sprite-'+id+'.webp';
+   image.alt=roof.name;image.style.filter=roof.filter;
+   if(roof.family===2)image.style.backgroundColor='#d7cdb8';
+   button.appendChild(image);
+  }
   const name=document.createElement('small');name.textContent=roof.name;
-  button.append(im,name);button.onclick=()=>{state.material=roof.id;palette();requestDraw()};
+  button.appendChild(name);
+  button.onclick=()=>{state.material=roof.id;palette();requestDraw()};
   parent.appendChild(button);
  }
  function options(select,items,chosen){
@@ -605,12 +621,12 @@ function bind(){
  for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
- $('delete').onclick=deleteSelected;
  $('delete-selected').onclick=deleteSelected;
  $('clear-selected').onclick=clearSelection;
  $('road-material').onchange=e=>{state.roadMaterial=e.target.value};
  $('sidewalk-material').onchange=e=>{state.sidewalkMaterial=e.target.value};
  $('tree-variant').onchange=e=>{state.treeVariant=e.target.value};
+ $('roof-category').onchange=palette;
  $('public-mode').onchange=updatePeopleHint;
  $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
  $('furniture-spacing').oninput=e=>{$('furniture-spacing-value').textContent=Number(e.target.value).toFixed(2)};
@@ -632,14 +648,6 @@ function bind(){
   changed();show('Pavimento aplicado a '+selected.length+' superficies.','good');
  };
  const selectedFurniture=()=>state.selectedItems.filter(o=>['fences','chairs'].includes(o.type));
- const rotateSelected=degrees=>{
-  const items=selectedFurniture();if(!items.length){show('Selecciona una o varias vallas o sillas.','error');return}
-  snapshot();
-  for(const item of items){const obj=data[item.type]?.[item.index];if(obj)obj.angle=((obj.angle||0)+degrees+360)%360}
-  changed();
- };
- $('rotate-selected-left').onclick=()=>rotateSelected(-15);
- $('rotate-selected-right').onclick=()=>rotateSelected(15);
  $('duplicate-selected').onclick=()=>{
   const items=selectedFurniture();if(!items.length){show('Selecciona una o varias vallas o sillas.','error');return}
   snapshot();const duplicated=[];
@@ -668,8 +676,6 @@ function bind(){
  $('goto-chapel').onclick=()=>{const p=data.checkpoints?.[0]?.position||data.checkpoint;focusAt(...p,Math.min(48,Math.max(view.zoom,20)))};
  $('goto-all').onclick=fitMap;
  $('zoom-in').onclick=()=>zoomAt(1.3);$('zoom-out').onclick=()=>zoomAt(1/1.3);
- $('paso-left').onclick=()=>{state.paso.angle=(state.paso.angle-5+360)%360;changed()};
- $('paso-right').onclick=()=>{state.paso.angle=(state.paso.angle+5)%360;changed()};
  // Photo guide images and positions are private browser data, separate from game geometry.
  photoGuides?.bind();
  $('check').onclick=validate;
