@@ -8,7 +8,7 @@ const BASE='https://api.github.com';
 const KEYS=new Set(['SalidaPureza','AltozanoPuente','CaminoCentro','CarreraOficial',
  'CatedralPostigo','RegresoArenal','AlemanesPlacentinesFrancos',
  ...Array.from({length:10},(_,i)=>'native-'+(i+1))]);
-const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs'];
+const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels'];
 const MAX_BODY=3_600_000;
 function fail(message,status=400){const e=new Error(message);e.status=status;throw e}
 function point(v){return Array.isArray(v)&&v.length>=2&&v.slice(0,2).every(n=>Number.isFinite(n)&&Math.abs(n)<=10000)?v.slice(0,2):fail('Hay coordenadas fuera de rango.')}
@@ -19,6 +19,12 @@ function poly(v){
  return v.map(point);
 }
 function item(v,kind){
+ if(kind==='labels'){
+  if(!Array.isArray(v)||v.length!==2)fail('El nombre de calle tiene un formato inválido.');
+  const name=string(v[0],90).trim();
+  if(!name)fail('El nombre de calle no puede estar vacío.');
+  return[name,point(v[1])];
+ }
  if(!v||typeof v!=='object'||Array.isArray(v))fail('Elemento de mapa inválido.');
  if(['roads','sidewalks','houses'].includes(kind)){
   const result={poly:poly(v.poly)};
@@ -58,7 +64,7 @@ function item(v,kind){
 }
 function cleanArray(v,kind){
  if(!Array.isArray(v))fail('Falta la capa '+kind+'.');
- const limit=kind==='people'?12000:kind==='roads'?4000:kind==='houses'?7000:kind==='sidewalks'?9000:kind==='checkpoints'?500:6000;
+ const limit=kind==='people'?12000:kind==='roads'?4000:kind==='houses'?7000:kind==='sidewalks'?9000:kind==='checkpoints'?500:kind==='labels'?600:6000;
  if(v.length>limit)fail('La capa '+kind+' supera el máximo permitido.');
  return v.map(x=>item(x,kind));
 }
@@ -67,18 +73,19 @@ function sanitize(body){
  const key=body?.mapKey;
  if(!KEYS.has(key)||!v||v.schema!=='apulso-game-draft-v1'||v.mapKey!==key)fail('Mapa o formato de publicación no válido.',422);
  const layers={};
- for(const kind of KINDS)layers[kind]=cleanArray(v.layers?.[kind],kind);
+ for(const kind of KINDS)layers[kind]=cleanArray(kind==='labels'?(v.layers?.labels||[]):v.layers?.[kind],kind);
  const modified=KINDS.reduce((n,k)=>n+layers[k].length,0);
+ const labelScene=v.labelScene===undefined||v.labelScene===null?null:cleanArray(v.labelScene,'labels');
  const scene={};
  if(v.arenalScene!==undefined&&v.arenalScene!==null){
   if(key!=='RegresoArenal'||typeof v.arenalScene!=='object'||Array.isArray(v.arenalScene))fail('Geometría detallada no válida.',422);
   for(const kind of ['roads','sidewalks','houses','people'])
    if(Object.hasOwn(v.arenalScene,kind))scene[kind]=cleanArray(v.arenalScene[kind],kind);
  }
- const removals=key==='RegresoArenal'&&Object.keys(scene).length?number(v.total,modified,0,20000)-modified:0;
+ const removals=labelScene!==null||Object.keys(scene).length?number(v.total,modified,0,20000)-modified:0;
  if(!modified&&removals<=0)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
  const draft={schema:'apulso-game-draft-v1',mapKey:key,createdAt:new Date().toISOString(),
-  layers,total:modified+Math.max(0,removals),arenalScene:key==='RegresoArenal'?scene:null};
+  layers,total:modified+Math.max(0,removals),arenalScene:key==='RegresoArenal'?scene:null,labelScene};
  if(Buffer.byteLength(JSON.stringify(draft))>MAX_BODY)fail('El mapa supera el tamaño máximo de publicación.',413);
  return draft;
 }
