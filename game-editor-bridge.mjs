@@ -189,6 +189,8 @@ export function attachEditorDraft(sim,draftOverride=undefined){
 export class RuntimeEditorDraft{
  constructor(draft){
   this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;
+   // Previously discarded by the runtime wrapper: caused editor-defined starts not to load.
+   this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
   this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
   this.obstacles=obstaclesFor(this.layers);
   this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
