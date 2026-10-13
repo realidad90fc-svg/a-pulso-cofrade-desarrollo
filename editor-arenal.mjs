@@ -348,6 +348,19 @@ function resize(){
  canvas.width=Math.round(view.w*view.dpr);canvas.height=Math.round(view.h*view.dpr);
  requestDraw();
 }
+function rotatePasoOnMobile(delta){
+ if(!window.matchMedia('(max-width:850px), (max-height:600px) and (pointer:coarse)').matches)return;
+ if(state.tool!=='paso'||!data)return;
+ const p=state.paso||data.paso;
+ if(!p)return;
+ snapshot();
+ state.paso={...p,angle:(((p.angle||0)+delta)%360+360)%360};
+ changed();
+ updatePasoDirectionStatus();
+}
+$('mobile-step-left')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
+$('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(5));
+
 function configureTool(name){
  state.tool=name;state.working=[];state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
@@ -506,7 +519,10 @@ function pointerDown(e){
  if(state.tool==='paso'){
   const current=state.paso||data.paso,center=pixel(current.x,current.y),
    handle=pasoRotationHandle(current,view.zoom,pixel);
-  if(dist(pos,handle)<17){
+  // Fingers hide the small knob; give touch a larger target without
+  // changing the original 17px mouse hitbox or the paso's geometry.
+  const rotateHitRadius=e.pointerType==='touch'?35:e.pointerType==='pen'?23:17;
+  if(dist(pos,handle)<rotateHitRadius){
    state.drag={action:'rotate-paso',angle:mouseAngle([current.x,current.y],q),moved:false};return;
   }
   snapshot();state.drag={action:'paso',pos};state.paso={...current,x:q[0],y:q[1]};changed();return;
