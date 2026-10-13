@@ -1,4 +1,5 @@
 // Private photo guides for the A Pulso map workshop.
+import {parseEarthAltitude,estimateEarthPhotoSize} from './editor-earth-scale.mjs';
 // Photos never leave this browser: binary data and transforms use IndexedDB,
 // outside the game model and outside exported JSON.
 const DATABASE='apulso-private-map-photos-v1';
@@ -8,7 +9,8 @@ const round=n=>Math.round(n*1000)/1000;
 const strip=photo=>({
  id:photo.id,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
  width:photo.width,height:photo.height,scale:photo.scale,rotation:photo.rotation,
- opacity:photo.opacity,locked:photo.locked,visible:photo.visible,order:photo.order
+ opacity:photo.opacity,locked:photo.locked,visible:photo.visible,order:photo.order,
+  cameraHeightM:photo.cameraHeightM??null,calibration:photo.calibration||'manual'
 });
 function openDatabase(){
  return new Promise((resolve,reject)=>{
@@ -52,7 +54,7 @@ async function decode(blob){
 }
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const selectedText=p=>p?.name||'';
-export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView}){
+export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage}){
  const el=id=>document.getElementById(id);
  let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
  let storageAvailable=true;
@@ -107,6 +109,10 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    el('reference-opacity-value').textContent=Math.round(p.opacity*100)+'%';
    el('reference-scale-value').textContent=Math.round(p.scale*100)+'%';
    el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
+    el('reference-height').value=p.cameraHeightM??'';
+    el('reference-scale-source').textContent=p.calibration==='earth'&&p.cameraHeightM?
+     'Google Earth · '+p.cameraHeightM+' m de altura · tamaño estimado '+p.width.toFixed(1)+' × '+p.height.toFixed(1)+' m. Ajusta el porcentaje si hay perspectiva o recorte.':
+     'Fotografía sin escala automática. Puedes indicar su altura de Google Earth y pulsar «Recalcular». ';
   }
   el('reference-storage').textContent=storageAvailable?
    'Las fotos y su colocación se guardan solo en este navegador. No se suben ni se incluyen en el JSON.':
@@ -155,22 +161,41 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    if(!['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif','image/bmp'].includes(file.type)){show('Usa una imagen PNG, JPG, WebP, HEIC, GIF o AVIF.','error');continue}
    if(file.size>MAX_SIZE){show('La foto supera los 25 MB: '+file.name,'error');continue}
    try{
+    // Ask per file before decoding, while the file-input gesture is active.
+    // Empty = regular (uncalibrated) photo. Cancel = do not import this file.
+    const rawHeight=window.prompt(
+     '¿Qué ALTURA DE CÁMARA indica Google Earth para «'+file.name+'»?\n'+
+     'Ejemplo: 106 (metros).\n'+
+     'Deja vacío si no es una captura de Google Earth.\n'+
+     'La escala será aproximada y podrás ajustarla después.',''
+    );
+    if(rawHeight===null)continue;
+    let cameraHeightM=null;
+    if(rawHeight.trim()){
+     cameraHeightM=parseEarthAltitude(rawHeight);
+     if(cameraHeightM===null){show('Altura inválida. Indica entre 5 y 3000 metros (por ejemplo, 106). No se ha añadido «'+file.name+'».','error');continue}
+    }
     const converted=await decode(file);
     if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
-    const w=12,h=12*converted.image.naturalHeight/converted.image.naturalWidth;
+    const estimated=cameraHeightM?estimateEarthPhotoSize(converted.image.naturalWidth,converted.image.naturalHeight,cameraHeightM):null;
+    const width=estimated?.width||12;
+    const height=estimated?.height||12*converted.image.naturalHeight/converted.image.naturalWidth;
     const view=getView();
     const p={id:crypto.randomUUID?.()||('photo-'+Date.now()+'-'+Math.random()),mapKey:startMap,
-     name:file.name,position:[round(view.cx),round(view.cy)],width:w,height:h,
-     scale:1,rotation:0,opacity:.36,locked:false,visible:true,order:photos.length,...converted};
+     name:file.name,position:[round(view.cx),round(view.cy)],width:round(width),height:round(height),
+     scale:1,rotation:0,opacity:.36,locked:false,visible:true,order:photos.length,
+     cameraHeightM,calibration:estimated?'earth':'manual',...converted};
     if(storageAvailable){
      try{await persist(p,file)}
      catch(e){storageAvailable=false;show('Foto cargada, pero no se pudo conservar al cerrar el navegador: '+e.message,'error')}
     }
     if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
-    photos.push(p);currentId=p.id;added++;updateUI();requestDraw();
+    photos.push(p);currentId=p.id;added++;updateUI();
+    if(estimated&&typeof focusImage==='function')focusImage(p);
+    requestDraw();
    }catch(e){show('No se pudo abrir «'+file.name+'»: '+e.message,'error')}
   }
-  if(added)show(added+' foto(s) añadida(s). Usa «Ajustar foto» para arrastrar la elegida.','good');
+  if(added)show(added+' foto(s) añadida(s). Las capturas con altura indicada se han colocado a escala aproximada; usa «Ajustar foto» para alinearlas.','good');
  }
  function mutate(name,value){
   const p=selected();if(!p)return;
@@ -271,7 +296,20 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    ['reference-rotation','rotation',v=>Number(v)],
    ['reference-angle','rotation',v=>clamp(Number(v),-180,180)]
   ])el(input).addEventListener('input',event=>{const x=convert(event.target.value);if(Number.isFinite(x))mutate(key,x)});
-  el('reference-locked').onchange=e=>mutate('locked',e.target.checked);
+  el('reference-recalculate').onclick=()=>{
+    const p=selected();if(!p)return;
+    if(p.locked){show('Desbloquea la imagen antes de recalcular su escala.','error');return}
+    const altitude=parseEarthAltitude(el('reference-height').value);
+    if(altitude===null){show('Escribe una altura de cámara entre 5 y 3000 metros.','error');return}
+    const size=estimateEarthPhotoSize(p.image.naturalWidth,p.image.naturalHeight,altitude);
+    if(!size){show('No ha sido posible calcular la escala de esta fotografía.','error');return}
+    p.width=round(size.width);p.height=round(size.height);p.scale=1;
+    p.cameraHeightM=altitude;p.calibration='earth';
+    updateUI();markDirty();
+    if(typeof focusImage==='function')focusImage(p);
+    show('Escala aproximada actualizada para '+altitude+' m de altura. Puedes afinarla con «Tamaño».','good');
+   };
+   el('reference-locked').onchange=e=>mutate('locked',e.target.checked);
   el('reference-visible').onchange=e=>mutate('visible',e.target.checked);
   el('reference-overlay').onchange=requestDraw;
   el('reference-clear').onclick=deleteSelected;

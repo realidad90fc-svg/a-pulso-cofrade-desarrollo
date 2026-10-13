@@ -952,7 +952,14 @@ async function init(){
    }
    selector.appendChild(group);
   }
-  photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view});
+  photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view,
+    focusImage:photo=>{
+     // Show the full calibrated photo without changing its true world-space size.
+     const usableW=Math.max(150,view.w-70),usableH=Math.max(150,view.h-70);
+     view.cx=photo.position[0];view.cy=photo.position[1];
+     view.zoom=Math.max(1.5,Math.min(145,usableW/(photo.width*photo.scale),usableH/(photo.height*photo.scale)));
+     requestDraw();
+    }});
   palette();setupUrbanPalette();bind();resize();
   setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
   const requested=new URLSearchParams(location.search).get('map');
