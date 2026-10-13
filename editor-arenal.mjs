@@ -18,6 +18,7 @@ const storageFor=key=>'apulso-universal-editor-v2:'+key;
 const colors={road:'#45474d',sidewalk:'#aaa49a',bg:'#676863',selected:'#31d5ed',warning:'#ff6562'};
 const getId=(key)=>String(key).split(':').at(-1);
 const images=new Map();
+const roofPreviewCache=new Map(); // Reuse drawings when switching roofs or adding many houses.
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
 const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
 let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null;
@@ -666,10 +667,14 @@ function palette(){
   button.title=roof.name+(roof.description?' · '+roof.description:'');
   button.type='button';
   if(roof.landmark||roof.temple||roof.roofFamily){
-   const preview=document.createElement('canvas');preview.width=144;preview.height=90;
-   preview.setAttribute('aria-label','Vista cenital de '+roof.name);
-   drawRoof(preview.getContext('2d'),[[6,6],[138,6],[138,84],[6,84]],roof.id,
-    (x,y)=>[x,90-y],()=>null,1);
+   let preview=roofPreviewCache.get(roof.id);
+   if(!preview){
+    preview=document.createElement('canvas');preview.width=144;preview.height=90;
+    preview.setAttribute('aria-label','Vista cenital de '+roof.name);
+    drawRoof(preview.getContext('2d'),[[6,6],[138,6],[138,84],[6,84]],roof.id,
+     (x,y)=>[x,90-y],()=>null,1);
+    roofPreviewCache.set(roof.id,preview);
+   }
    button.appendChild(preview);
   }else{
    const image=document.createElement('img');
