@@ -51,6 +51,7 @@
 #roof-selected{display:block;min-height:28px;margin:4px 0}
 #urban-preview{display:block;width:100%;height:105px;background:#555956;border:1px solid #59636a;border-radius:8px}
 </style>
+<link rel="stylesheet" href="./editor-mobile.css">
 </head>
 <body>
 <header class="titlebar">
@@ -60,12 +61,14 @@
  </div>
  <div class="title-actions">
   <button id="save" title="Guardar en este navegador">Guardar</button>
+  <button id="mobile-header-settings" aria-expanded="false" aria-controls="mobile-settings-panel" title="Abrir opciones y materiales del mapa">☰ Opciones</button>
   <button id="export" class="primary" title="Descargar JSON del diseño">Exportar mapa</button>
   <button id="publish" class="primary" title="Publicar el mapa en el juego de desarrollo de Vercel mediante GitHub">↑ Publicar mapa</button>
   <a href="./" title="Probar los cambios guardados en la partida de este mismo dominio" style="white-space:nowrap">Probar en juego ↗</a>
  </div>
 </header>
-<nav class="toolbar" aria-label="Herramientas de edición">
+<nav class="toolbar" id="mobile-tool-menu" aria-label="Herramientas de edición">
+ <div class="mobile-tray-title"><strong>Herramientas del mapa</strong><button type="button" id="mobile-tools-close" aria-label="Cerrar herramientas">✕ Cerrar</button></div>
  <button data-tool="pan" class="active">✋ Mover plano</button>
  <button data-tool="select" title="Selecciona un elemento o varios. Arrastra el círculo dorado ↻ para girarlos con el ratón.">▧ Seleccionar</button>
  <button data-tool="road">▰ Calle</button>
@@ -104,9 +107,17 @@
    <div class="chip"><span id="selection">Sin selección</span><div id="paso-test"></div></div>
    <div class="zoom"><button id="zoom-out" title="Alejar">−</button><button id="zoom-in" title="Acercar">+</button></div>
   </div>
+  <div class="mobile-edit-actions" aria-label="Trazado de calles, aceras o edificios"><button type="button" id="mobile-finish">✓ Terminar forma</button><button type="button" id="mobile-cancel">✕ Cancelar</button></div>
   <div id="loading" class="loading">Cargando los mapas y los materiales originales…</div>
  </section>
- <aside class="sidebar" aria-label="Controles del mapa">
+ <aside class="sidebar" id="mobile-settings-panel" aria-label="Controles del mapa">
+  <div class="mobile-sheet-title"><strong>Ajustes y materiales</strong><button type="button" id="mobile-settings-close" aria-label="Cerrar ajustes">✕ Cerrar</button></div>
+  <div class="mobile-file-actions" aria-label="Guardar, compartir y probar mapas">
+   <button type="button" id="mobile-save">Guardar</button>
+   <button type="button" id="mobile-export">Exportar JSON</button>
+   <button type="button" id="mobile-publish" class="primary">Publicar mapa</button>
+   <a href="./">Probar en juego ↗</a>
+  </div>
   <details open>
    <summary>Proyecto y herramientas</summary>
    <div>
@@ -322,6 +333,16 @@
   </details>
  </aside>
 </main>
+<div class="mobile-backdrop" id="mobile-backdrop" aria-hidden="true"></div>
+<nav class="mobile-quick" aria-label="Herramientas rápidas para móvil">
+ <button type="button" data-mobile-tool="pan" aria-pressed="true"><span class="mobile-icon">✋</span>Mover</button>
+ <button type="button" data-mobile-tool="select" aria-pressed="false"><span class="mobile-icon">▧</span>Elegir</button>
+ <button type="button" data-mobile-tool="road" aria-pressed="false"><span class="mobile-icon">▰</span>Calle</button>
+ <button type="button" data-mobile-tool="sidewalk" aria-pressed="false"><span class="mobile-icon">▤</span>Acera</button>
+ <button type="button" data-mobile-tool="people" aria-pressed="false"><span class="mobile-icon">♟</span>Público</button>
+ <button type="button" id="mobile-more" aria-expanded="false" aria-controls="mobile-tool-menu"><span class="mobile-icon">⊞</span>Más</button>
+ <button type="button" id="mobile-options" aria-expanded="false" aria-controls="mobile-settings-panel"><span class="mobile-icon">⚙</span>Ajustes</button>
+</nav>
 <dialog id="publish-dialog" aria-labelledby="publish-title">
  <div class="stack">
   <h2 id="publish-title">↑ Publicar mapa en A Pulso (Vercel)</h2>
@@ -340,5 +361,6 @@
  </div>
 </dialog>
 <script type="module" src="./editor-arenal.mjs"></script>
+<script type="module" src="./editor-mobile-ui.mjs"></script>
 </body>
 </html>
