@@ -51,7 +51,7 @@ function parseDraft(obj,key){
  const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
   const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?12000:kind==='houses'?7000:6000):[]]
  }));
- return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null};
+ return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null};
 }
 function readDraft(key){
  try{
@@ -119,6 +119,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
 export class RuntimeEditorDraft{
  constructor(draft){
   this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;
+  this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
   this.obstacles=obstaclesFor(this.layers);
   this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
  }
@@ -161,6 +162,16 @@ export class RuntimeEditorDraft{
    ctx.save();ctx.translate(x,-y);ctx.rotate(-(o.angle||0)*Math.PI/180);
    if(image)ctx.drawImage(image,-width/2,-height/2,width,height);
    else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(0,0,.095,0,2*Math.PI);ctx.fill()}
+   ctx.restore();
+  }
+  // Street names are readable in the game, not just editor overlays.
+  for(const label of this.labels){
+   if(!Array.isArray(label)||typeof label[0]!=='string'||!valid(label[1]))continue;
+   const [x,y]=label[1],name=label[0].slice(0,90);
+   if(x<bound[0]-2||x>bound[2]+2||y<bound[1]-2||y>bound[3]+2)continue;
+   ctx.save();ctx.translate(x,-y);ctx.scale(1,-1);
+   ctx.font='600 .24px system-ui';ctx.lineWidth=.055;ctx.strokeStyle='#1c2020';
+   ctx.strokeText(name,.11,-.05);ctx.fillStyle='#fff2dc';ctx.fillText(name,.11,-.05);
    ctx.restore();
   }
   ctx.restore();
