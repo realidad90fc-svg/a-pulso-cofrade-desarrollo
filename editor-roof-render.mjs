@@ -5,6 +5,7 @@
 // with the longest frontage and clipped to the exact existing footprint.
 // The WALL INSET is a clip-constrained inner stroke; it works even for
 // concave, jagged or narrow polygons, without generating invalid offset rings.
+import {drawSevillaResidentialRoof} from './editor-residential-roofs.mjs';
 const isPoint=p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 export function roofLayout(poly,requested=.2,autoSimplify=true){
@@ -98,7 +99,8 @@ export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpec
   const top=pixel(b[0],b[3]),width=(b[2]-b[0])*imageZoom,height=(b[3]-b[1])*imageZoom;
   ctx.fillStyle='#c5ab88';ctx.fillRect(top[0],top[1],width,height);
   drawSpecial(material,top,width,height);
- }else fillCleanRoof(ctx,layout,material,pixel,imageZoom);
+ }else if(material.roofFamily)drawSevillaResidentialRoof(ctx,layout,material,pixel,imageZoom,options);
+ else fillCleanRoof(ctx,layout,material,pixel,imageZoom);
  // Stroke is clipped to the ORIGINAL polygon, leaving a wall/parapet rim
  // of consistent width inside it, even at concave corners. Never touches
  // saved footprints, checkpoints, roads, or collision geometry.
