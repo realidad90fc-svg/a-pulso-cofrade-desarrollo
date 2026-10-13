@@ -164,12 +164,9 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   }
   if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly)))
    route.sidewalks=scene.sidewalks.map(o=>({poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly)}));
-  // Pavements are visual ground, not solid barriers. Include their footprint
-  // in the same allowed movement area as roads, without changing any artwork.
-  // Actual buildings, trees, fences and spectators remain physical obstacles.
-  const pavementPolys=(route.sidewalks||[]).map(o=>o.poly).filter(polygon);
-  route.walkable.push(...pavementPolys.map(poly=>poly.map(p=>[...p])));
-  route.roadBoxes=route.walkable.map(bbox);
+  // CentreRoute.validPoint includes route.sidewalks as traversable ground.
+  // Do NOT append them to route.walkable: the Arenal renderer uses that
+  // array to paint asphalt over the original pavement texture.
   if(Array.isArray(scene.houses)&&scene.houses.every(o=>polygon(o.poly))){
    const old=route.buildings||[];
    route.buildings=scene.houses.map(o=>{
@@ -187,10 +184,12 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   }
   route.tileCache?.clear();
  }else if(route&&Array.isArray(route.walkable)){
-  const added=[...draft.layers.roads,...draft.layers.sidewalks]
-   .filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
-  // Both roadway and pavement are traversable; do not add colliders for kerbs.
-  if(added.length){route.walkable.push(...added);route.roadBoxes=route.walkable.map(bbox);}
+  const roads=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
+  if(roads.length){route.walkable.push(...roads);route.roadBoxes=route.walkable.map(bbox);}
+  // Extra sidewalks remain a separate, non-solid collision layer.
+  const sidewalks=draft.layers.sidewalks.filter(o=>polygon(o.poly))
+   .map(o=>({poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly)}));
+  if(sidewalks.length)route.editorWalkable=[...(route.editorWalkable||[]),...sidewalks];
  }
  // The native/Arenal audience is painted outside the editor patch layer:
  // filter it too and remove corresponding spectator contacts.
