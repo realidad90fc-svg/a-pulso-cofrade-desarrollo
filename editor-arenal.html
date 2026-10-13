@@ -41,6 +41,13 @@
 #editor-canvas[data-tool=select],#editor-canvas[data-tool=people]{cursor:crosshair}
 #delete-selected:disabled,#clear-selected:disabled{opacity:.4}
 @media(max-width:620px){#delete-selected,#clear-selected{font-size:12px}}
+#roof-category{width:100%;margin:7px 0 11px;padding:9px;color:var(--text);background:#15232c;border:1px solid var(--line);border-radius:8px}
+#palettes.swatches{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:9px}
+#palettes .swatch{height:110px;flex-direction:column;gap:3px;padding:5px;white-space:normal;line-height:1.1;font-size:12px}
+#palettes .swatch img,#palettes .swatch canvas{height:78px;width:100%;object-fit:contain;border-radius:4px}
+#palettes .swatch canvas{background:#b5ab98}
+#palettes .swatch small{font-size:11px;line-height:1.1;white-space:normal}
+#roof-selected{display:block;min-height:28px;margin:4px 0}
 </style>
 </head>
 <body>
@@ -131,11 +138,18 @@
    </div>
   </details>
   <details open>
-   <summary>Materiales de tejado · 36 acabados</summary>
+   <summary>Tejados y edificios emblemáticos</summary>
    <div>
-    <p class="muted">9 cubiertas originales combinadas con cuatro tratamientos visuales: tradicional, envejecida, clara y oscura. Selecciona una y dibuja una casa, o selecciona una casa existente y pulsa «Aplicar a seleccionado».</p>
+    <p class="muted">Cubiertas normales o edificios singulares de Sevilla, vistos desde arriba. Son dibujos estilizados, no planos arquitectónicos exactos.</p>
+    <label for="roof-category">Tipo de tejado</label>
+    <select id="roof-category">
+     <option value="common">Comunes · 9 cubiertas</option>
+     <option value="landmark">Emblemáticos de Sevilla · 10 modelos</option>
+     <option value="extra">Otros acabados · 27 variantes</option>
+    </select>
     <div class="swatches" id="palettes"></div>
-    <div class="actions"><button id="apply-roof" type="button">Aplicar tejado a selección</button><button id="delete" class="danger" type="button">Eliminar selección</button></div>
+    <small id="roof-selected" class="muted" aria-live="polite"></small>
+    <button id="apply-roof" type="button">Aplicar a edificios seleccionados</button>
    </div>
   </details>
   <details open>
@@ -183,14 +197,10 @@
    <summary>Vallas rojas y sillas · individuales o en fila</summary>
    <div class="stack">
     <p class="muted">Vallas de separación de público, como las rojas de la salida de la Catedral, y sillas para Carrera Oficial. Los nuevos elementos forman parte del JSON de edición.</p>
-    <p class="muted"><strong>Giro directo:</strong> selecciona cualquier elemento y arrastra el círculo dorado ↻ para girarlo. También funciona para grupos de vallas, sillas, árboles, público, edificios, calzadas y aceras.</p>
-    <label for="furniture-angle">Ángulo inicial opcional de colocación (grados)</label>
-    <input id="furniture-angle" type="number" min="-180" max="180" step="5" value="0">
     <label for="furniture-spacing">Separación en fila (unidades)</label>
     <input id="furniture-spacing" type="range" min=".3" max="1.8" value=".7" step=".05">
     <output id="furniture-spacing-value">0.70</output>
-    <p class="muted">Elige «Valla roja» o «Silla» para colocar una tocando el mapa. Para crear una fila, elige «Fila vallas» o «Fila sillas» y arrastra de un extremo al otro. Selecciona una para girarla o duplicarla.</p>
-    <div class="actions"><button id="rotate-selected-left" type="button">↶ Girar selección</button><button id="rotate-selected-right" type="button">Girar selección ↷</button></div>
+    <p class="muted">Coloca con un clic o arrastra para crear una fila. El círculo ↻ permite girar cualquier objeto seleccionado con el ratón.</p>
     <button id="duplicate-selected" type="button">Duplicar elemento seleccionado</button>
    </div>
   </details>
@@ -228,20 +238,16 @@
   </details>
   <details>
    <summary>Probar maniobra del paso</summary>
-   <div><p class="muted">Reproducción de la huella del Tres Caídas (1,04 × 2,15 unidades). Pulsa «Probar paso» para colocarlo y usa los botones para girar.</p>
-    <div class="inline"><button id="paso-left">↶ Girar 5°</button><button id="paso-right">Girar 5° ↷</button></div>
+   <div><p class="muted">Huella del paso (1,04 × 2,15 unidades). En «Probar paso», arrastra el círculo ↻ para girarlo.</p>
     <p class="muted">Esta vista previa orienta, pero las colisiones completas deben comprobarse jugando.</p>
    </div>
   </details>
   <details>
    <summary>Cómo guardar y usar tu mapa</summary>
    <div>
-    <p>1. Dibuja o mueve calles, personas, aceras y tejados. Con <strong>Público</strong>, mantén pulsado el clic izquierdo y arrastra para poner muchas personas seguidas.</p>
-    <p>Con <strong>Seleccionar</strong>, arrastra el <strong>tirador dorado ↻</strong> sobre cualquier elemento seleccionado para girarlo con el ratón, sin prefijar un ángulo. También puedes girar varios elementos a la vez.</p>
-    <p>Con <strong>Seleccionar</strong>, arrastra desde un espacio vacío para dibujar un rectángulo como en Windows. Se seleccionan los elementos completamente dentro del área. <strong>Mayús + arrastrar</strong> inicia el rectángulo incluso encima de un objeto. <strong>Ctrl + clic</strong> suma o quita elementos. Arrastra un objeto seleccionado para mover todo el grupo y usa «Borrar selección» para eliminarlo.</p>
-    <p>2. Pulsa <strong>Guardar</strong> para conservar el mapa y activarlo como borrador jugable en este dominio.</p>
-    <p>3. Pulsa <strong>Exportar mapa</strong> para guardar el archivo JSON.</p>
-    <p>4. Pulsa <strong>Publicar mapa</strong> para enviar una versión aprobada a GitHub. Solo permite publicar a la cuenta propietaria; necesitarás un token temporal de GitHub con permiso sobre este repositorio. Vercel desplegará después el mapa para todos los visitantes del juego de desarrollo. El enlace principal antiguo no cambia.</p>
+    <p><strong>Dibujar:</strong> usa las herramientas superiores. Público permite mantener pulsado y arrastrar.</p>
+    <p><strong>Seleccionar:</strong> clic para uno, arrastrar para varios, ↻ para girar. Ctrl + clic suma o quita elementos; Mayús + arrastrar fuerza la selección por área.</p>
+    <p><strong>Guardar</strong> conserva el borrador local. <strong>Exportar mapa</strong> descarga el JSON para compartirlo e integrarlo en el juego. <strong>Publicar mapa</strong> necesita GitHub y un despliegue de Vercel.</p>
     <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
    </div>
   </details>
