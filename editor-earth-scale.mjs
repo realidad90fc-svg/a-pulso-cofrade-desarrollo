@@ -8,12 +8,14 @@
 // Cropped images must retain their proportional size: DO NOT normalize
 // pixel density by photo width (previous versions made every crop equally
 // wide regardless of its image-pixel dimensions).
+// User-approved visual correction ×1.50 after comparing Arfe at 106m and 150m.
 // Approximate if the screenshot was resized, Google Earth FOV changed, or
 // camera is inclined; camera altitude alone is not an exact physical scale.
 export const EARTH_CALIBRATION=Object.freeze({
  referenceAltitudeM:106,referenceBarMeters:10,referenceBarPixels:142,
  streetReferenceMetres:10.58,gameRoadHalfWidth:1.30,gameSidewalkOuter:.25,
- scaleVersion:3
+ visualScaleCorrection:1.50,
+ scaleVersion:4
 });
 export function parseEarthAltitude(value){
  if(typeof value==='number')return Number.isFinite(value)&&value>=5&&value<=3000?value:null;
@@ -27,7 +29,7 @@ export function estimateEarthPhotoSize(pixelWidth,pixelHeight,altitude,c=EARTH_C
  const h=parseEarthAltitude(altitude);
  if(!h||![pixelWidth,pixelHeight].every(n=>Number.isFinite(n)&&n>0&&n<=20000))return null;
  const pixelsPerMetre=c.referenceBarPixels/c.referenceBarMeters*c.referenceAltitudeM/h;
- const gameUnitsPerMetre=(2*c.gameRoadHalfWidth+2*c.gameSidewalkOuter)/c.streetReferenceMetres;
+ const gameUnitsPerMetre=(2*c.gameRoadHalfWidth+2*c.gameSidewalkOuter)/c.streetReferenceMetres*c.visualScaleCorrection;
  if(!Number.isFinite(pixelsPerMetre)||pixelsPerMetre<=0||!Number.isFinite(gameUnitsPerMetre)||gameUnitsPerMetre<=0)return null;
  return{width:pixelWidth/pixelsPerMetre*gameUnitsPerMetre,
   height:pixelHeight/pixelsPerMetre*gameUnitsPerMetre,

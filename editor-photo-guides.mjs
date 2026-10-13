@@ -111,7 +111,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
     el('reference-height').value=p.cameraHeightM??'';
     el('reference-scale-source').textContent=p.calibration==='earth'&&p.cameraHeightM?
-      'Altura '+p.cameraHeightM+' m · imagen '+(p.width*p.scale).toFixed(1)+' × '+(p.height*p.scale).toFixed(1)+' unidades del juego. Escala calibrada con Arfe (10,58 m), sin cambiar el paso; aproximada si la foto fue redimensionada.':
+      'Altura '+p.cameraHeightM+' m · imagen '+(p.width*p.scale).toFixed(1)+' × '+(p.height*p.scale).toFixed(1)+' unidades del juego. Escala con factor visual ×1,50 ajustado a Arfe, sin cambiar el paso ni sus colisiones; puede variar según la perspectiva de Google Earth.':
       p.calibration==='street'?'Foto con calibración antigua. Introduce su altura y pulsa Ajustar escala para aplicar el nuevo método.':
       'Introduce la altura de cámara para calcular el tamaño de la foto.';
    }
@@ -144,19 +144,20 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   try{
    const records=await readMap(next);
    const loaded=[];
+    let migrated=false;
    for(const record of records){
     try{const converted=await decode(record.blob.blob);
      const photo={...record,...converted,blob:undefined};
-      if(photo.calibration==='earth'&&photo.cameraHeightM&&photo.scaleVersion!==3){
+      if(photo.calibration==='earth'&&photo.cameraHeightM&&photo.scaleVersion!==4){
        const dims=estimateEarthPhotoSize(photo.image.naturalWidth,photo.image.naturalHeight,photo.cameraHeightM);
-       if(dims){photo.width=round(dims.width);photo.height=round(dims.height);photo.scale=1;photo.scaleVersion=2;}
+       if(dims){photo.width=round(dims.width);photo.height=round(dims.height);photo.scaleVersion=4;migrated=true;}
       }
       loaded.push(photo);
     }catch(e){show('Una foto de referencia no se pudo abrir: '+record.name,'error')}
    }
    if(epoch!==generation){release(loaded);return}
    photos=loaded;currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
-    if(loaded.some(p=>p.calibration==='earth'&&p.scaleVersion===3))markDirty();
+    if(migrated)markDirty();
   }catch(e){
    if(epoch===generation){storageAvailable=false;updateUI();show('No se pudieron recuperar las fotos: '+e.message,'error')}
   }
