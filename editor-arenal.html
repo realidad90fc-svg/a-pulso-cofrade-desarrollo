@@ -38,7 +38,8 @@
 #publish-dialog .actions{display:flex;gap:9px;flex-wrap:wrap}
 #publish-dialog .actions>button{flex:1}
 @media(max-width:620px){#publish-dialog{padding:15px}.brand img{display:none}.title-actions{gap:4px;flex-wrap:wrap;justify-content:flex-end}.title-actions button{font-size:11px;padding:5px 7px}}
-#editor-canvas[data-tool=select],#editor-canvas[data-tool=people]{cursor:crosshair}
+#editor-canvas[data-tool=select],#editor-canvas[data-tool=people],#editor-canvas[data-tool=people-row],#editor-canvas[data-tool=street-name]{cursor:crosshair}
+#street-name-text{width:100%;padding:10px;color:var(--text);border:1px solid var(--line);background:#15232c;border-radius:8px}
 #delete-selected:disabled,#clear-selected:disabled{opacity:.4}
 @media(max-width:620px){#delete-selected,#clear-selected{font-size:12px}}
 #roof-category{width:100%;margin:7px 0 11px;padding:9px;color:var(--text);background:#15232c;border:1px solid var(--line);border-radius:8px}
@@ -67,7 +68,9 @@
  <button data-tool="pan" class="active">✋ Mover plano</button>
  <button data-tool="select" title="Selecciona un elemento o varios. Arrastra el círculo dorado ↻ para girarlos con el ratón.">▧ Seleccionar</button>
  <button data-tool="road">▰ Calle</button>
+ <button data-tool="street-name" title="Colocar un nombre de calle en el punto elegido">Aa Nombre calle</button>
  <button data-tool="people">♟ Público</button>
+ <button data-tool="people-row" title="Arrastra entre dos puntos para poner una fila de público">↔ Fila público</button>
  <button data-tool="sidewalk">▤ Acera</button>
  <button data-tool="house">⌂ Casa</button>
  <button data-tool="tree">♣ Árbol</button>
@@ -138,7 +141,21 @@
    </div>
   </details>
   <details open>
-   <summary>Tejados y edificios emblemáticos</summary>
+   <details open id="street-label-panel">
+  <summary>Nombres de calles · añadir y editar</summary>
+  <div class="stack">
+   <label for="street-name-text">Nombre de la calle o lugar</label>
+   <input id="street-name-text" type="text" maxlength="90" placeholder="Ej.: Calle Adriano" autocomplete="off">
+   <p class="muted">Escribe el nombre, elige <strong>Aa Nombre calle</strong> y haz clic donde deba verse. Puedes colocar el mismo nombre varias veces.</p>
+   <div class="actions">
+    <button id="rename-street" type="button">Renombrar seleccionado</button>
+    <button id="remove-street" type="button" class="danger">Eliminar nombre</button>
+   </div>
+   <p class="muted">En <strong>Seleccionar</strong>, haz clic sobre el texto para moverlo, o selecciónalo con un rectángulo para borrar varios.</p>
+  </div>
+ </details>
+ <details open>
+  <summary>Tejados y edificios emblemáticos</summary>
    <div>
     <p class="muted">Cubiertas normales o edificios singulares de Sevilla, vistos desde arriba. Son dibujos estilizados, no planos arquitectónicos exactos.</p>
     <label for="roof-category">Tipo de tejado</label>
@@ -189,6 +206,9 @@
     <p class="muted">Mantén pulsado el botón izquierdo y arrastra para poner público continuamente. Cada persona nueva avanza la referencia en modo rotativo. Todo el trazo se puede deshacer de una vez.</p>
     <label for="public-spacing">Separación al arrastrar: <output id="public-spacing-value">0,22 m</output></label>
     <input id="public-spacing" type="range" min="0.14" max="0.65" step="0.01" value="0.22">
+    <label for="people-row-spacing">Separación entre personas en fila: <output id="people-row-spacing-value">0,25 m</output></label>
+    <input id="people-row-spacing" type="range" min="0.15" max="0.8" step="0.01" value="0.25">
+    <p class="muted">Con <strong>↔ Fila público</strong> arrastra del principio al final de una hilera. Alterna las personas siguiendo el modo elegido.</p>
     <label for="brush-size">Radio del borrador: <strong id="brush-value">0.35 m</strong></label>
     <input id="brush-size" type="range" min=".2" max="1.7" step=".05" value=".35">
    </div>
@@ -245,7 +265,7 @@
   <details>
    <summary>Cómo guardar y usar tu mapa</summary>
    <div>
-    <p><strong>Dibujar:</strong> usa las herramientas superiores. Público permite mantener pulsado y arrastrar.</p>
+    <p><strong>Dibujar:</strong> usa las herramientas superiores. Público permite arrastrar libremente, Fila público crea hileras rectas y Nombre calle coloca textos editables.</p>
     <p><strong>Seleccionar:</strong> clic para uno, arrastrar para varios, ↻ para girar. Ctrl + clic suma o quita elementos; Mayús + arrastrar fuerza la selección por área.</p>
     <p><strong>Guardar</strong> conserva el borrador local. <strong>Exportar mapa</strong> descarga el JSON para compartirlo e integrarlo en el juego. <strong>Publicar mapa</strong> necesita GitHub y un despliegue de Vercel.</p>
     <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
