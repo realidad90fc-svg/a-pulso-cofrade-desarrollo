@@ -8,6 +8,7 @@ import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban
 import {pointInPolygon} from './engine.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
+const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
 const polygon=poly=>Array.isArray(poly)&&poly.length>=3&&poly.length<=5000&&poly.every(valid);
 const bbox=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
 const hits=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
@@ -56,7 +57,7 @@ function parseDraft(obj,key){
  const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
   const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?12000:kind==='houses'?7000:6000):[]]
  }));
- return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null};
+ return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
 }
 function readDraft(key){
  try{
@@ -81,6 +82,32 @@ export async function resolveEditorDraft(sim){
   if(e?.name!=='AbortError')console.warn('No hay diseño público para el mapa '+key,e);
   return null;
  }finally{clearTimeout(timeout)}
+}
+// New game only. Never apply this to a checkpoint/saved snapshot.
+export function applyEditorStart(sim,p){
+ if(!validStart(p)||sim.tutorial||!sim.stepEntity?.transform)return false;
+ const current=sim.position(sim.stepEntity.transform);
+ sim.setPosition(sim.stepEntity.transform,[p.x,p.y,current?.z||0]);
+ sim.setAngle(sim.stepEntity.transform,p.angle);
+ for(const c of sim.stepColliders||[])c._frame=-1;
+ if(sim.routeAdapter?.follow)sim.routeAdapter.follow();
+ else{
+  const radians=p.angle*Math.PI/180,s=Math.sin(radians),c=Math.cos(radians);
+  for(const [entity,along,turn]of [[sim.capatazEntity,1.2,-90],[sim.contraEntity,-1.3,90]])if(entity?.transform){
+   sim.setPosition(entity.transform,[p.x-s*along,p.y+c*along,0]);
+   sim.setAngle(entity.transform,p.angle+turn);
+  }
+  for(const [i,entity]of (sim.cortejos||[]).entries())if(entity?.transform){
+   const along=[3,-3,-4.5][i];
+   sim.setPosition(entity.transform,[p.x-s*along,p.y+c*along,0]);
+   sim.setAngle(entity.transform,p.angle);
+  }
+ }
+ // Disable the original Arenal automatic spawn adjustment when the designer
+ // has explicitly chosen the location and orientation.
+ if(sim.routeAdapter&&'_startChecked' in sim.routeAdapter)sim.routeAdapter._startChecked=true;
+ try{sim.vm?.invoke?.('cameraController.LateUpdate',sim.cameraController)}catch{}
+ sim.sync?.();return true;
 }
 export function attachEditorDraft(sim,draftOverride=undefined){
  if(sim.tutorial)return null;

@@ -85,6 +85,13 @@ function sanitize(body){
  for(const kind of KINDS)layers[kind]=cleanArray((kind==='labels'||kind==='urban')?(v.layers?.[kind]||[]):v.layers?.[kind],kind);
  const modified=KINDS.reduce((n,k)=>n+layers[k].length,0);
  const labelScene=v.labelScene===undefined||v.labelScene===null?null:cleanArray(v.labelScene,'labels');
+ const hasStart=Object.hasOwn(v,'startPose');
+ let startPose=null;
+ if(hasStart&&v.startPose!==null){
+  if(!v.startPose||typeof v.startPose!=='object'||Array.isArray(v.startPose)||!['x','y','angle'].every(k=>typeof v.startPose[k]==='number'&&Number.isFinite(v.startPose[k])))
+   fail('Posición inicial inválida.',422);
+  startPose={x:number(v.startPose.x,0,-2000,2000),y:number(v.startPose.y,0,-2000,2000),angle:number(v.startPose.angle,0,-360000,360000)};
+ }
  const scene={};
  if(v.arenalScene!==undefined&&v.arenalScene!==null){
   if(key!=='RegresoArenal'||typeof v.arenalScene!=='object'||Array.isArray(v.arenalScene))fail('Geometría detallada no válida.',422);
@@ -92,9 +99,9 @@ function sanitize(body){
    if(Object.hasOwn(v.arenalScene,kind))scene[kind]=cleanArray(v.arenalScene[kind],kind);
  }
  const removals=labelScene!==null||Object.keys(scene).length?number(v.total,modified,0,20000)-modified:0;
- if(!modified&&removals<=0)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
+ if(!modified&&removals<=0&&!hasStart)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
  const draft={schema:'apulso-game-draft-v1',mapKey:key,createdAt:new Date().toISOString(),
-  layers,total:modified+Math.max(0,removals),arenalScene:key==='RegresoArenal'?scene:null,labelScene};
+  layers,total:Math.max(1,modified+Math.max(0,removals)+(hasStart?1:0)),arenalScene:key==='RegresoArenal'?scene:null,labelScene,...(hasStart?{startPose}:{})};
  if(Buffer.byteLength(JSON.stringify(draft))>MAX_BODY)fail('El mapa supera el tamaño máximo de publicación.',413);
  return draft;
 }
