@@ -9,6 +9,7 @@ import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,del
 import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
 import {nextRoofId} from './editor-roof-cycle.mjs';
 import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
+import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -143,6 +144,7 @@ function drawPeople(){
  const v=visualBounds();
  for(let i=0;i<data.people.length;i++){
   const a=data.people[i],x=a.point[0],y=a.point[1];
+  if(personBlockedByTrees(a,data.trees))continue;
   if(x<v[0]-.2||x>v[2]+.2||y<v[1]-.2||y>v[3]+.2)continue;
   const img=getImage(a.key),dims=spriteDims(a.key),p=pixel(x,y);
   const w=Math.max(2,dims[0]*view.zoom),h=Math.max(2,dims[1]*view.zoom);
@@ -213,7 +215,7 @@ function draw(){
   const a=state.drag,start=pixel(...a.start),end=pixel(...a.end),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
   const span=dist(a.start,a.end),count=Math.min(180,Math.floor(span/spacing)+1);
   ctx.save();ctx.strokeStyle='#f3d07a';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(...start);ctx.lineTo(...end);ctx.stroke();ctx.setLineDash([]);
-  for(let i=0;i<count;i++){const t=count<=1?0:i/(count-1),pos=pixel(a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t);ctx.beginPath();ctx.arc(...pos,3,0,Math.PI*2);ctx.fillStyle='#ffdfa6';ctx.fill()}
+  for(let i=0;i<count;i++){const t=count<=1?0:i/(count-1),world=[a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t];if(personBlockedByTrees(world,data.trees))continue;const pos=pixel(...world);ctx.beginPath();ctx.arc(...pos,3,0,Math.PI*2);ctx.fillStyle='#ffdfa6';ctx.fill()}
   ctx.restore();
  }
  if(state.drag?.action==='furniture-row'){
@@ -375,6 +377,7 @@ function updatePeopleHint(){
  $('public-next').textContent=mode==='random'?'Siguiente referencia: aleatoria': 'Siguiente referencia: '+(key?.split(':').at(-1)||'—')+(mode==='cycle'?' (rotativa)':' (fija)');
 }
 function appendPerson(q){
+ if(personBlockedByTrees(q,data.trees))return false;
  const ids=[...$('public-sprite').options].map(o=>o.value).filter(Boolean);
  if(!ids.length)return false;
  const mode=$('public-mode').value;
@@ -476,7 +479,7 @@ function pointerDown(e){
   state.working.push(q);requestDraw();return;
  }
  if(state.tool==='people'){
-  snapshot();const brush=makeCrowdStroke(data.people);
+  snapshot();const brush=makeCrowdStroke(visibleSpectators(data.people,data.trees));
   state.drag={action:'people',brush};
   if(brush.start(q,appendPerson)){updatePeopleHint();changed()}
   return;
@@ -586,7 +589,7 @@ function pointerUp(e){
   changed();show(urbanName(a.type)+' colocado. Puedes girarlo o deshacerlo con Ctrl+Z.','good');
  }
  if(ending&&a?.action==='people-row'){
-  snapshot();const brush=makeCrowdStroke(data.people),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
+  snapshot();const brush=makeCrowdStroke(visibleSpectators(data.people,data.trees)),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
   let n=brush.start(a.start,appendPerson);
   if(dist(a.start,a.end)>.001)n+=brush.continue(a.end,spacing,p=>brush.placed<4500&&appendPerson(p));
   if(n){updatePeopleHint();changed();show(n+' personas colocadas en fila. Puedes deshacer toda la fila con Ctrl+Z.','good')}

@@ -6,6 +6,7 @@ import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDE
 import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
 import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
+import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
@@ -47,7 +48,7 @@ function obstaclesFor(layers){
    const size=urbanCollisionSize(o);
    if(size)obstacles.push({poly:around(o.point,size[0],size[1],o.angle||0),reason:9});
   }
-  for(const o of layers.people||[])if(valid(o.point)){
+  for(const o of layers.people||[])if(valid(o.point)&&!personBlockedByTrees(o,layers.trees)){
   const r=.065;obstacles.push({poly:around(o.point,r*2,r*2),reason:13});
  }
  return obstacles.map(o=>({...o,box:bbox(o.poly)}));
@@ -183,6 +184,14 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   const added=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
   if(added.length)route.walkable.push(...added);
  }
+ // The native/Arenal audience is painted outside the editor patch layer:
+ // filter it too and remove corresponding spectator contacts.
+ if(route&&Array.isArray(route.people)&&draft.layers.trees.length){
+  route.people=visibleSpectators(route.people,draft.layers.trees);
+  if(Array.isArray(route.obstacles))route.obstacles=route.obstacles.filter(o=>
+   o.kind!=='visible-spectator'||!personBlockedByTrees(o.center,draft.layers.trees));
+  route.tileCache?.clear();
+ }
  sim.editorDraft=new RuntimeEditorDraft(draft);
  return sim.editorDraft;
 }
@@ -231,7 +240,7 @@ export class RuntimeEditorDraft{
    ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
    ctx.moveTo(x,y-.28);ctx.lineTo(x,y+.28);ctx.stroke();
   }
-  for(const o of this.layers.people)if(valid(o.point)){
+  for(const o of this.layers.people)if(valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
    if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
