@@ -43,6 +43,8 @@
  .mobile-quick button .mobile-icon{font-size:21px;line-height:1.15}
  .mobile-quick button.active,.mobile-quick button[aria-expanded=true]{
   background:#184945;color:#b8fff1;border-color:#48b7a6}
+ /* The backdrop lives inside .workspace, sharing the drawer stacking context.
+    Never place it above the panel: it would swallow every tap and swipe on iOS. */
  .mobile-backdrop{position:fixed;inset:var(--ap-mobile-header) 0 var(--ap-mobile-dock);
   background:rgba(2,9,16,.67);z-index:26;display:block;opacity:0;
   pointer-events:none;transition:opacity .16s}
@@ -66,7 +68,7 @@
  .sidebar{position:fixed;left:0;right:0;top:max(11dvh,var(--ap-mobile-header));bottom:var(--ap-mobile-dock);
   z-index:32;height:auto!important;max-height:none!important;min-height:0!important;
   width:auto;padding:0 12px 18px;overflow-y:auto;overflow-x:hidden;
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;
   border:1px solid #516975;border-bottom:0;border-radius:17px 17px 0 0;
   box-shadow:0 -12px 40px #0008;background:#1a2835;opacity:0;
   visibility:hidden;pointer-events:none;transform:translateY(18px);
