@@ -145,7 +145,7 @@ export function buildEditorMap(key,animation,nativeMaps,prepareArenal){
   geometry=buildGeometry({modules:[{id:'Alemanes',name:NEW_ROUTE.name,points:pts,halfWidth:.79}],path:pts,bounds:null},map);
  }else geometry=specialized(map.scene,map,buildGeometry(map.scene,map),nativeMaps);
  // Each map receives isolated storage and an explicit origin identifier.
- return{...geometry,fences:[],chairs:[],schema:SCHEMA,metadata:{map:map.name,mapKey:key,sourceType:map.type,
+ return{...geometry,fences:[],chairs:[],urban:[],schema:SCHEMA,metadata:{map:map.name,mapKey:key,sourceType:map.type,
   baseVersion:'git-main',units:'game world units',exportFormat:'editor-layer-data',
   notice:'Edits are a separate manual working copy, not automatically applied to the game. Native map guides are derived from extracted collision outlines; generated sidewalks/people are approximate.'}};
 }

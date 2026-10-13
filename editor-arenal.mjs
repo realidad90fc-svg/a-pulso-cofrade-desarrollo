@@ -6,6 +6,7 @@ import {ROOF_MATERIALS,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERI
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
+import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -40,14 +41,14 @@ function deleteSelected(){
 }
 function updateCounts(){
  if(!data)return;
- $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas · '+count('labels')+' nombres';
- $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
+ $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas · '+count('labels')+' nombres · '+count('urban')+' urbanos';
+ $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',urban:'Urbanismo sevillano',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
  const chosen=state.selectedItems.length;
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
 }
-function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle'}[type]||type}
+function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle',urban:'Elemento urbano'}[type]||type}
 function snapshot(){
  if(!data)return;
  state.history.push(JSON.stringify(data));
@@ -157,6 +158,7 @@ function draw(){
   for(let i=0;i<data.sidewalks.length;i++){const o=data.sidewalks[i];drawFloor(o.poly,'sidewalks',o.material||SIDEWALK_MATERIALS[i%SIDEWALK_MATERIALS.length].id)}
  }
  if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){const o=data.roads[i];drawFloor(o.poly,'roads',o.material||ROAD_MATERIALS[i%ROAD_MATERIALS.length].id)}
+ if($('urban-on').checked)for(const o of data.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  if($('public-on').checked)drawPeople();
  if($('trees-on').checked)for(const t of data.trees||[])drawTree(ctx,t,pixel,view.zoom,getImage);
  if($('fences-on').checked)for(const f of data.fences||[])drawFurniture(ctx,f,'fence',pixel,view.zoom);
@@ -167,6 +169,7 @@ function draw(){
   ctx.save();ctx.translate(...p);ctx.rotate(-(t.angle||0)*Math.PI/180);
   ctx.beginPath();ctx.moveTo(-r*.7,r*.7);ctx.lineTo(r*.7,-r*.7);ctx.stroke();ctx.restore();
  }
+ if($('urban-on').checked)for(const o of data.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  drawGrid();
  photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[]){
@@ -178,6 +181,10 @@ function draw(){
   for(const [name,p]of data.labels){
    const xy=pixel(...p);ctx.font='600 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#171a20';ctx.strokeText(name,xy[0]+6,xy[1]);ctx.fillStyle='#fff5e7';ctx.fillText(name,xy[0]+6,xy[1]);
   }
+ }
+ if(state.drag?.action==='urban-mark'){
+  const a=state.drag,o=crosswalkFromDrag(a.type,a.start,a.end,Number($('urban-depth').value));
+  drawUrbanElement(ctx,o,pixel,view.zoom,true);
  }
  if(state.drag?.action==='people-row'){
   const a=state.drag,start=pixel(...a.start),end=pixel(...a.end),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
@@ -206,6 +213,7 @@ function draw(){
    if(state.selectedItems.length===1)for(const q of item.poly){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-4,p[1]-4,8,8)}
   }else if(item.point||item.position){
    if(selection.type==='fences'||selection.type==='chairs')drawFurniture(ctx,item,selection.type==='fences'?'fence':'chair',pixel,view.zoom,true);
+    else if(selection.type==='urban')drawUrbanElement(ctx,item,pixel,view.zoom,true);
    else {const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],7,0,Math.PI*2);ctx.stroke()}
   }
  }
@@ -305,6 +313,9 @@ function selectAt(p,px){
   }
   if(near>=0)return{type:'people',index:near,vertex:-1};
  }
+ if($('urban-on').checked)for(let i=(data.urban||[]).length-1;i>=0;i--){
+  const item=data.urban[i];if(urbanContains(item,p,Math.max(.06,9/view.zoom)))return{type:'urban',index:i,vertex:-1};
+ }
  for(const type of ['houses','sidewalks','roads']){
   if(!$(type==='houses'?'houses-on':type==='sidewalks'?'sidewalks-on':'roads-on').checked)continue;
   const arr=data[type];
@@ -336,7 +347,7 @@ function appendPerson(q){
 function selectionVisibility(type){
  return $( {roads:'roads-on',sidewalks:'sidewalks-on',houses:'houses-on',
   people:'public-on',trees:'trees-on',fences:'fences-on',chairs:'chairs-on',
-  signs:'signs-on',checkpoints:'checkpoints-on',labels:'labels-on'}[type]).checked;
+  signs:'signs-on',checkpoints:'checkpoints-on',labels:'labels-on',urban:'urban-on'}[type]).checked;
 }
 function toggleInSelection(base,item){
  if(!item)return base;
@@ -434,6 +445,12 @@ function pointerDown(e){
  if(state.tool==='tree'){snapshot();const treeId=$('tree-cycle').checked?TREE_VARIANTS[state.treeIndex%TREE_VARIANTS.length].id:state.treeVariant;data.trees.push({point:q.map(x=>+x.toFixed(3)),radius:Number($('tree-radius').value),variant:treeId,rotation:Math.round((state.treeIndex*47)%360),scale:.88+(state.treeIndex%5)*.06,source:'manual'});state.treeIndex++;changed();return}
  if(state.tool==='fence'||state.tool==='chair'){snapshot();addFurniture(state.tool,q,0);changed();return}
  if(state.tool==='fence-row'||state.tool==='chair-row'){state.drag={action:'furniture-row',type:state.tool==='fence-row'?'fence':'chair',start:q,end:q};requestDraw();return}
+ if(state.tool==='urban'){
+  const type=$('urban-type').value||'crosswalk';
+  if(urbanIsMarking(type)){state.drag={action:'urban-mark',type,start:q,end:q};requestDraw();return}
+  snapshot();data.urban.push(newUrbanElement(type,q));
+  changed();show(urbanName(type)+' colocado. Selecciónalo para moverlo o girarlo.','good');return;
+ }
  if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
  if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
  if(state.tool==='erase'){snapshot();eraseAt(q);state.drag={action:'erase'};return}
@@ -488,7 +505,7 @@ function pointerMove(e){
   return;
  }
  if(a.action==='erase'){eraseAt(q);return}
- if(a.action==='furniture-row'||a.action==='people-row'){a.end=q;requestDraw();return}
+ if(a.action==='furniture-row'||a.action==='people-row'||a.action==='urban-mark'){a.end=q;requestDraw();return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
  if(a.action==='rotate-paso'){
   const p=state.paso||data.paso,angle=mouseAngle([p.x,p.y],q),step=angleDelta(a.angle,angle);
@@ -518,6 +535,10 @@ function pointerMove(e){
 }
 function pointerUp(e){
  const a=state.drag,ending=e.type!=='pointercancel';
+ if(ending&&a?.action==='urban-mark'){
+  snapshot();data.urban.push(crosswalkFromDrag(a.type,a.start,a.end,Number($('urban-depth').value)));
+  changed();show(urbanName(a.type)+' colocado. Puedes girarlo o deshacerlo con Ctrl+Z.','good');
+ }
  if(ending&&a?.action==='people-row'){
   snapshot();const brush=makeCrowdStroke(data.people),spacing=Math.max(.15,Number($('people-row-spacing').value)||.25);
   let n=brush.start(a.start,appendPerson);
@@ -564,7 +585,7 @@ function setData(loaded){
  if(!data.paso)data.paso={...baseline.paso};
  if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
  if(!data.labels)data.labels=[];
- for(const kind of ['trees','signs','checkpoints','fences','chairs'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
+ for(const kind of ['trees','signs','checkpoints','fences','chairs','urban'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
  if(!data.bounds)data.bounds=baseline.bounds;
  state.paso={...data.paso};state.peopleIndex=data.people.length;state.treeIndex=data.trees.length;
  if($('public-sprite').options.length)updatePeopleHint();changed();
@@ -650,9 +671,28 @@ function palette(){
  };
  updatePeopleHint();
 }
+function setupUrbanPalette(){
+ const select=$('urban-type');select.replaceChildren();
+ for(const item of URBAN_ITEMS){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;select.appendChild(option)}
+ select.value='crosswalk';
+ const update=()=>{
+  const type=select.value,mark=urbanIsMarking(type);
+  $('urban-depth').disabled=!mark;
+  $('urban-hint').textContent=mark?
+   'Arrastra de un lado de la calle al otro para fijar el ancho del paso. La longitud de las franjas se ajusta arriba.':
+   'Elige 🚦 Urbanismo y haz clic para colocar este objeto. Después puedes moverlo y girarlo con Seleccionar.';
+  $('urban-depth-value').textContent=Number($('urban-depth').value).toFixed(1).replace('.',',')+' m';
+  const canvas=$('urban-preview'),c=canvas.getContext('2d');
+  c.clearRect(0,0,canvas.width,canvas.height);
+  c.fillStyle='#52565b';c.fillRect(0,0,canvas.width,canvas.height);
+  drawUrbanElement(c,newUrbanElement(type,[0,0],{depth:Number($('urban-depth').value)}),
+   (x,y)=>[canvas.width/2+x*30,canvas.height/2-y*30],30);
+ };
+ select.onchange=update;$('urban-depth').oninput=update;update();
+}
 function bind(){
  for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>configureTool(button.dataset.tool);
- for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on'])$(id).onchange=requestDraw;
+ for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on','urban-on'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
  $('delete-selected').onclick=deleteSelected;
@@ -818,7 +858,7 @@ async function init(){
    selector.appendChild(group);
   }
   photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view});
-  palette();bind();resize();
+  palette();setupUrbanPalette();bind();resize();
   setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);

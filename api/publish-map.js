@@ -8,7 +8,7 @@ const BASE='https://api.github.com';
 const KEYS=new Set(['SalidaPureza','AltozanoPuente','CaminoCentro','CarreraOficial',
  'CatedralPostigo','RegresoArenal','AlemanesPlacentinesFrancos',
  ...Array.from({length:10},(_,i)=>'native-'+(i+1))]);
-const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels'];
+const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban'];
 const MAX_BODY=3_600_000;
 function fail(message,status=400){const e=new Error(message);e.status=status;throw e}
 function point(v){return Array.isArray(v)&&v.length>=2&&v.slice(0,2).every(n=>Number.isFinite(n)&&Math.abs(n)<=10000)?v.slice(0,2):fail('Hay coordenadas fuera de rango.')}
@@ -48,6 +48,13 @@ function item(v,kind){
   if(v.rotation!==undefined)result.rotation=number(v.rotation,0,-360,360);
   return result;
  }
+ if(kind==='urban'){
+  const types=new Set(['crosswalk','raised-crosswalk','stop-line','lamp-sevilla','lamp-modern','traffic-light','pedestrian-light','crossing-sign','bollard','bench','bin','planter','bike-rack','bus-shelter','tree-grille']);
+  const type=string(v.type,45);
+  if(!types.has(type))fail('Tipo de mobiliario urbano no reconocido.');
+  return{type,point:point(v.point),angle:number(v.angle,0,-360,360),
+   width:number(v.width,3,1.5,12),depth:number(v.depth,2.6,1,6)};
+ }
  if(kind==='signs'){
   return{point:point(v.point),type:string(v.type||'traffic',50),angle:number(v.angle,0,-360,360)};
  }
@@ -64,7 +71,7 @@ function item(v,kind){
 }
 function cleanArray(v,kind){
  if(!Array.isArray(v))fail('Falta la capa '+kind+'.');
- const limit=kind==='people'?12000:kind==='roads'?4000:kind==='houses'?7000:kind==='sidewalks'?9000:kind==='checkpoints'?500:kind==='labels'?600:6000;
+ const limit=kind==='people'?12000:kind==='roads'?4000:kind==='houses'?7000:kind==='sidewalks'?9000:kind==='checkpoints'?500:kind==='labels'?600:kind==='urban'?4000:6000;
  if(v.length>limit)fail('La capa '+kind+' supera el máximo permitido.');
  return v.map(x=>item(x,kind));
 }
@@ -73,7 +80,7 @@ function sanitize(body){
  const key=body?.mapKey;
  if(!KEYS.has(key)||!v||v.schema!=='apulso-game-draft-v1'||v.mapKey!==key)fail('Mapa o formato de publicación no válido.',422);
  const layers={};
- for(const kind of KINDS)layers[kind]=cleanArray(kind==='labels'?(v.layers?.labels||[]):v.layers?.[kind],kind);
+ for(const kind of KINDS)layers[kind]=cleanArray((kind==='labels'||kind==='urban')?(v.layers?.[kind]||[]):v.layers?.[kind],kind);
  const modified=KINDS.reduce((n,k)=>n+layers[k].length,0);
  const labelScene=v.labelScene===undefined||v.labelScene===null?null:cleanArray(v.labelScene,'labels');
  const scene={};

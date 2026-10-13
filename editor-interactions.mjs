@@ -1,6 +1,6 @@
 // Pure editor operations: continuous crowd brush and Windows-style area selection.
 // Coordinates are always map-world units, independent of zoom or device pixels.
-export const PICKABLE_TYPES=['labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
+export const PICKABLE_TYPES=['urban','labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
 export const PUBLIC_MIN_DISTANCE=.135;
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const length=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -115,7 +115,7 @@ export function selectionGeometry(map,selections){
   const item=map[type]?.[index];if(!item)continue;
   if(Array.isArray(item.poly)){points.push(...item.poly);continue}
   const p=editorPoint(item);if(!valid(p))continue;
-  const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):.2;
+  const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):type==='urban'?(['crosswalk','raised-crosswalk','stop-line'].includes(item.type)?Math.max(item.width||3,item.depth||2.6)*.5:.75):.2;
   points.push([p[0]-half,p[1]-half],[p[0]+half,p[1]+half]);
  }
  if(!points.length)return null;

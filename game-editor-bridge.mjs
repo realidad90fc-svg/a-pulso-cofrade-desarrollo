@@ -4,6 +4,7 @@
 import {multiply,inverse} from './original-scene.mjs';
 import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS} from './editor-materials.mjs';
 import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
+import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
@@ -41,7 +42,11 @@ function obstaclesFor(layers){
   const r=Math.min(.65,Math.max(.10,(o.radius||.35)*(o.scale||1)*.43));
   obstacles.push({poly:around(o.point,r*2,r*2),reason:2});
  }
- for(const o of layers.people||[])if(valid(o.point)){
+ for(const o of layers.urban||[])if(valid(o.point)){
+   const size=urbanCollisionSize(o);
+   if(size)obstacles.push({poly:around(o.point,size[0],size[1],o.angle||0),reason:9});
+  }
+  for(const o of layers.people||[])if(valid(o.point)){
   const r=.065;obstacles.push({poly:around(o.point,r*2,r*2),reason:13});
  }
  return obstacles.map(o=>({...o,box:bbox(o.poly)}));
@@ -140,7 +145,9 @@ export class RuntimeEditorDraft{
     drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound);
    }
   }
-  for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound))drawRoof(ctx,o.poly,o.material||o.key,px,im,1);
+  for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
+    drawUrbanElement(ctx,o,px,1);
+   for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound))drawRoof(ctx,o.poly,o.material||o.key,px,im,1);
   for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
   for(const o of this.layers.signs)if(valid(o.point)){
    const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;
@@ -149,7 +156,9 @@ export class RuntimeEditorDraft{
    ctx.strokeStyle='#842a2c';ctx.lineWidth=.025;ctx.beginPath();
    ctx.moveTo(-.065,.065);ctx.lineTo(.065,-.065);ctx.stroke();ctx.restore();
   }
-  for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
+  for(const o of this.layers.urban||[])if(valid(o.point)&&!urbanIsMarking(o.type)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))
+    drawUrbanElement(ctx,o,px,1);
+   for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
   for(const cp of this.layers.checkpoints||[])if(valid(cp.position)){
    const [x,y]=px(...cp.position);ctx.strokeStyle='#65eed8';ctx.lineWidth=.045;
    ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
