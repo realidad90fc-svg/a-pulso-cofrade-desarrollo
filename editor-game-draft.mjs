@@ -23,7 +23,7 @@ export function makeGameDraft(data,baseline){
   if(kind==='labels'||(data?.metadata?.mapKey==='RegresoArenal'&&['roads','sidewalks','houses','people'].includes(kind)))removedCount+=removed;
   modified[kind]=changes.length>0||removed>0;
  }
- const startChanged=JSON.stringify(data?.startPose||null)!==JSON.stringify(baseline?.startPose||null);
+ const startChanged=!!data?.startReset||JSON.stringify(data?.startPose||null)!==JSON.stringify(baseline?.startPose||null);
   const total=MAP_KINDS.reduce((n,k)=>n+layers[k].length,0)+removedCount+(startChanged?1:0);
  return{schema:EDITOR_PATCH_SCHEMA,mapKey:data?.metadata?.mapKey,
   createdAt:new Date().toISOString(),layers,total,

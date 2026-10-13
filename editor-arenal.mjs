@@ -806,14 +806,14 @@ function bind(){
  $('set-start').onclick=()=>{
   const pose=state.paso;
   if(!pose||![pose.x,pose.y,pose.angle].every(Number.isFinite)){show('Coloca el paso antes de fijar la salida.','error');return}
-  snapshot();data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
+  snapshot();delete data.startReset;data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
   updateStartStatus();changed();show('Inicio guardado. Ya puedes construir el mapa alrededor.','good');
  };
  $('go-start').onclick=()=>{
   restorePreviewStart();const start=savedStart();
   if(start){configureTool('paso');focusAt(start.x,start.y,Math.min(45,Math.max(view.zoom,20)))}
  };
- $('clear-start').onclick=()=>{if(!data.startPose)return;snapshot();delete data.startPose;restorePreviewStart();changed();show('Inicio original restaurado.','good')};
+ $('clear-start').onclick=()=>{if(!data.startPose)return;snapshot();delete data.startPose;data.startReset=true;restorePreviewStart();changed();show('Inicio original restaurado.','good')};
  $('goto-start').onclick=()=>{const start=savedStart();if(start)focusAt(start.x,start.y,Math.min(45,Math.max(view.zoom,20)))};
  $('goto-chapel').onclick=()=>{const p=data.checkpoints?.[0]?.position||data.checkpoint;focusAt(...p,Math.min(48,Math.max(view.zoom,20)))};
  $('goto-all').onclick=fitMap;
