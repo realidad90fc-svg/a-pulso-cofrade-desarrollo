@@ -1,6 +1,6 @@
 /* Mobile presentation only. Desktop editor, canvas geometry and persistence are unchanged. */
 .mobile-quick,.mobile-sheet-title,.mobile-file-actions,.mobile-edit-actions,
-.mobile-backdrop,.mobile-tray-title,#mobile-header-settings{display:none}
+.mobile-backdrop,.mobile-tray-title,.mobile-local-hint,#mobile-header-settings{display:none}
 
 @media (max-width:850px), (max-height:600px) and (pointer:coarse){
  :root{--ap-mobile-header:calc(57px + env(safe-area-inset-top,0px));--ap-mobile-dock:calc(74px + env(safe-area-inset-bottom,0px))}
@@ -83,6 +83,7 @@
   min-height:43px;text-align:center;padding:8px 5px;border-radius:9px;
   background:#253747;border:1px solid #526573;text-decoration:none;color:var(--text);font-size:12px}
  .mobile-file-actions .primary{background:#e8b766;border-color:#e8b766;color:#221606;font-weight:750}
+ .mobile-local-hint{display:block;font-size:11px;color:#b8c8d2;line-height:1.4;margin:0 3px 12px}
  .sidebar details{margin-bottom:9px;overflow:hidden}
  .sidebar summary{min-height:47px;padding:11px 12px;font-size:13px}
  .sidebar details>div{padding:3px 11px 14px}
