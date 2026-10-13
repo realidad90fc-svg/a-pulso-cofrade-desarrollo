@@ -29,6 +29,8 @@ function item(v,kind){
  if(['roads','sidewalks','houses'].includes(kind)){
   const result={poly:poly(v.poly)};
   if(v.material!==undefined)result.material=string(v.material,80);
+   if(kind==='houses'&&v.roofInset!==undefined)result.roofInset=number(v.roofInset,.2,.1,.3);
+   if(kind==='houses'&&v.roofSimplify!==undefined)result.roofSimplify=Boolean(v.roofSimplify);
   if(kind==='houses'){
    if(v.key!==undefined)result.key=string(v.key,100);
    if(v.kind!==undefined)result.kind=string(v.kind,80);

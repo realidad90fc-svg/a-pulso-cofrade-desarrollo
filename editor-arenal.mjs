@@ -113,11 +113,11 @@ function visualBounds(){
  return [a[0],a[1],b[0],b[1]];
 }
 function bboxHit(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1]}
-function drawTexture(poly,key,fallback,variant=0){
+function drawTexture(poly,key,fallback,variant=0,roofOptions={}){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
  const base=roofById(key),baseIndex=Math.max(0,NATIVE_ROOF_IDS.indexOf(Number(String(base.key).split(':').at(-1))));
  const material=/^(roof-|landmark-|temple-)/.test(String(key||''))?key:'roof-'+baseIndex+'-'+variant%4;
- drawRoof(ctx,poly,material,pixel,getImage,view.zoom);
+ drawRoof(ctx,poly,material,pixel,getImage,view.zoom,roofOptions);
 }
 function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
@@ -154,7 +154,7 @@ function draw(){
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
  photoGuides?.draw('background');
  if(!data)return;
- if($('houses-on').checked)for(let i=0;i<data.houses.length;i++){const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4)}
+ if($('houses-on').checked)for(let i=0;i<data.houses.length;i++){const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o)}
  if($('sidewalks-on').checked){
   for(let i=0;i<data.sidewalks.length;i++){const o=data.sidewalks[i];drawFloor(o.poly,'sidewalks',o.material||SIDEWALK_MATERIALS[i%SIDEWALK_MATERIALS.length].id)}
  }
@@ -388,7 +388,7 @@ function finishPolygon(){
  if(a<.015){show('Polígono demasiado estrecho o cruzado. Corrige sus puntos.','error');return}
  snapshot();
  const roof=roofById(state.material);
- data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual'}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
+ data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.2,roofSimplify:$('roof-simplify').checked}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
  state.working=[];changed();
  if(kind==='houses'){
   advanceRoof();
@@ -723,6 +723,7 @@ function bind(){
   palette();
  };
  $('roof-mode').onchange=palette;
+ $('roof-inset').oninput=()=>{const v=Number($('roof-inset').value);$('roof-inset-value').textContent=v.toFixed(2).replace('.',',')+' m';};
  $('public-mode').onchange=updatePeopleHint;
  $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
  $('people-row-spacing').oninput=e=>{$('people-row-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
@@ -748,6 +749,7 @@ function bind(){
   for(const sel of selected){
    const obj=data.houses[sel.index];if(!obj)continue;
    const roof=roofById(state.material);obj.material=roof.id;obj.key=roof.key;
+   obj.roofInset=Number($('roof-inset').value)||.2;obj.roofSimplify=$('roof-simplify').checked;
    count++;state.material=nextRoofId(roofsInCategory(),roof.id,mode);
   }
   changed();palette();show('Tejado aplicado a '+count+' edificios'+(mode==='fixed'?'.':' con alternancia.'),'good');

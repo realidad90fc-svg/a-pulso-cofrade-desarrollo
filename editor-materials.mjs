@@ -1,3 +1,4 @@
+import {renderInsetRoof} from './editor-roof-render.mjs';
 import {TEMPLE_ROOF_MATERIALS,drawTempleRoof} from './editor-temple-roofs.mjs';
 export {TEMPLE_ROOF_MATERIALS} from './editor-temple-roofs.mjs';
 // Visual-only editor material library. Keeps all native game assets untouched.
@@ -181,34 +182,12 @@ export const surfaceById=(id,kind='roads')=>{
  const list=kind==='sidewalks'?SIDEWALK_MATERIALS:ROAD_MATERIALS;
  return list.find(m=>m.id===id)||list[0];
 };
-export function drawRoof(ctx,poly,material,pixel,getImage,zoom){
- if(!asPoly(poly))return;
- const m=roofById(material),b=bounds(poly),img=getImage(m.key);
- ctx.save();polygonPath(ctx,poly,pixel);ctx.clip();
- const p=pixel(b[0],b[3]),w=(b[2]-b[0])*zoom,h=(b[3]-b[1])*zoom;
- if(m.landmark){drawLandmarkRoof(ctx,m,p,w,h);ctx.restore();return}
- if(m.temple){drawTempleRoof(ctx,m,p,w,h);ctx.restore();return}
- ctx.fillStyle='#aa8974';ctx.fillRect(p[0],p[1],w,h);
- if(img){
-  ctx.filter=m.filter;ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(img,p[0],p[1],w,h);ctx.filter='none';
- }
- if(m.tint){ctx.fillStyle=m.tint;ctx.fillRect(p[0],p[1],w,h)}
- // Fine details define different roof/terrace categories without duplicating source sprites.
- const variant=m.family;
- ctx.lineWidth=Math.max(.65,zoom*.018);ctx.strokeStyle=variant===2?'rgba(240,232,215,.5)':'rgba(42,32,27,.32)';
- if(variant===0||variant===1){
-  const spacing=Math.max(7,zoom*.34);
-  for(let y=p[1]+spacing;y<p[1]+h;y+=spacing){ctx.beginPath();ctx.moveTo(p[0],y);ctx.lineTo(p[0]+w,y);ctx.stroke()}
- }else if(variant===2){
-  ctx.strokeStyle='rgba(105,98,82,.6)';
-  ctx.strokeRect(p[0]+Math.min(3,w*.1),p[1]+Math.min(3,h*.1),Math.max(0,w-Math.min(6,w*.2)),Math.max(0,h-Math.min(6,h*.2)));
-  if(w>25&&h>25){ctx.fillStyle='rgba(202,194,180,.6)';ctx.fillRect(p[0]+w*.17,p[1]+h*.19,w*.16,h*.12)}
- }else{
-  ctx.strokeStyle='rgba(25,26,26,.55)';ctx.lineWidth=Math.max(1,zoom*.09);
-  ctx.strokeRect(p[0]+2,p[1]+2,Math.max(0,w-4),Math.max(0,h-4));
- }
- ctx.restore();
+export function drawRoof(ctx,poly,material,pixel,getImage,zoom,options={}){
+ const m=roofById(material);
+ return renderInsetRoof(ctx,poly,m,pixel,zoom,options,(item,top,w,h)=>{
+  if(item.temple)drawTempleRoof(ctx,item,top,w,h);
+  else if(item.landmark)drawLandmarkRoof(ctx,item,top,w,h);
+ });
 }
 function lineGrid(ctx,x0,y0,x1,y1,stepX,stepY,vertical,alpha){
  ctx.save();ctx.strokeStyle='rgba(27,26,26,'+alpha+')';ctx.lineWidth=.7;
