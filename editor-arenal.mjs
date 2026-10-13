@@ -107,6 +107,12 @@ function inPolygon(point,poly){
  }
  return hit;
 }
+// Preview and validation share the same ground rules as the live game.
+// Pavements are traversable, never impassable edges of the carriageway.
+function onTraversableSurface(p){
+ return (data?.roads||[]).some(o=>o.poly&&inPolygon(p,o.poly))
+  ||(data?.sidewalks||[]).some(o=>o.poly&&inPolygon(p,o.poly));
+}
 function polygon(poly){
  ctx.beginPath();
  poly.forEach((q,i)=>{const p=pixel(...q);if(i)ctx.lineTo(...p);else ctx.moveTo(...p)});
@@ -321,8 +327,8 @@ function drawPaso(){
   ctx.strokeStyle='#ffdc83';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(...tip);ctx.lineTo(...handle);ctx.stroke();
   ctx.fillStyle='#142b36';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.fillText('↻',...handle);
-  const okay=corners.every(pt=>data.roads.some(o=>inPolygon(pt,o.poly)));
-  $('paso-test').textContent=!data.roads.length?'Dibuja la calzada alrededor del paso':okay?'Paso dentro de la calzada':'Paso invade el exterior de la calzada';
+  const okay=corners.every(onTraversableSurface);
+  $('paso-test').textContent=!(data.roads.length+data.sidewalks.length)?'Dibuja calzada o acera bajo el paso':okay?'Paso sobre superficie transitable (calzada o acera)':'Paso fuera de la calzada y las aceras';
   $('paso-test').dataset.ok=okay?'yes':'no';
  }
  ctx.restore();
@@ -877,10 +883,9 @@ function bind(){
   if(!pose||![pose.x,pose.y,pose.angle].every(Number.isFinite)){show('Coloca el paso antes de fijar la salida.','error');return}
   snapshot();delete data.startReset;data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
   updateStartStatus();changed();
-  const inRoad=p=>(data.roads||[]).some(r=>r.poly&&inPolygon(p,r.poly));
   const complete=pasoFootprint(pose,1.36,3.0);
-  if(!data.roads?.length)show('Inicio guardado, pero aún no hay calzada. Dibuja la calle alrededor de toda la huella, incluida la manigueta.','info');
-  else if(complete.some(p=>!inRoad(p)))show('Inicio guardado con aviso: puede rozar una pared o estar fuera de la calzada. Revisa el espacio libre antes de jugar.','info');
+  if(!(data.roads?.length||data.sidewalks?.length))show('Inicio guardado, pero aún no hay suelo transitable. Dibuja calzada o acera bajo toda la huella, incluida la manigueta.','info');
+  else if(complete.some(p=>!onTraversableSurface(p)))show('Inicio guardado con aviso: puede rozar una pared o estar fuera de la calzada y las aceras. Revisa el espacio libre antes de jugar.','info');
   else show('Inicio guardado. Hay espacio aproximado; comprueba las colisiones reales al probar el juego.','good');
  };
  $('go-start').onclick=()=>{
@@ -925,7 +930,7 @@ function validate(){
  if(roofsOnRoad)warnings.push(roofsOnRoad+' edificios invaden o tocan el camino');
  if(pedestrianHouse)warnings.push(pedestrianHouse+' personas aparecen dentro de edificios');
  const paso=state.paso||data.paso,footprint=pasoFootprint(paso);
- if(!footprint.every(inRoad))warnings.push('El paso de prueba queda fuera de la calzada');
+ if(!footprint.every(onTraversableSurface))warnings.push('El paso de prueba queda fuera de la calzada y las aceras');
  const result=$('validation');result.innerHTML='';
  const heading=document.createElement('strong');heading.textContent=warnings.length?'Revisión: '+warnings.length+' advertencias':'Comprobaciones básicas superadas';
  result.appendChild(heading);
