@@ -358,8 +358,9 @@ function rotatePasoOnMobile(delta){
  changed();
  updatePasoDirectionStatus();
 }
-$('mobile-step-left')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
-$('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(5));
+// Positive Unity angles turn the front toward the left/west.
+$('mobile-step-left')?.addEventListener('click',()=>rotatePasoOnMobile(5));
+$('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 
 function configureTool(name){
  state.tool=name;state.working=[];state.drag=null;canvas.dataset.tool=name;
