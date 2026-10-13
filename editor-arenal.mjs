@@ -165,9 +165,7 @@ function drawGrid(){
   const p=pixel(0,y)[1];ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(view.w,p);ctx.stroke();
  }
 }
-function draw(){
- frames=false;
- if(!view.w||!view.h)return;
+function renderStaticScene(){
  ctx.setTransform(view.dpr,0,0,view.dpr,0,0);
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
  photoGuides?.draw('background');
@@ -207,6 +205,29 @@ function draw(){
    ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(...end);ctx.stroke();
    ctx.fillStyle='#f1c75b';ctx.font='bold 12px system-ui';ctx.fillText('INICIO',q[0]+15,q[1]-15);ctx.restore();
   }
+}
+// Maps, roofs, sprites and Google Earth photos rarely change on mouse hover.
+// Reuse their rasterized frame for interaction previews instead of redrawing
+// the entire scenery on every pointer event.
+const staticMapCanvas=document.createElement('canvas');
+const staticMapCtx=staticMapCanvas.getContext('2d',{alpha:false});
+let staticMapDirty=true;
+function draw(){
+ frames=false;
+ if(!view.w||!view.h)return;
+ if(staticMapDirty||staticMapCanvas.width!==canvas.width||staticMapCanvas.height!==canvas.height){
+  renderStaticScene();
+  staticMapCanvas.width=canvas.width;
+  staticMapCanvas.height=canvas.height;
+  staticMapCtx.setTransform(1,0,0,1,0,0);
+  staticMapCtx.drawImage(canvas,0,0);
+  staticMapDirty=false;
+ }else{
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(staticMapCanvas,0,0);
+ }
+ ctx.setTransform(view.dpr,0,0,view.dpr,0,0);
+ if(!data)return;
   if(state.drag?.action==='urban-mark'){
   const a=state.drag,o=crosswalkFromDrag(a.type,a.start,a.end,Number($('urban-depth').value));
   drawUrbanElement(ctx,o,pixel,view.zoom,true);
@@ -304,10 +325,18 @@ function drawPaso(){
  }
  ctx.restore();
 }
-function requestDraw(){if(!frames){frames=true;requestAnimationFrame(draw)}}
+function requestDraw(overlayOnly=false){
+ if(!overlayOnly)staticMapDirty=true;
+ if(!frames){frames=true;requestAnimationFrame(draw)}
+}
 function resize(){
  const r=canvas.getBoundingClientRect();
- view.w=Math.max(100,r.width);view.h=Math.max(100,r.height);view.dpr=Math.min(2,devicePixelRatio||1);
+ view.w=Math.max(100,r.width);view.h=Math.max(100,r.height);
+ // Electron uses its own CSS-scale canvas, but on HiDPI monitors painting
+ // a 2× full-window image quadruples pixels and can cause severe lag.
+ // This only changes raster density; geometry, world units and saved data
+ // remain identical. Web editor retains existing density for browser users.
+ view.dpr=location.protocol==='apulso:'?1:Math.min(2,devicePixelRatio||1);
  canvas.width=Math.round(view.w*view.dpr);canvas.height=Math.round(view.h*view.dpr);
  requestDraw();
 }
@@ -540,8 +569,8 @@ function pointerMove(e){
   state.pinch.gap=gap;return;
  }
  const q=world(...pos);state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
- if(state.tool==='reference'){photoGuides?.pointerMove(pos);requestDraw();return}
- if(!state.drag||!known){requestDraw();return}
+ if(state.tool==='reference'){photoGuides?.pointerMove(pos);return}
+ if(!state.drag||!known){if(state.tool==='people'||state.working.length)requestDraw(true);return}
  const a=state.drag,dx=(pos[0]-(a.pos?.[0]??pos[0]))/view.zoom,
   dy=-(pos[1]-(a.pos?.[1]??pos[1]))/view.zoom;
  if(a.action==='pan'){view.cx-=dx;view.cy-=dy;a.pos=pos;requestDraw();return}
