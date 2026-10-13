@@ -2,7 +2,7 @@ import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
-import {ROOF_MATERIALS,LANDMARK_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {ROOF_MATERIALS,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
@@ -114,7 +114,7 @@ function bboxHit(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1]}
 function drawTexture(poly,key,fallback,variant=0){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
  const base=roofById(key),baseIndex=Math.max(0,NATIVE_ROOF_IDS.indexOf(Number(String(base.key).split(':').at(-1))));
- const material=/^(roof-|landmark-)/.test(String(key||''))?key:'roof-'+baseIndex+'-'+variant%4;
+ const material=/^(roof-|landmark-|temple-)/.test(String(key||''))?key:'roof-'+baseIndex+'-'+variant%4;
  drawRoof(ctx,poly,material,pixel,getImage,view.zoom);
 }
 function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
@@ -602,7 +602,7 @@ function prepareMap(animation){
 function palette(){
  const parent=$('palettes');parent.replaceChildren();
  const group=$('roof-category').value;
- const roofs=group==='landmark'?LANDMARK_ROOF_MATERIALS:
+ const roofs=group==='temple'?[...LANDMARK_ROOF_MATERIALS.filter(m=>['cathedral','salvador','santaAna','baratillo'].includes(m.landmark)),...TEMPLE_ROOF_MATERIALS]:group==='landmark'?LANDMARK_ROOF_MATERIALS:
   ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
  $('roof-selected').textContent='Seleccionado: '+roofById(state.material).name;
  for(const roof of roofs){
@@ -610,7 +610,7 @@ function palette(){
   button.className='swatch'+(state.material===roof.id?' chosen':'');
   button.title=roof.name+(roof.description?' · '+roof.description:'');
   button.type='button';
-  if(roof.landmark){
+  if(roof.landmark||roof.temple){
    const preview=document.createElement('canvas');preview.width=144;preview.height=90;
    preview.setAttribute('aria-label','Vista cenital de '+roof.name);
    drawRoof(preview.getContext('2d'),[[6,6],[138,6],[138,84],[6,84]],roof.id,

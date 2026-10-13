@@ -1,3 +1,5 @@
+import {TEMPLE_ROOF_MATERIALS,drawTempleRoof} from './editor-temple-roofs.mjs';
+export {TEMPLE_ROOF_MATERIALS} from './editor-temple-roofs.mjs';
 // Visual-only editor material library. Keeps all native game assets untouched.
 // Roof variants reuse original Chicotaz sprites with weathering and tile/terrace treatments.
 export const NATIVE_ROOF_IDS=[569,416,463,480,495,562,566,581,554];
@@ -174,7 +176,7 @@ const polygonPath=(ctx,poly,pixel)=>{
  ctx.beginPath();poly.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();
 };
 const bounds=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
-export const roofById=id=>LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
+export const roofById=id=>TEMPLE_ROOF_MATERIALS.find(m=>m.id===id)||LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
 export const surfaceById=(id,kind='roads')=>{
  const list=kind==='sidewalks'?SIDEWALK_MATERIALS:ROAD_MATERIALS;
  return list.find(m=>m.id===id)||list[0];
@@ -185,6 +187,7 @@ export function drawRoof(ctx,poly,material,pixel,getImage,zoom){
  ctx.save();polygonPath(ctx,poly,pixel);ctx.clip();
  const p=pixel(b[0],b[3]),w=(b[2]-b[0])*zoom,h=(b[3]-b[1])*zoom;
  if(m.landmark){drawLandmarkRoof(ctx,m,p,w,h);ctx.restore();return}
+ if(m.temple){drawTempleRoof(ctx,m,p,w,h);ctx.restore();return}
  ctx.fillStyle='#aa8974';ctx.fillRect(p[0],p[1],w,h);
  if(img){
   ctx.filter=m.filter;ctx.imageSmoothingEnabled=false;
