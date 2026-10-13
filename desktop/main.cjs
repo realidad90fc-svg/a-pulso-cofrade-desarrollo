@@ -174,7 +174,7 @@ function menu(){
    {label:'Restaurar una copia de seguridad',click:restoreBackup},
    {label:'Abrir carpeta de copias',click:()=>{fs.mkdirSync(backupDirectory(),{recursive:true});shell.openPath(backupDirectory())}},
    {label:'Abrir carpeta de datos',click:()=>shell.openPath(profile)},
-   {type:'separator'},{label:'Salir',accelerator:'Alt+F4',click:()=>mainWindow?.close()||app.quit()}
+   {type:'separator'},{label:'Salir',accelerator:'Alt+F4',click:()=>{if(mainWindow)mainWindow.close();else app.quit()}}
   ]},
   {label:'Ver',submenu:[
    {role:'reload',label:'Recargar'},{role:'forceReload',label:'Recargar completamente'},
