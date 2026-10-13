@@ -55,6 +55,7 @@ function syncActiveTool(){
  }
  const drawing=['road','sidewalk','house'].includes(name);
  body.classList.toggle('mobile-polygon-mode',drawing&&mobileQuery.matches);
+ body.classList.toggle('mobile-paso-mode',name==='paso'&&mobileQuery.matches);
 }
 function switchLayout(){
  closeSheets();
