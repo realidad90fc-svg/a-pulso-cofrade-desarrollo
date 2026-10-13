@@ -2,7 +2,7 @@ import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
-import {ROOF_MATERIALS,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {ROOF_MATERIALS,SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
@@ -19,7 +19,7 @@ const colors={road:'#45474d',sidewalk:'#aaa49a',bg:'#676863',selected:'#31d5ed',
 const getId=(key)=>String(key).split(':').at(-1);
 const images=new Map();
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
-const state={tool:'pan',layer:'house',material:ROOF_MATERIALS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
+const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
 let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null;
 
 function show(message,type='info'){
@@ -402,7 +402,7 @@ function finishPolygon(){
  if(a<.015){show('Polígono demasiado estrecho o cruzado. Corrige sus puntos.','error');return}
  snapshot();
  const roof=roofById(state.material);
- data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.2,roofSimplify:$('roof-simplify').checked}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
+ data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.2,roofSimplify:$('roof-simplify').checked,roofSeed:residentialSeed(poly,data.houses.length)}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
  state.working=[];changed();
  if(kind==='houses'){
   advanceRoof();
@@ -641,7 +641,11 @@ function prepareMap(animation){
  };
 }
 function roofsInCategory(group=$('roof-category').value){
- return group==='temple'?[...LANDMARK_ROOF_MATERIALS.filter(m=>['cathedral','salvador','santaAna','baratillo'].includes(m.landmark)),...TEMPLE_ROOF_MATERIALS]:
+ return group==='common'?SEVILLA_NEIGHBOURHOOD_ROOFS:
+  group==='flat'?SEVILLA_ROOFS_BY_FAMILY('flat'):
+  group==='tile'?SEVILLA_ROOFS_BY_FAMILY('tile'):
+  group==='mixed'?SEVILLA_ROOFS_BY_FAMILY('mixed'):
+  group==='temple'?[...LANDMARK_ROOF_MATERIALS.filter(m=>['cathedral','salvador','santaAna','baratillo'].includes(m.landmark)),...TEMPLE_ROOF_MATERIALS]:
   group==='landmark'?LANDMARK_ROOF_MATERIALS:ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
 }
 function advanceRoof(){
@@ -661,7 +665,7 @@ function palette(){
   button.className='swatch'+(state.material===roof.id?' chosen':'');
   button.title=roof.name+(roof.description?' · '+roof.description:'');
   button.type='button';
-  if(roof.landmark||roof.temple){
+  if(roof.landmark||roof.temple||roof.roofFamily){
    const preview=document.createElement('canvas');preview.width=144;preview.height=90;
    preview.setAttribute('aria-label','Vista cenital de '+roof.name);
    drawRoof(preview.getContext('2d'),[[6,6],[138,6],[138,84],[6,84]],roof.id,
@@ -764,6 +768,7 @@ function bind(){
    const obj=data.houses[sel.index];if(!obj)continue;
    const roof=roofById(state.material);obj.material=roof.id;obj.key=roof.key;
    obj.roofInset=Number($('roof-inset').value)||.2;obj.roofSimplify=$('roof-simplify').checked;
+    if(!Number.isFinite(obj.roofSeed))obj.roofSeed=residentialSeed(obj.poly,sel.index);
    count++;state.material=nextRoofId(roofsInCategory(),roof.id,mode);
   }
   changed();palette();show('Tejado aplicado a '+count+' edificios'+(mode==='fixed'?'.':' con alternancia.'),'good');
