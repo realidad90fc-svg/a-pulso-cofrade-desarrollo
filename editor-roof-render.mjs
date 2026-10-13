@@ -63,19 +63,21 @@ function fillCleanRoof(ctx,layout,material,pixel,zoom){
  // Uniform hatch, no stretched rectangular image and no embedded facade art.
  const gap=layout.compact?.28*zoom:.16*zoom;
  ctx.strokeStyle=pal.tile;ctx.lineWidth=Math.max(.015*zoom,.01);
+ ctx.beginPath();
  for(let n=0,nmax=Math.min(340,Math.ceil(spanY/gap)+2);n<nmax;n++){
-  const y=ymin+n*gap;
-  if(y>ymax)break;
-  ctx.beginPath();ctx.moveTo(xmin-.15*zoom,y);ctx.lineTo(xmax+.15*zoom,y);ctx.stroke();
+  const y=ymin+n*gap;if(y>ymax)break;
+  ctx.moveTo(xmin-.15*zoom,y);ctx.lineTo(xmax+.15*zoom,y);
  }
+ ctx.stroke();
  if(pal.mode===0||pal.mode===1){
   const gapX=layout.compact?.65*zoom:.34*zoom;
   ctx.strokeStyle='rgba(48,38,32,.28)';ctx.lineWidth=Math.max(.01*zoom,.007);
+  ctx.beginPath();
   for(let n=0,nmax=Math.min(280,Math.ceil(spanX/gapX)+2);n<nmax;n++){
-   const x=xmin+n*gapX;
-   if(x>xmax)break;
-   ctx.beginPath();ctx.moveTo(x,ymin-.15*zoom);ctx.lineTo(x,ymax+.15*zoom);ctx.stroke();
+   const x=xmin+n*gapX;if(x>xmax)break;
+   ctx.moveTo(x,ymin-.15*zoom);ctx.lineTo(x,ymax+.15*zoom);
   }
+  ctx.stroke();
  }
  // Long narrow/concave buildings get simplified surface, avoiding false
  // gables and jagged roof silhouettes.
