@@ -272,7 +272,7 @@
    <div class="stack">
     <div class="notice"><strong>Solo en este dispositivo.</strong> Puedes calcar calles sobre varias fotos. Las imágenes y su posición se guardan en el navegador, no se suben al servidor ni se incluyen en el JSON o en el juego publicado.</div>
     <label for="reference-file"><strong>Añadir fotos desde móvil o PC</strong></label>
-     <p class="muted">Al importar una captura, indica la altura de Google Earth (p. ej. 106 m) para la escala inicial. Después utiliza «Calibrar con calle» para ajustar la foto al paso.</p>
+     <p class="muted">Al importar una captura de Google Earth, indica únicamente su altura de cámara (por ejemplo, 106 m). La imagen se escalará respecto al paso original sin cambiar sus dimensiones.</p>
     <input id="reference-file" type="file" accept="image/*" multiple>
     <small id="reference-count">0 fotografías en este mapa</small>
     <label for="reference-list">Fotografía que quieres ajustar</label>
@@ -284,15 +284,7 @@
      <input id="reference-opacity" type="range" min="5" max="100" step="1" value="36">
      <label for="reference-height"><strong>Altura de Google Earth (metros)</strong></label>
       <input id="reference-height" type="number" min="5" max="3000" step="0.1" placeholder="Ej.: 106">
-      <button id="reference-recalculate" type="button" class="small">Recalcular por altura (aproximado)</button>
-      <div class="notice">Para conseguir proporciones reales entre paso y calle, marca dos bordes de una calle cuya anchura conozcas. La altura de Google Earth solo sirve como estimación inicial.</div>
-      <label for="reference-street-metres">Anchura real de la calle (metros)</label>
-      <input id="reference-street-metres" type="number" min="1" max="30" step=".1" value="4">
-      <label for="reference-paso-metres">Anchura real del paso (metros)</label>
-      <input id="reference-paso-metres" type="number" min="1" max="5" step=".1" value="2">
-      <button id="reference-street-calibrate" type="button" class="primary">📏 Calibrar con calle</button>
-      <div id="reference-calibration-status" class="muted" role="status">Marca dos puntos correspondientes a la anchura real de la calle.</div>
-      <small class="muted">Ejemplo: 4 m de calle y 2 m de paso → el paso ocupa el 50 %. Son valores editables, no medidas verificadas de la calle Arfe. Conservamos las colisiones originales del motor.</small>
+      <button id="reference-recalculate" type="button" class="small">Ajustar escala utilizando altura</button>
       <small id="reference-scale-source" class="muted" role="status">Escala sin calibrar.</small>
       <label for="reference-scale">Ajuste fino del tamaño (<output id="reference-scale-value">100%</output>)</label>
      <input id="reference-scale" type="range" min="10" max="800" step="1" value="100">
@@ -308,7 +300,7 @@
      <button id="reference-clear" type="button" class="danger">Eliminar foto seleccionada</button>
     </fieldset>
     <label class="flag"><input id="reference-overlay" type="checkbox" checked> Ver fotos sobre el plano para calcar con transparencia</label>
-    <p class="muted">Pulsa <strong>▧ Ajustar foto</strong>, toca la imagen y arrástrala. Elige cuál mover en la lista y bloquéala al terminar. Puedes dibujar después sin desplazarla.</p>
+    <p class="muted">Después puedes mover y girar la imagen para alinearla. La escala basada solo en la altura es una estimación si cambia la inclinación o la cámara de Google Earth.</p>
     <p id="reference-storage" class="muted" role="status">Las fotografías nunca forman parte del juego.</p>
    </div>
   </details>
