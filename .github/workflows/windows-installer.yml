@@ -29,7 +29,7 @@ jobs:
           node --check desktop/main.cjs
           node --check desktop/prepare-assets.cjs
           node --check desktop/web/editor-arenal.mjs
-      - name: Verificar orden de capas: aceras bajo tejados
+      - name: 'Verificar orden de capas - aceras bajo tejados'
         run: node tests/roof-layer-order.cjs
       - name: Crear instalador EXE
         working-directory: desktop
