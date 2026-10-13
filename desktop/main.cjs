@@ -15,7 +15,9 @@ protocol.registerSchemesAsPrivileged([{
 // Persistencia FUERA de la caché del navegador habitual. No se borra al
 // actualizar o reinstalar la aplicación (si se conservan los datos del usuario).
 const PROFILE_NAME='A Pulso Cofrade - Windows';
-app.setPath('userData',path.join(app.getPath('appData'),PROFILE_NAME));
+const PROFILE_DIR=path.join(app.getPath('appData'),PROFILE_NAME);
+fs.mkdirSync(PROFILE_DIR,{recursive:true}); // Electron requires this path to exist on first install.
+app.setPath('userData',PROFILE_DIR);
 const profile=app.getPath('userData');
 const PENDING=path.join(profile,'restaurar-al-iniciar.json');
 const PERSIST=['Local Storage','IndexedDB'];
@@ -47,7 +49,7 @@ try{applyPendingRestore()}catch(error){
 }
 
 async function backupNow(){
- await session.defaultSession.flushStorageData();
+ try{await session.defaultSession.flushStorageData()}catch{/* Copy what is already persisted even if flush fails. */}
  const dir=backupDirectory();
  fs.mkdirSync(dir,{recursive:true});
  const destination=path.join(dir,timestamp());
@@ -172,7 +174,7 @@ function menu(){
    {label:'Restaurar una copia de seguridad',click:restoreBackup},
    {label:'Abrir carpeta de copias',click:()=>{fs.mkdirSync(backupDirectory(),{recursive:true});shell.openPath(backupDirectory())}},
    {label:'Abrir carpeta de datos',click:()=>shell.openPath(profile)},
-   {type:'separator'},{role:'quit',label:'Salir'}
+   {type:'separator'},{label:'Salir',accelerator:'Alt+F4',click:()=>mainWindow?.close()||app.quit()}
   ]},
   {label:'Ver',submenu:[
    {role:'reload',label:'Recargar'},{role:'forceReload',label:'Recargar completamente'},
