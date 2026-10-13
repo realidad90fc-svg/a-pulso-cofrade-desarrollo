@@ -35,6 +35,14 @@ function setSelection(items){
  updateCounts();requestDraw();
 }
 function clearSelection(){setSelection([])}
+function savedStart(){return data?.startPose||data?.paso}
+function restorePreviewStart(){if(savedStart())state.paso={...savedStart()};updateStartStatus();requestDraw()}
+function updateStartStatus(){
+ if(!data)return;
+ const start=savedStart(),fixed=!!data.startPose;
+ $('start-status').textContent=fixed?'INICIO FIJADO: X '+start.x.toFixed(2)+' · Y '+start.y.toFixed(2)+' · '+start.angle.toFixed(1)+'°':'Inicio original del mapa';
+ $('clear-start').disabled=!fixed;
+}
 function deleteSelected(){
  if(!state.selectedItems.length)return;
  snapshot();const n=deleteSelections(data,state.selectedItems);
@@ -68,12 +76,12 @@ function saveLocal(){
 function undo(){
  if(!state.history.length)return;
  state.future.push(JSON.stringify(data));
- data=JSON.parse(state.history.pop());clearSelection();changed();
+ data=JSON.parse(state.history.pop());clearSelection();restorePreviewStart();changed();
 }
 function redo(){
  if(!state.future.length)return;
  state.history.push(JSON.stringify(data));
- data=JSON.parse(state.future.pop());clearSelection();changed();
+ data=JSON.parse(state.future.pop());clearSelection();restorePreviewStart();changed();
 }
 function world(px,py){return [view.cx+(px-view.w/2)/view.zoom,view.cy-(py-view.h/2)/view.zoom]}
 function pixel(x,y){return [(x-view.cx)*view.zoom+view.w/2,view.h/2-(y-view.cy)*view.zoom]}
@@ -183,7 +191,13 @@ function draw(){
    const xy=pixel(...p);ctx.font='600 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#171a20';ctx.strokeText(name,xy[0]+6,xy[1]);ctx.fillStyle='#fff5e7';ctx.fillText(name,xy[0]+6,xy[1]);
   }
  }
- if(state.drag?.action==='urban-mark'){
+ if(data.startPose){
+   const start=data.startPose,q=pixel(start.x,start.y),a=(start.angle-90)*Math.PI/180;
+   ctx.save();ctx.strokeStyle='#f1c75b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(q[0],q[1],11,0,Math.PI*2);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]+Math.cos(a)*28,q[1]-Math.sin(a)*28);ctx.stroke();
+   ctx.fillStyle='#f1c75b';ctx.font='bold 12px system-ui';ctx.fillText('INICIO',q[0]+15,q[1]-15);ctx.restore();
+  }
+  if(state.drag?.action==='urban-mark'){
   const a=state.drag,o=crosswalkFromDrag(a.type,a.start,a.end,Number($('urban-depth').value));
   drawUrbanElement(ctx,o,pixel,view.zoom,true);
  }
@@ -593,7 +607,7 @@ function setData(loaded){
  if(!data.labels)data.labels=[];
  for(const kind of ['trees','signs','checkpoints','fences','chairs','urban'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
  if(!data.bounds)data.bounds=baseline.bounds;
- state.paso={...data.paso};state.peopleIndex=data.people.length;state.treeIndex=data.trees.length;
+ state.paso={...savedStart()};updateStartStatus();state.peopleIndex=data.people.length;state.treeIndex=data.trees.length;
  if($('public-sprite').options.length)updatePeopleHint();changed();
 }
 function makeSegments(){
@@ -786,10 +800,21 @@ function bind(){
  };
  $('reset').onclick=()=>{
   if(!confirm('¿Volver a la versión de partida del editor? Exporta antes tu trabajo si quieres conservarlo.'))return;
-  snapshot();data=JSON.parse(JSON.stringify(baseline));clearSelection();changed();
+  snapshot();data=JSON.parse(JSON.stringify(baseline));clearSelection();restorePreviewStart();changed();
  };
  $('brush-size').oninput=()=>{$('brush-value').textContent=Number($('brush-size').value).toFixed(2)+' m'};
- $('goto-start').onclick=()=>focusAt(data.paso.x,data.paso.y,Math.min(45,Math.max(view.zoom,20)));
+ $('set-start').onclick=()=>{
+  const pose=state.paso;
+  if(!pose||![pose.x,pose.y,pose.angle].every(Number.isFinite)){show('Coloca el paso antes de fijar la salida.','error');return}
+  snapshot();data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
+  updateStartStatus();changed();show('Inicio guardado. Ya puedes construir el mapa alrededor.','good');
+ };
+ $('go-start').onclick=()=>{
+  restorePreviewStart();const start=savedStart();
+  if(start){configureTool('paso');focusAt(start.x,start.y,Math.min(45,Math.max(view.zoom,20)))}
+ };
+ $('clear-start').onclick=()=>{if(!data.startPose)return;snapshot();delete data.startPose;restorePreviewStart();changed();show('Inicio original restaurado.','good')};
+ $('goto-start').onclick=()=>{const start=savedStart();if(start)focusAt(start.x,start.y,Math.min(45,Math.max(view.zoom,20)))};
  $('goto-chapel').onclick=()=>{const p=data.checkpoints?.[0]?.position||data.checkpoint;focusAt(...p,Math.min(48,Math.max(view.zoom,20)))};
  $('goto-all').onclick=fitMap;
  $('zoom-in').onclick=()=>zoomAt(1.3);$('zoom-out').onclick=()=>zoomAt(1/1.3);

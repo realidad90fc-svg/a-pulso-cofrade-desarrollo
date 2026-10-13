@@ -143,7 +143,16 @@
     <p class="muted">Desactiva una capa para dibujar exactamente debajo de ella.</p>
    </div>
   </details>
-  <details open id="street-label-panel">
+  <details open id="start-panel">
+ <summary>📍 Posición inicial del paso</summary>
+ <div class="stack">
+ <p class="muted">Pulsa <strong>✦ Probar paso</strong>, mueve el paso al punto de salida y gíralo usando ↻ hasta orientarlo bien. Después confirma.</p>
+ <div id="start-status" class="notice">Inicio original del mapa</div>
+ <button id="set-start" type="button" class="primary">📍 Establecer posición inicial</button>
+ <div class="actions"><button id="go-start" type="button">Volver al inicio</button><button id="clear-start" type="button" class="danger">Inicio original</button></div>
+ <p class="muted">Puedes definirlo antes de construir las calles. Se guarda y exporta con el mapa y no cambia los checkpoints.</p>
+ </div></details>
+ <details open id="street-label-panel">
   <summary>Nombres de calles · añadir y editar</summary>
   <div class="stack">
    <label for="street-name-text">Nombre de la calle o lugar</label>
