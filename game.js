@@ -90,7 +90,8 @@ async function startGame(scene=2,snapshot=null){
   const publishedOrLocal=await resolveEditorDraft(next);
   if(run!==loading)return;
   const editorDraft=attachEditorDraft(next,publishedOrLocal);
-  if(editorDraft&&!snapshot&&editorDraft.startPose)applyEditorStart(next,editorDraft.startPose);
+  const spawnResult=editorDraft&&!snapshot&&editorDraft.startPose?applyEditorStart(next,editorDraft.startPose):null;
+  const startWarning=spawnResult&&!spawnResult.ok?'La salida marcada no es segura: '+spawnResult.reason+'. Se ha utilizado la salida original.':null;
   if(editorDraft){
    const customPoints=(editorDraft.layers.checkpoints||[])
     .filter(cp=>Array.isArray(cp.position)&&cp.position.every(Number.isFinite))
@@ -114,7 +115,10 @@ async function startGame(scene=2,snapshot=null){
   sim=next;menus.destroy();hud?.destroy();hud=new OriginalLayout(r.layouts,tutorial?r.controls.tutorial.step.canvasKey:r.layouts.gameplayCanvases[step.code],$('original-hud'),{excludeButtons:true});
   buildButtons();$('now-playing').textContent='';
   document.querySelector('.hud-fallback').hidden=true;
-  setScreen('game');resize();if(editorDraft)toast('Mapa de prueba del editor activo · '+editorDraft.total+' cambios · sin fotos',5);processEvents();saveActive();
+  setScreen('game');resize();
+   if(startWarning)toast(startWarning,12);
+   else if(editorDraft)toast('Mapa de prueba del editor activo · '+editorDraft.total+' cambios · sin fotos',5);
+   processEvents();saveActive();
  }catch(error){if(run!==loading)return;loading++;console.error(error);$('load-detail').textContent='No se ha podido terminar la carga. '+error.message;$('load-retry').hidden=false;}
 }
 function buildButtons(){

@@ -84,30 +84,68 @@ export async function resolveEditorDraft(sim){
  }finally{clearTimeout(timeout)}
 }
 // New game only. Never apply this to a checkpoint/saved snapshot.
+// Evaluate the ACTUAL engine colliders after moving the whole paso. A simple
+// editor rectangle misses the manigueta and candelabros. Do not invent a
+// new start if real physics says it would collide on the first frame.
+export function inspectEditorSpawn(sim){
+ const s=sim,parts=(s.stepColliders||[]).filter(c=>c.enabled&&c.entity!==s.contraEntity);
+ const route=s.routeAdapter,overlays=s.editorDraft?.obstacles||[];
+ for(const c of parts){
+  c._frame=-1;
+  let world;try{world=c.world()}catch{return{ok:false,reason:'No se pudo calcular el volumen de la cuadrilla.'}}
+  const part=c.entity?.name?.startsWith('manigueta')?'la manigueta':c.entity?.name?.startsWith('candelabro')?'los candelabros':'el paso';
+  if(typeof route?.validShape==='function'){
+   try{if(!route.validShape(world))return{ok:false,reason:part+' queda fuera del espacio transitable o toca una pared'};}
+   catch{return{ok:false,reason:'No se pudo comprobar la salida con la geometría del recorrido'}}
+  }
+  const polygonPoints=shapePolygon(world);
+  if(polygon(polygonPoints)){
+   const bb=bbox(polygonPoints);
+   for(const item of overlays)if(hits(bb,item.box||bbox(item.poly))&&overlaps(polygonPoints,item.poly)){
+    return{ok:false,reason:part+' invade '+(item.reason===13?'al público':item.reason===9?'mobiliario de la calle':'un edificio')}
+   }
+  }
+ }
+ return{ok:true,reason:''};
+}
 export function applyEditorStart(sim,p){
- if(!validStart(p)||sim.tutorial||!sim.stepEntity?.transform)return false;
- const current=sim.position(sim.stepEntity.transform);
- sim.setPosition(sim.stepEntity.transform,[p.x,p.y,current?.z||0]);
+ if(!validStart(p)||sim.tutorial||!sim.stepEntity?.transform)return{ok:false,reason:'Posición inicial no válida'};
+ const entities=[sim.stepEntity,sim.capatazEntity,sim.contraEntity,...(sim.cortejos||[])].filter(e=>e?.transform);
+ const previous=entities.map(e=>({entity:e,pos:sim.position(e.transform),angle:sim.angle(e.transform)}));
+ const initialChecked=sim.routeAdapter?._startChecked;
+ const restore=()=>{
+  for(const {entity,pos,angle}of previous){
+   sim.setPosition(entity.transform,[pos.x,pos.y,pos.z||0]);sim.setAngle(entity.transform,angle);
+  }
+  if(sim.routeAdapter&&initialChecked!==undefined)sim.routeAdapter._startChecked=initialChecked;
+  for(const c of sim.stepColliders||[])c._frame=-1;
+  sim.routeAdapter?.follow?.();
+  try{sim.vm?.invoke?.('cameraController.LateUpdate',sim.cameraController)}catch{}
+  sim.sync?.();
+ };
+ const position=sim.position(sim.stepEntity.transform);
+ sim.setPosition(sim.stepEntity.transform,[p.x,p.y,position.z||0]);
  sim.setAngle(sim.stepEntity.transform,p.angle);
  for(const c of sim.stepColliders||[])c._frame=-1;
  if(sim.routeAdapter?.follow)sim.routeAdapter.follow();
  else{
-  const radians=p.angle*Math.PI/180,s=Math.sin(radians),c=Math.cos(radians);
-  for(const [entity,along,turn]of [[sim.capatazEntity,1.2,-90],[sim.contraEntity,-1.3,90]])if(entity?.transform){
-   sim.setPosition(entity.transform,[p.x-s*along,p.y+c*along,0]);
-   sim.setAngle(entity.transform,p.angle+turn);
+  const a=p.angle*Math.PI/180,s=Math.sin(a),c=Math.cos(a);
+  for(const [entity,d,turn]of [[sim.capatazEntity,1.2,-90],[sim.contraEntity,-1.3,90]])if(entity?.transform){
+   sim.setPosition(entity.transform,[p.x-s*d,p.y+c*d,0]);sim.setAngle(entity.transform,p.angle+turn);
   }
   for(const [i,entity]of (sim.cortejos||[]).entries())if(entity?.transform){
-   const along=[3,-3,-4.5][i];
-   sim.setPosition(entity.transform,[p.x-s*along,p.y+c*along,0]);
-   sim.setAngle(entity.transform,p.angle);
+   const d=[3,-3,-4.5][i];sim.setPosition(entity.transform,[p.x-s*d,p.y+c*d,0]);sim.setAngle(entity.transform,p.angle);
   }
  }
- // Disable the original Arenal automatic spawn adjustment when the designer
- // has explicitly chosen the location and orientation.
+ const inspection=inspectEditorSpawn(sim);
+ if(!inspection.ok){
+  restore();
+  return {ok:false,reason:inspection.reason};
+ }
  if(sim.routeAdapter&&'_startChecked' in sim.routeAdapter)sim.routeAdapter._startChecked=true;
  try{sim.vm?.invoke?.('cameraController.LateUpdate',sim.cameraController)}catch{}
- sim.sync?.();return true;
+ sim.sync?.();
+ return{ok:true,reason:''};
 }
 export function attachEditorDraft(sim,draftOverride=undefined){
  if(sim.tutorial)return null;

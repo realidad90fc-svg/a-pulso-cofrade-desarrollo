@@ -812,7 +812,14 @@ function bind(){
   const pose=state.paso;
   if(!pose||![pose.x,pose.y,pose.angle].every(Number.isFinite)){show('Coloca el paso antes de fijar la salida.','error');return}
   snapshot();delete data.startReset;data.startPose={x:+pose.x.toFixed(3),y:+pose.y.toFixed(3),angle:+(((pose.angle%360)+360)%360).toFixed(3)};
-  updateStartStatus();changed();show('Inicio guardado. Ya puedes construir el mapa alrededor.','good');
+  updateStartStatus();changed();
+  const inRoad=p=>(data.roads||[]).some(r=>r.poly&&inPolygon(p,r.poly));
+  const theta=(pose.angle-90)*Math.PI/180,c=Math.cos(theta),s=Math.sin(theta);
+  const complete=[[-.68,-1.50],[.68,-1.50],[.68,1.50],[-.68,1.50]]
+   .map(([x,y])=>[pose.x+x*c-y*s,pose.y+x*s+y*c]);
+  if(!data.roads?.length)show('Inicio guardado, pero aún no hay calzada. Dibuja la calle alrededor de toda la huella, incluida la manigueta.','info');
+  else if(complete.some(p=>!inRoad(p)))show('Inicio guardado con aviso: puede rozar una pared o estar fuera de la calzada. Revisa el espacio libre antes de jugar.','info');
+  else show('Inicio guardado. Hay espacio aproximado; comprueba las colisiones reales al probar el juego.','good');
  };
  $('go-start').onclick=()=>{
   restorePreviewStart();const start=savedStart();
