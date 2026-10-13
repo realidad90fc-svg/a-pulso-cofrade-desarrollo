@@ -12,13 +12,13 @@ export function roofLayout(poly,requested=.2,autoSimplify=true){
  const points=poly.filter((p,i)=>i===0||Math.hypot(p[0]-poly[i-1][0],p[1]-poly[i-1][1])>1e-5);
  if(points.length>2&&Math.hypot(points[0][0]-points.at(-1)[0],points[0][1]-points.at(-1)[1])<1e-5)points.pop();
  if(points.length<3)return null;
- let signed=0,perimeter=0,longest=0,angle=0;
+ let signed=0,perimeter=0,longest=0,angle=0,longestEdgeIndex=0;
  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
  const bounds=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
  for(let i=0;i<points.length;i++){
   const a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
   signed+=a[0]*b[1]-b[0]*a[1];perimeter+=length;
-  if(length>longest){longest=length;angle=Math.atan2(dy,dx)}
+  if(length>longest){longest=length;angle=Math.atan2(dy,dx);longestEdgeIndex=i}
  }
  const area=Math.abs(signed)/2;
  if(area<1e-7||perimeter<1e-5)return null;
@@ -29,7 +29,7 @@ export function roofLayout(poly,requested=.2,autoSimplify=true){
  const spanX=bounds[2]-bounds[0],spanY=bounds[3]-bounds[1];
  const aspect=Math.max(spanX,spanY)/Math.max(.001,Math.min(spanX,spanY));
  const compact=!!autoSimplify&&(thickness<.55||aspect>5.5||points.length>9);
- return{points,bounds,angle,area,perimeter,thickness,inset:safeInset,compact};
+ return{points,bounds,angle,longestEdgeIndex,area,perimeter,thickness,inset:safeInset,compact};
 }
 const PALETTES=[
  ['#b9684a','#dc936b','#74402f'],['#b97552','#d4a075','#704b3c'],
@@ -53,14 +53,11 @@ function fillCleanRoof(ctx,layout,material,pixel,zoom){
   pts.reduce((s,p)=>s+p[1],0)/pts.length
  ];
  // Pixel-space angle accounts for the inverted editor/game Y axis.
- const edge=layout.points,first=edge.findIndex((a,i)=>{
-  const b=edge[(i+1)%edge.length];
-  return Math.abs(Math.hypot(b[0]-a[0],b[1]-a[1])-Math.max(...edge.map((x,j)=>Math.hypot(edge[(j+1)%edge.length][0]-x[0],edge[(j+1)%edge.length][1]-x[1]))))<1e-6;
- });
- const a=pts[first<0?0:first],b=pts[(first+1)%pts.length],angle=Math.atan2(b[1]-a[1],b[0]-a[0]),c=Math.cos(angle),s=Math.sin(angle);
+ const first=layout.longestEdgeIndex||0,a=pts[first],b=pts[(first+1)%pts.length];
+ const angle=Math.atan2(b[1]-a[1],b[0]-a[0]),c=Math.cos(angle),s=Math.sin(angle);
  const local=pts.map(p=>{const dx=p[0]-centre[0],dy=p[1]-centre[1];return[dx*c+dy*s,-dx*s+dy*c]});
  const xmin=Math.min(...local.map(p=>p[0])),xmax=Math.max(...local.map(p=>p[0])),ymin=Math.min(...local.map(p=>p[1])),ymax=Math.max(...local.map(p=>p[1]));
- const pal=nativeColors(material),step=Math.max(.12*zoom,.10),spanX=xmax-xmin,spanY=ymax-ymin;
+ const pal=nativeColors(material),spanX=xmax-xmin,spanY=ymax-ymin;
  ctx.save();ctx.translate(...centre);ctx.rotate(angle);
  ctx.fillStyle=pal.base;ctx.fillRect(xmin-.3*zoom,ymin-.3*zoom,spanX+.6*zoom,spanY+.6*zoom);
  // Uniform hatch, no stretched rectangular image and no embedded facade art.
