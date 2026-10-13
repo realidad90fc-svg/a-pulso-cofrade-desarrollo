@@ -873,7 +873,7 @@ function bind(){
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){state.working=[];clearSelection();requestDraw()}
+  if(e.key==='Escape'){state.working=[];photoGuides?.cancelCalibration();clearSelection();requestDraw()}
   if(e.key==='Delete'||e.key==='Backspace')deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);
@@ -953,6 +953,7 @@ async function init(){
    selector.appendChild(group);
   }
   photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view,
+    activateReferenceTool:()=>configureTool('reference'),
     focusImage:photo=>{
      // Show the full calibrated photo without changing its true world-space size.
      const usableW=Math.max(150,view.w-70),usableH=Math.max(150,view.h-70);

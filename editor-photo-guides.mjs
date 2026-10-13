@@ -10,7 +10,7 @@ const strip=photo=>({
  id:photo.id,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
  width:photo.width,height:photo.height,scale:photo.scale,rotation:photo.rotation,
  opacity:photo.opacity,locked:photo.locked,visible:photo.visible,order:photo.order,
-  cameraHeightM:photo.cameraHeightM??null,calibration:photo.calibration||'manual'
+  cameraHeightM:photo.cameraHeightM??null,calibration:photo.calibration||'manual',streetMetres:photo.streetMetres??null,pasoMetres:photo.pasoMetres??null
 });
 function openDatabase(){
  return new Promise((resolve,reject)=>{
@@ -54,9 +54,20 @@ async function decode(blob){
 }
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const selectedText=p=>p?.name||'';
-export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage}){
+// Keep the native 1.0386-unit paso footprint, and fit the photo to the
+// ratio between a MEASURED street and the real width of the paso.
+export function fitPhotoToStreet(photo,p1,p2,streetMetres,pasoMetres){
+ const street=Number(streetMetres),paso=Number(pasoMetres);
+ const distance=Math.hypot(Number(p1?.[0])-Number(p2?.[0]),Number(p1?.[1])-Number(p2?.[1]));
+ if(!Number.isFinite(street)||!Number.isFinite(paso)||street<1||street>30||paso<1||paso>5||paso>street
+  ||!Number.isFinite(distance)||distance<.0001||!Number.isFinite(photo?.width)||photo.width<=0||!Number.isFinite(photo?.height)||photo.height<=0)return null;
+ const target=street*1.0386/paso,factor=target/distance;
+ if(factor<.005||factor>200)return null;
+ return{width:photo.width*factor,height:photo.height*factor,target,street,paso};
+}
+export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool}){
  const el=id=>document.getElementById(id);
- let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
+ let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null,calibration=null;
  let storageAvailable=true;
  const selected=()=>photos.find(p=>p.id===currentId)||null;
  function database(){
@@ -109,11 +120,18 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    el('reference-opacity-value').textContent=Math.round(p.opacity*100)+'%';
    el('reference-scale-value').textContent=Math.round(p.scale*100)+'%';
    el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
+    if(p.streetMetres)el('reference-street-metres').value=p.streetMetres;
+    if(p.pasoMetres)el('reference-paso-metres').value=p.pasoMetres;
     el('reference-height').value=p.cameraHeightM??'';
-    el('reference-scale-source').textContent=p.calibration==='earth'&&p.cameraHeightM?
-     'Google Earth · '+p.cameraHeightM+' m de altura · tamaño estimado '+p.width.toFixed(1)+' × '+p.height.toFixed(1)+' m. Ajusta el porcentaje si hay perspectiva o recorte.':
-     'Fotografía sin escala automática. Puedes indicar su altura de Google Earth y pulsar «Recalcular». ';
+    el('reference-scale-source').textContent=p.calibration==='street'?
+     'CALIBRADO CON CALLE DE '+p.streetMetres+' m y paso de '+p.pasoMetres+' m. La foto ocupa '+(p.width*p.scale).toFixed(2)+' × '+(p.height*p.scale).toFixed(2)+' unidades de juego.':
+     p.calibration==='earth'&&p.cameraHeightM?'Escala inicial aproximada por altura ('+p.cameraHeightM+' m). Usa «Calibrar con calle» para una proporción fiable.':
+     'Sin escala confirmada. Calibra usando una distancia medida sobre una calle.';
   }
+  el('reference-street-calibrate').textContent=calibration?'Cancelar calibración':'📏 Calibrar con calle';
+  el('reference-calibration-status').textContent=calibration?
+   (calibration.first?'Primer borde marcado. Pulsa el segundo borde.':'Pulsa el primer borde de la calle sobre la imagen.'):
+   'Marca con dos clics los bordes de la distancia real indicada.';
   el('reference-storage').textContent=storageAvailable?
    'Las fotos y su colocación se guardan solo en este navegador. No se suben ni se incluyen en el JSON.':
    'Atención: no se pueden guardar fotos de forma persistente en este navegador. Exportar el mapa NO incluye las fotografías.';
@@ -134,7 +152,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  function release(items){for(const p of items)if(p.url)URL.revokeObjectURL(p.url)}
  async function switchMap(next){
   const epoch=++generation,old=photos;
-  clearTimeout(saveTimer);saveTimer=null;photos=[];currentId=null;drag=null;mapKey=next;
+  clearTimeout(saveTimer);saveTimer=null;photos=[];currentId=null;drag=null;calibration=null;mapKey=next;
   updateUI();requestDraw();
   await flush(old);release(old);
   if(epoch!==generation)return;
@@ -244,6 +262,12 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    ctx.fillStyle='#ffe5aa';ctx.font='bold 17px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('↻',0,-h/2-34);
    ctx.restore();
   }
+  if(calibration?.first){
+   const q=pixel(...calibration.first);
+   ctx.save();ctx.strokeStyle='#f7d56c';ctx.lineWidth=3;
+   ctx.beginPath();ctx.arc(q[0],q[1],8,0,Math.PI*2);ctx.stroke();
+   ctx.fillStyle='#f7d56c';ctx.font='bold 12px system-ui';ctx.fillText('PRIMER BORDE',q[0]+13,q[1]-14);ctx.restore();
+  }
  }
  function hit(p,q){
   const angle=p.rotation*Math.PI/180,dx=q[0]-p.position[0],dy=q[1]-p.position[1];
@@ -259,6 +283,19 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  const wrap=(a,b)=>((b-a+540)%360)-180;
  function pointerDown(pos){
   const q=world(...pos);
+  if(calibration){
+   const p=selected();
+   if(!p||p.id!==calibration.id){calibration=null;updateUI();return}
+   if(!hit(p,q)){show('Marca el borde dentro de la foto seleccionada.','error');return}
+   if(!calibration.first){calibration.first=q;updateUI();requestDraw();show('Primer borde marcado. Selecciona el segundo.','info');return}
+   const fit=fitPhotoToStreet(p,calibration.first,q,calibration.street,calibration.paso);
+   if(!fit){show('Separación demasiado pequeña o medición no válida. Inténtalo de nuevo.','error');return}
+   p.width=round(fit.width);p.height=round(fit.height);
+   p.calibration='street';p.streetMetres=fit.street;p.pasoMetres=fit.paso;
+   calibration=null;drag=null;updateUI();markDirty();
+   show('Foto calibrada: calle '+fit.street+' m → '+fit.target.toFixed(3)+' unidades del juego. Paso = '+(100*fit.paso/fit.street).toFixed(1)+' % del ancho.','good');
+   return;
+  }
   const active=selected();
   if(active?.visible&&!active.locked&&Math.hypot(pos[0]-rotationHandle(active)[0],pos[1]-rotationHandle(active)[1])<17){
    drag={id:active.id,mode:'rotate',angle:angle(active.position,q)};
@@ -271,7 +308,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   if(p?.locked)show('Esta foto está bloqueada. Desmarca el candado para moverla.','info');
  }
  function pointerMove(pos){
-  if(!drag)return;
+  if(calibration||!drag)return;
   const p=photos.find(x=>x.id===drag.id);
   if(!p||p.locked||!p.visible)return;
   if(drag.mode==='rotate'){
@@ -289,7 +326,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    const input=event.currentTarget,files=Array.from(input.files||[]);
    input.value='';await addFiles(files);
   });
-  el('reference-list').addEventListener('change',event=>{currentId=event.target.value;updateUI();requestDraw()});
+  el('reference-list').addEventListener('change',event=>{currentId=event.target.value;calibration=null;updateUI();requestDraw()});
   for(const [input,key,convert] of [
    ['reference-opacity','opacity',v=>Number(v)/100],
    ['reference-scale','scale',v=>Number(v)/100],
@@ -299,6 +336,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   el('reference-recalculate').onclick=()=>{
     const p=selected();if(!p)return;
     if(p.locked){show('Desbloquea la imagen antes de recalcular su escala.','error');return}
+    if(p.calibration==='street'&&!window.confirm('¿Sustituir la calibración por anchura de calle por una aproximación basada en altura?'))return;
     const altitude=parseEarthAltitude(el('reference-height').value);
     if(altitude===null){show('Escribe una altura de cámara entre 5 y 3000 metros.','error');return}
     const size=estimateEarthPhotoSize(p.image.naturalWidth,p.image.naturalHeight,altitude);
@@ -308,6 +346,18 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
     updateUI();markDirty();
     if(typeof focusImage==='function')focusImage(p);
     show('Escala aproximada actualizada para '+altitude+' m de altura. Puedes afinarla con «Tamaño».','good');
+   };
+   el('reference-street-calibrate').onclick=()=>{
+    if(calibration){calibration=null;updateUI();requestDraw();return}
+    const p=selected();if(!p){show('Selecciona primero una fotografía.','error');return}
+    if(p.locked){show('Desbloquea la fotografía para calibrar.','error');return}
+    const street=Number(el('reference-street-metres').value),paso=Number(el('reference-paso-metres').value);
+    if(!Number.isFinite(street)||!Number.isFinite(paso)||street<1||street>30||paso<1||paso>5||street<paso){
+     show('Comprueba la anchura real de calle (1–30 m) y del paso (1–5 m).','error');return
+    }
+    calibration={id:p.id,street,paso,first:null};
+    activateReferenceTool?.();updateUI();requestDraw();
+    show('Pulsa sobre los DOS bordes de esa calle en la foto.','info');
    };
    el('reference-locked').onchange=e=>mutate('locked',e.target.checked);
   el('reference-visible').onchange=e=>mutate('visible',e.target.checked);
@@ -320,5 +370,5 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   window.addEventListener('pagehide',()=>{void flush()});
   updateUI();
  }
- return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush};
+ return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush,cancelCalibration:()=>{calibration=null;updateUI();requestDraw()}};
 }
