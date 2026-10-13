@@ -111,7 +111,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
     el('reference-height').value=p.cameraHeightM??'';
     el('reference-scale-source').textContent=p.calibration==='earth'&&p.cameraHeightM?
-      'Altura '+p.cameraHeightM+' m · imagen '+(p.width*p.scale).toFixed(1)+' × '+(p.height*p.scale).toFixed(1)+' unidades del juego; el paso mantiene su tamaño.':
+      'Altura '+p.cameraHeightM+' m · imagen '+(p.width*p.scale).toFixed(1)+' × '+(p.height*p.scale).toFixed(1)+' unidades del juego. Escala calibrada con Arfe (10,58 m), sin cambiar el paso; aproximada si la foto fue redimensionada.':
       p.calibration==='street'?'Foto con calibración antigua. Introduce su altura y pulsa Ajustar escala para aplicar el nuevo método.':
       'Introduce la altura de cámara para calcular el tamaño de la foto.';
    }
@@ -147,7 +147,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    for(const record of records){
     try{const converted=await decode(record.blob.blob);
      const photo={...record,...converted,blob:undefined};
-      if(photo.calibration==='earth'&&photo.cameraHeightM&&photo.scaleVersion!==2){
+      if(photo.calibration==='earth'&&photo.cameraHeightM&&photo.scaleVersion!==3){
        const dims=estimateEarthPhotoSize(photo.image.naturalWidth,photo.image.naturalHeight,photo.cameraHeightM);
        if(dims){photo.width=round(dims.width);photo.height=round(dims.height);photo.scale=1;photo.scaleVersion=2;}
       }
@@ -156,7 +156,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    }
    if(epoch!==generation){release(loaded);return}
    photos=loaded;currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
-    if(loaded.some(p=>p.calibration==='earth'&&p.scaleVersion===2))markDirty();
+    if(loaded.some(p=>p.calibration==='earth'&&p.scaleVersion===3))markDirty();
   }catch(e){
    if(epoch===generation){storageAvailable=false;updateUI();show('No se pudieron recuperar las fotos: '+e.message,'error')}
   }
