@@ -77,7 +77,17 @@ export class CentreRoute{
  }
  nearest(x,y){let best={distance:Infinity};for(let i=1;i<this.points.length;i++){const a=this.points[i-1],b=this.points[i],r=segmentDistance([x,y],a,b);if(r.distance<best.distance)best={...r,along:this.distances[i-1]+Math.hypot(r.point[0]-a[0],r.point[1]-a[1])};}return best;}
  at(d){let i=1;while(i<this.distances.length-1&&this.distances[i]<d)i++;const a=this.points[i-1],b=this.points[i],t=(d-this.distances[i-1])/(this.distances[i]-this.distances[i-1]);return{x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,angle:Math.atan2(-(b[0]-a[0]),b[1]-a[1])};}
- validPoint(p,obstacles=this.obstacles){return this.walkable.some(poly=>pointInPolygon(p,poly))&&!obstacles.some(o=>o.center?Math.hypot(p[0]-o.center[0],p[1]-o.center[1])<=o.radius:inRect(p,o.rect));}
+ // Pavements are traversable ground, not physical walls. Keep them separate
+ // from the asphalt polygons so they retain their original surface rendering.
+ validPoint(p,obstacles=this.obstacles){
+  const street=this.walkable.some(poly=>pointInPolygon(p,poly));
+  const paving=!street&&(this.sidewalks||[]).some(o=>
+   (!o.bbox||inRect(p,o.bbox))&&pointInPolygon(p,o.poly||o));
+  const addedPaving=!street&&!paving&&(this.editorWalkable||[]).some(o=>
+   (!o.bbox||inRect(p,o.bbox))&&pointInPolygon(p,o.poly||o));
+  return (street||paving||addedPaving)&&!obstacles.some(o=>
+   o.center?Math.hypot(p[0]-o.center[0],p[1]-o.center[1])<=o.radius:inRect(p,o.rect));
+ }
  validShape(w,obstacles=this.obstacles){const poly=samples(w);return poly.every((a,i)=>{const b=poly[(i+1)%poly.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.05));for(let j=0;j<=n;j++)if(!this.validPoint([a[0]+(b[0]-a[0])*j/n,a[1]+(b[1]-a[1])*j/n],obstacles))return false;return true;})&&!obstacles.some(o=>!w.edge&&(o.center?[o.center]:rect(o.rect)).some(p=>pointInPolygon(p,poly)));}
  follow(){this.checkpoints.forEach((cp,i)=>{const marker=this.graph.nodes.get(cp.id===this.scene.checkpoint?.id?'centre-checkpoint-marker':'centre-checkpoint-marker-'+cp.id);if(marker)marker.active=!this.checkpointIds.includes(cp.id);});const s=this.sim,p=s.position(s.stepEntity.transform),a=s.angle(s.stepEntity.transform)*Math.PI/180,d=this.nearest(p.x,p.y).along;for(const [e,offset,rotation]of [[s.capatazEntity,1.2,-90],[s.contraEntity,-1.3,90]]){s.setPosition(e.transform,[p.x-Math.sin(a)*offset,p.y+Math.cos(a)*offset,0]);s.setAngle(e.transform,s.angle(s.stepEntity.transform)+rotation);}s.cortejos.forEach((e,i)=>{const q=this.at(d+[3.5,-3,-4.5][i]);s.setPosition(e.transform,[q.x,q.y,0]);s.setAngle(e.transform,q.angle*180/Math.PI);});
   if(this.lastCrowdAlong===undefined||Math.abs(d-this.lastCrowdAlong)>.3){this.lastCrowdAlong=d;for(const person of this.people)if(!person.baked)this.graph.nodes.get(person.id).active=Math.hypot(person.point[0]-p.x,person.point[1]-p.y)<=this.scene.crowd.liveDistance;}
