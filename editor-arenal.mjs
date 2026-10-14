@@ -1026,6 +1026,11 @@ async function init(){
     }});
   palette();setupUrbanPalette();bind();
   visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,getFloorImage:()=>getImage(FLOOR_KEY)});
+  // The native asphalt grain sprite may arrive after the editor UI: update
+  // the thumbnails once, so the gallery matches the finished map texture.
+  const floorImage=spriteFor(FLOOR_KEY);
+  if(floorImage&&!floorImage.complete)
+   floorImage.addEventListener('load',()=>visualPanels?.redrawFloorPreviews(),{once:true});
   resize();
   setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
   const requested=new URLSearchParams(location.search).get('map');
