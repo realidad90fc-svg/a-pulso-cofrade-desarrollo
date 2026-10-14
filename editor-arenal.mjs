@@ -832,6 +832,10 @@ function applySurfaceToSelection(kind=null){
   if(!kind)show('Selecciona una calzada o acera con «Seleccionar» antes de aplicar.','error');
   return 0;
  }
+ // Bring guide images behind surfaces ONLY during material inspection.
+ // This does not change the stored position/scale/opacity of any guide.
+ $('surface-clear-preview').checked=true;
+ requestDraw();
  const differences=selected.filter(o=>{
   const material=o.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
   return data[o.type][o.index].material!==material;
