@@ -1,4 +1,5 @@
 import {renderInsetRoof} from './editor-roof-render.mjs';
+import {SEVILLE_ROAD_MATERIALS,SEVILLE_SIDEWALK_MATERIALS,paintSevilleSurface} from './editor-seville-surfaces.mjs';
 import {SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed} from './editor-residential-roofs.mjs';
 export {SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed} from './editor-residential-roofs.mjs';
 import {TEMPLE_ROOF_MATERIALS,drawTempleRoof} from './editor-temple-roofs.mjs';
@@ -148,7 +149,7 @@ const surfaces=[
  ['Piedra irregular','#99918a','#c1b8aa','stone'],
  ['Piedra oscura','#686664','#8d8984','stone'],
 ];
-export const ROAD_MATERIALS=surfaces.map((v,i)=>({id:'road-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]}));
+export const ROAD_MATERIALS=[...surfaces.map((v,i)=>({id:'road-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_ROAD_MATERIALS];
 const pavements=[
  ['Baldosa sevillana','#d0c4ad','#a59a89','tiles'],
  ['Acerado crema','#d7cbb9','#aea18e','slabs'],
@@ -163,7 +164,7 @@ const pavements=[
  ['Hormigón lavado','#b9b7b1','#93908a','concrete'],
  ['Acerado amarillo','#c7b793','#9a8a6c','tiles'],
 ];
-export const SIDEWALK_MATERIALS=pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]}));
+export const SIDEWALK_MATERIALS=[...pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_SIDEWALK_MATERIALS];
 export const TREE_VARIANTS=[
  {id:'tree-0',name:'Árbol original · copa ancha',tone:'#426a3e',shape:'round'},
  {id:'tree-1',name:'Naranjo · copa redonda',tone:'#356646',shape:'round'},
@@ -207,6 +208,17 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
  const top=pixel(region[0],region[3]),x0=top[0],y0=top[1],x1=x0+(region[2]-region[0])*zoom,y1=y0+(region[3]-region[1])*zoom;
  ctx.fillStyle=m.base;ctx.fillRect(x0,y0,x1-x0,y1-y0);
  const style=m.pattern,step=Math.max(7,zoom*(style==='cobbles'?.23:style==='tiles'?.42:style==='stone'?.67:1.15));
+ // Sevilla-specific profiles use world-space joints, repeatable across
+ // large maps and matching their own preview at the exact same scale.
+ if(style.startsWith('sev-')){
+  paintSevilleSurface(ctx,m,pixel,zoom,region);
+  if(kind==='sidewalks'){
+   ctx.lineWidth=Math.max(.022*zoom,.004);
+   ctx.strokeStyle='rgba(244,230,204,.40)';
+   polygonPath(ctx,poly,pixel);ctx.stroke();
+  }
+  ctx.restore();return;
+ }
  // Keep the original floor sprite for asphalt, then overlay coordinated seams.
  if(kind==='roads'&&baseFloor&&(style==='asphalt'||style==='concrete')){
   ctx.imageSmoothingEnabled=false;
