@@ -2,6 +2,7 @@ import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {BARATILLO} from './arenal-data.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
+import {drawRoof} from './editor-materials.mjs';
 
 // Dedicated REGRESO POR EL ARENAL parcel map.
 // Mandatory build order: road -> spectators -> sidewalk -> houses.
@@ -311,6 +312,13 @@ export function paintArenalScene(route,ctx,images,r){
  // impossible rather than painted over.
  for(const lot of route.buildings){
   if(!boxhit(lot.bbox,r))continue;
+  // Houses explicitly customised in the editor share EXACTLY the same
+  // material/border/detail renderer as their editor previews. Native lots
+  // without custom material keep their old bitmap untouched.
+  if(typeof lot.material==='string'&&/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material)){
+   drawRoof(ctx,lot.poly,lot.material,(x,y)=>[px(x),py(y)],()=>null,p,lot);
+   continue;
+  }
   const image=img(lot.key);if(!image)continue;
   ctx.save();path(lot.poly);ctx.clip();
   const [x,y,xx,yy]=lot.bbox;
