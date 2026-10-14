@@ -114,8 +114,32 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
   surfaceStyle:legacyStyle
  }:null;
  if(rasterMaterial){
-  // Real image pixels instead of subpixel vector grooves.
-  if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed)){
+  // A MIXED ROOF IS TWO BUILDING AREAS, not an atlas with 50/50 texture
+  // repeated every metre. Split the actual roof footprint only ONCE.
+  if(String(rasterMaterial.surfaceStyle).startsWith('mixed-')){
+   const variant=rasterMaterial.surfaceStyle;
+   const sideVertical=(seed&1)===0,ratio=variant==='mixed-old'?.50:variant==='mixed-garden'?.57:.50;
+   const stoneMaterial={...rasterMaterial,id:rasterMaterial.id+'-stone',roofFamily:'flat',
+    surfaceStyle:variant==='mixed-old'?'stone-aged':'paint-lime-worn',
+    base:variant==='mixed-old'?'#c8bdb1':'#e0d6c3',detail:'#f1e5cd',shadow:'#9c927f'};
+   const tileMaterial={...rasterMaterial,id:rasterMaterial.id+'-tile',roofFamily:'tile',
+    surfaceStyle:variant==='mixed-old'?'tile-dark':'tile-red',
+    base:variant==='mixed-old'?'#8c6555':'#bc7555',
+    detail:'#ddaa83',shadow:'#714b3d'};
+   const first=sideVertical
+    ?{x0,y0,w:w*ratio,h}:{x0,y0,w,h:h*ratio};
+   const second=sideVertical
+    ?{x0:x0+w*ratio,y0,w:w*(1-ratio),h}:{x0,y0:y0+h*ratio,w,h:h*(1-ratio)};
+   let painted=true;
+   for(const [part,material] of [[first,stoneMaterial],[second,tileMaterial]]){
+    ctx.save();ctx.beginPath();ctx.rect(part.x0,part.y0,part.w,part.h);ctx.clip();
+    painted=paintRasterRoof(ctx,material,part,z,seed)&&painted;ctx.restore();
+   }
+   if(!painted)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
+   const seam=sideVertical?x0+w*ratio:y0+h*ratio;
+   strokeLine(...(sideVertical?[seam,y0,seam,y1]:[x0,seam,x1,seam]),'rgba(93,76,59,.63)',.035);
+   strokeLine(...(sideVertical?[seam+.045*z,y0,seam+.045*z,y1]:[x0,seam+.045*z,x1,seam+.045*z]),'rgba(251,240,218,.46)',.012);
+  }else if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed)){
    if(m.surfaceStyle)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
    else if(p.kind==='tile')tileBand(x0,w,y0,h);
    else slabs(x0,w,y0,h);
