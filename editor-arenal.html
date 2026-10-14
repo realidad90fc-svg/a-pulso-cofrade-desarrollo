@@ -262,11 +262,14 @@
   <details open>
    <summary>Pavimentos y acerados</summary>
    <div class="stack">
-    <p class="muted">Ahora puedes elegir viendo todas las texturas. Pulsa una imagen y después aplica el material a las superficies seleccionadas o dibuja una nueva.</p>
-    <label for="road-material"><strong>Material de calzada (12 tipos)</strong></label>
+    <p class="muted">Pulsa una textura: <strong>si ya tienes calles o aceras seleccionadas, se aplica directamente</strong>. También puedes usar el botón «Aplicar». Deshacer permite revertir el cambio.</p>
+    <label class="flag"><input id="surface-clear-preview" type="checkbox" checked> Mostrar pavimentos sobre la fotografía guía (la foto queda detrás temporalmente, sin moverse ni cambiar de escala)</label>
+    <p class="muted">Desmarca la opción cuando quieras calcar viendo la fotografía por encima del dibujo.</p>
+    <div id="surface-apply-status" class="notice" role="status" aria-live="polite">Selecciona una calzada o acera para cambiar su material.</div>
+    <label for="road-material"><strong>Material de calzada (24 tipos)</strong></label>
     <select id="road-material"></select>
     <div id="road-preview-gallery" class="decor-gallery surface-gallery" role="group" aria-label="Texturas de calzada"></div>
-    <label for="sidewalk-material"><strong>Material de acera (12 tipos)</strong></label>
+    <label for="sidewalk-material"><strong>Material de acera (28 tipos)</strong></label>
     <select id="sidewalk-material"></select>
     <div id="sidewalk-preview-gallery" class="decor-gallery surface-gallery" role="group" aria-label="Texturas de acera"></div>
     <label><strong>Vista previa ampliada</strong></label>
