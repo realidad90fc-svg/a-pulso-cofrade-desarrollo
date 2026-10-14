@@ -50,6 +50,10 @@ export function cleanFacade(input={},edgeMax=3){
   awning,awningColor:color,
   awningPreset:AWNING_PRESETS.some(p=>p.id===input.awningPreset)?input.awningPreset:'custom',
   awningDepth:number(input.awningDepth,.55,.2,1.2),
+  awningStart:number(input.awningStart,.065,0,.85),
+  awningWidth:number(input.awningWidth,.87,.10,1),
+  balconyStart:number(input.balconyStart,.06,0,.85),
+  balconyWidth:number(input.balconyWidth,.88,.10,1),
   shop,
   // A harmless sign label: never inserted as HTML.
   sign:String(input.sign||'').trim().slice(0,42)
@@ -90,7 +94,7 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  if(awningMode!=='none'){
   // Material preset changes fabric colors/aging, not the building footprint.
   const base=awningPreset.color||AWNING_COLORS.find(c=>c.id===f.awningColor)?.hex||'#296a57';
-  const from=.065,to=.935,front=.10+f.awningDepth;
+  const from=f.awningStart,to=Math.min(.98,from+f.awningWidth),front=.10+f.awningDepth;
   // Soft cast shadow on the ground. A real awning projects outside the wall.
   polygon(from+.014,to+.014,.19+f.awningDepth,front+.14,
    'rgba(17,22,25,.22)',null);
@@ -145,10 +149,12 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  }
  if(f.balcony!=='none'){
   const count=f.balcony==='continuous'?1:f.balconyCount;
-  const width=f.balcony==='continuous'?.88:Math.min(.78/count,.24);
+  const sectionStart=f.balconyStart,sectionEnd=Math.min(.98,sectionStart+f.balconyWidth);
+  const sectionWidth=sectionEnd-sectionStart;
+  const width=f.balcony==='continuous'?sectionWidth:Math.min(sectionWidth/count*.79,.24);
   for(let i=0;i<count;i++){
-   const t=(i+.5)/count;
-   const from=Math.max(.03,t-width/2),to=Math.min(.97,t+width/2);
+   const t=sectionStart+sectionWidth*(i+.5)/count;
+   const from=Math.max(.01,t-width/2),to=Math.min(.99,t+width/2);
    polygon(from,to,-.09,.23,f.balcony==='reja'?'#d3c8b7':'#aeb0a5','#35312e');
    const bars=5;
    for(let j=0;j<=bars;j++){
