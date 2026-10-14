@@ -13,6 +13,7 @@ import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-cleara
 import {drawFacadeDecor} from './editor-facades.mjs';
 import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
+import {paintArenalGround} from './editor-arenal-ground.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -191,6 +192,11 @@ function drawGrid(){
 function renderStaticScene(){
  ctx.setTransform(view.dpr,0,0,view.dpr,0,0);
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
+ // Show the very same cobbled ground as the game wherever the Arenal
+ // polygons leave an exposed gap. Keep Google Earth reference photos ABOVE
+ // this backdrop, and preserve the grey canvas on every other map.
+ if(data?.metadata?.mapKey==='RegresoArenal'&&$('roads-on')?.checked)
+  paintArenalGround(ctx,pixel,view.zoom,visualBounds(),ARENAL_MAP.bounds);
  const showMaterialsAbovePhotos=$('surface-clear-preview')?.checked;
  photoGuides?.draw(showMaterialsAbovePhotos?'material-background':'background');
  if(!data)return;
