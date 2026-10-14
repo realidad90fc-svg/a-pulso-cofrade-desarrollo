@@ -102,12 +102,24 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
    }
   }
  };
- if(m.surfaceStyle){
-  // Prefer a genuine scale-aware raster texture with visible pigment, joins
-  // and relief. In browsers without a canvas bitmap use the older vector
-  // renderer as a safe visual fallback; physics is independent of both.
-  if(!paintRasterRoof(ctx,m,{x0,y0,w,h},z,seed))
-   paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
+ // Legacy roofs already placed in saved maps also need real texture,
+ // otherwise the game still shows the old flat stripes next to new roofs.
+ // Preserve their base colors, IDs, geometry and optional rooftop details.
+ const oldId=/^roof-(\d+)-(\d+)$/.exec(String(m.id||''));
+ const family=m.roofFamily||null;
+ const legacyStyle=oldId?(+oldId[2]<=1?'tile-red':+oldId[2]===2?'stone':'concrete-aged')
+  :family==='tile'?'tile-red':family==='mixed'?'mixed-red':family==='flat'?'stone':null;
+ const rasterMaterial=m.surfaceStyle?m:legacyStyle?{
+  id:m.id,base:p.base,detail:p.highlight,shadow:p.shadow,
+  surfaceStyle:legacyStyle
+ }:null;
+ if(rasterMaterial){
+  // Real image pixels instead of subpixel vector grooves.
+  if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed)){
+   if(m.surfaceStyle)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
+   else if(p.kind==='tile')tileBand(x0,w,y0,h);
+   else slabs(x0,w,y0,h);
+  }
  }else if(p.kind==='tile'){
   tileBand(x0,w,y0,h);
   if(!compact){
