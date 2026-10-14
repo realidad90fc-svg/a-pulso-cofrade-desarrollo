@@ -172,7 +172,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
    const old=route.buildings||[];
    route.buildings=scene.houses.map(o=>{
     const original=old.find(h=>JSON.stringify(h.poly)===JSON.stringify(o.poly));
-    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,roofDetail:o.roofDetail,facade:o.facade};
+    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,roofDetail:o.roofDetail,roofBorder:o.roofBorder,facade:o.facade};
     if(!original){item.kind='historic';item.front=[item.poly[0],item.poly[1]];item.outward=[0,1]}
     return item;
    });
