@@ -136,7 +136,27 @@ function makeTile(m,variation){
   g.fillStyle=shadow(.58);g.fillRect(split-2,0,4,SIZE);
  }else if(kind.startsWith('tile-'))tiles();
  else if(/stone|marble|hydraulic|soleria|terracotta/.test(kind))stone();
- else{
+ else if(kind.startsWith('paint-')){
+  // Painted waterproofing: roller passes and pigment layers, with no
+  // domestic floor tiles or visible checkerboard expansion-joint pattern.
+  const aged=kind==='paint-worn',rubber=kind==='paint-rubber';
+  for(let i=0;i<(aged?125:85);i++){
+   const x=rand()*SIZE,y=rand()*SIZE,w=12+rand()*67,h=2+rand()*11;
+   g.save();g.translate(x,y);g.rotate((rand()-.5)*.16);
+   g.fillStyle=rand()>.46?
+    'rgba(255,251,236,'+(aged?.13:.075)+')':
+    'rgba(70,67,59,'+(aged?.115:.045)+')';
+   g.fillRect(-w*.5,-h*.5,w,h);
+   g.restore();
+  }
+  // Sun-bleached repaired waterproofing, subtle edge dirt and humidity.
+  for(let i=0;i<(aged?31:14);i++){
+   const x=rand()*SIZE,y=rand()*SIZE,rx=7+rand()*30,ry=4+rand()*14;
+   g.fillStyle=rand()>.55?'rgba(252,246,230,.17)':
+    rubber?'rgba(86,51,43,.11)':'rgba(72,76,65,.10)';
+   g.beginPath();g.ellipse(x,y,rx,ry,(rand()-.5)*.5,0,Math.PI*2);g.fill();
+  }
+ }else{
   // Whitewash and concrete are naturally irregular, not flat tint cards.
   const spacing=kind==='ochre'?115:125;
   g.strokeStyle=shadow(.30);g.lineWidth=2.8;
