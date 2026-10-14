@@ -139,6 +139,18 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
    const seam=sideVertical?x0+w*ratio:y0+h*ratio;
    strokeLine(...(sideVertical?[seam,y0,seam,y1]:[x0,seam,x1,seam]),'rgba(93,76,59,.63)',.035);
    strokeLine(...(sideVertical?[seam+.045*z,y0,seam+.045*z,y1]:[x0,seam+.045*z,x1,seam+.045*z]),'rgba(251,240,218,.46)',.012);
+   if(variant==='mixed-garden'){
+    // Four little roof planters exclusively on the terrace half.
+    for(let i=0;i<4;i++){
+     const xx=sideVertical?x0+w*ratio*(.18+.18*i):x0+w*(.19+.20*i);
+     const yy=sideVertical?y0+h*(.24+(i%2)*.46):y0+h*ratio*(.24+(i%2)*.45);
+     const size=Math.min(.075*z,w*.027,h*.032);
+     ctx.beginPath();ctx.arc(xx,yy,size*1.5,0,Math.PI*2);
+     ctx.fillStyle='#9c7658';ctx.fill();
+     ctx.beginPath();ctx.arc(xx,yy,size,0,Math.PI*2);
+     ctx.fillStyle=i%2?'#547b48':'#71834e';ctx.fill();
+    }
+   }
   }else if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed)){
    if(m.surfaceStyle)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
    else if(p.kind==='tile')tileBand(x0,w,y0,h);
