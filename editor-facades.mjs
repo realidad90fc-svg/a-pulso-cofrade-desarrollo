@@ -22,6 +22,7 @@ export const AWNING_COLORS=[
 ];
 export const AWNING_PRESETS=[
  {id:'custom',name:'Personalizado (actual)',mode:null,color:null},
+ {id:'off',name:'Sin toldo',mode:'none',color:null},
  {id:'cream',name:'Toldo crema',mode:'plain',color:'#e6d6b3'},
  {id:'green',name:'Toldo verde botella',mode:'plain',color:'#316b57'},
  {id:'burgundy',name:'Toldo burdeos',mode:'plain',color:'#873b46'},
@@ -128,8 +129,9 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
    ctx.fillStyle=awningMode==='striped'&&i%2===0?(awningPreset.stripe||'#e3d2b8'):base;ctx.fill();
   }
   if(awningPreset.worn){
+   const site=Math.abs(Math.round((a[0]*13+a[1]*19+b[0]*23+b[1]*29)*61))%71;
    for(let i=0;i<18;i++){
-    const t=from+(.04+((i*37)%87)/100)*(to-from),dep=.13+(.13+((i*17)%79)/100)*(front-.2);
+    const t=from+(.04+((i*37+site)%87)/100)*(to-from),dep=.13+(.13+((i*17+site*3)%79)/100)*(front-.2);
     const p=pixel(...at(t,dep));
     ctx.beginPath();ctx.ellipse(...p,Math.max(.6,zoom*.04),Math.max(.4,zoom*.025),i*.4,0,Math.PI*2);
     ctx.fillStyle=i%3?'rgba(67,56,42,.11)':'rgba(242,235,214,.19)';ctx.fill();
