@@ -51,6 +51,7 @@
 #roof-selected{display:block;min-height:28px;margin:4px 0}
 #urban-preview{display:block;width:100%;height:105px;background:#555956;border:1px solid #59636a;border-radius:8px}
 </style>
+<link rel="stylesheet" href="./editor-decor-ui.css">
 <link rel="stylesheet" href="./editor-mobile.css">
 </head>
 <body>
@@ -215,13 +216,61 @@
     <button id="apply-roof" type="button">Aplicar a edificios seleccionados</button>
    </div>
   </details>
+  <details id="facade-panel">
+   <summary>🏛️ Fachadas, balcones, toldos y comercios</summary>
+   <div class="stack">
+    <div class="notice"><strong>Decoración sin colisiones.</strong> Selecciona uno o varios edificios en el plano y añade detalles al borde que da a la calle. Ni las dimensiones, ni las paredes, ni los tejados del edificio se modifican.</div>
+    <p id="facade-selected" class="muted" role="status">Selecciona una casa con la herramienta ▧ Seleccionar.</p>
+    <label for="facade-edge"><strong>Fachada que mira a la calle</strong></label>
+    <select id="facade-edge"><option value="0">Tramo 1</option></select>
+    <small class="muted">Cada lado del polígono es una posible fachada. Cambia el tramo si la decoración queda en otro lateral.</small>
+    <label for="facade-balcony"><strong>Balcones y rejas</strong></label>
+    <select id="facade-balcony">
+     <option value="none">Sin balcones</option>
+     <option value="individual">Balcones de forja individuales</option>
+     <option value="continuous">Balcón corrido sevillano</option>
+     <option value="reja">Rejas de ventanas</option>
+    </select>
+    <label for="facade-balcony-count">Cantidad: <output id="facade-balcony-count-value">2</output></label>
+    <input type="range" id="facade-balcony-count" min="1" max="6" step="1" value="2">
+    <label class="flag"><input id="facade-flowers" type="checkbox"> Macetas y flores</label>
+    <label class="flag"><input id="facade-hangings" type="checkbox"> Colgaduras de Semana Santa</label>
+    <label for="facade-awning"><strong>Toldos</strong></label>
+    <select id="facade-awning">
+     <option value="none">Sin toldo</option>
+     <option value="plain">Toldo liso</option>
+     <option value="striped">Toldo de rayas</option>
+    </select>
+    <label for="facade-awning-color">Color del toldo</label>
+    <select id="facade-awning-color"></select>
+    <label for="facade-awning-depth">Salida del toldo: <output id="facade-awning-depth-value">0,55 m</output></label>
+    <input type="range" id="facade-awning-depth" min=".2" max="1.2" step=".05" value=".55">
+    <strong>Comercios y fachadas emblemáticas</strong>
+    <p class="muted">Presets de estilo sevillano. Las tiendas reales se representan de manera ilustrativa: ajusta el tramo del edificio y consulta fotografías si necesitas una reproducción exacta.</p>
+    <div id="facade-preset-gallery" class="decor-gallery facade-gallery" role="group" aria-label="Galería de comercios y fachadas"></div>
+    <label for="facade-shop">Tipo de comercio</label>
+    <select id="facade-shop"></select>
+    <label for="facade-sign">Texto del rótulo (opcional)</label>
+    <input id="facade-sign" maxlength="42" placeholder="Nombre del bar o comercio" type="text">
+    <div class="actions">
+     <button id="facade-apply" type="button" class="primary">Aplicar a edificios seleccionados</button>
+     <button id="facade-remove" type="button" class="danger">Quitar decoración</button>
+    </div>
+   </div>
+  </details>
   <details open>
    <summary>Pavimentos y acerados</summary>
    <div class="stack">
-    <label for="road-material">Material de calzada (12 tipos)</label>
+    <p class="muted">Ahora puedes elegir viendo todas las texturas. Pulsa una imagen y después aplica el material a las superficies seleccionadas o dibuja una nueva.</p>
+    <label for="road-material"><strong>Material de calzada (12 tipos)</strong></label>
     <select id="road-material"></select>
-    <label for="sidewalk-material">Material de acera (12 tipos)</label>
+    <div id="road-preview-gallery" class="decor-gallery surface-gallery" role="group" aria-label="Texturas de calzada"></div>
+    <label for="sidewalk-material"><strong>Material de acera (12 tipos)</strong></label>
     <select id="sidewalk-material"></select>
+    <div id="sidewalk-preview-gallery" class="decor-gallery surface-gallery" role="group" aria-label="Texturas de acera"></div>
+    <label><strong>Vista previa ampliada</strong></label>
+    <canvas id="surface-preview-large" width="420" height="160" role="img" aria-label="Vista previa grande del pavimento seleccionado"></canvas>
+    <small id="surface-preview-name" class="muted"></small>
     <div class="actions"><button id="apply-surface" type="button">Aplicar a calles/aceras seleccionadas</button></div>
     <p class="muted">Los materiales se pueden asignar a las calles y aceras nuevas o a las ya dibujadas con «Seleccionar».</p>
      <p class="notice"><strong>Aceras transitables:</strong> el paso puede pisar o circular por ellas sin colisionar con el bordillo. Edificios, público y mobiliario siguen siendo obstáculos.</p>
