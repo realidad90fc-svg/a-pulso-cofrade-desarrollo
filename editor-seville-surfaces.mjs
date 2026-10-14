@@ -72,19 +72,21 @@ export function paintSevilleSurface(ctx,m,pixel,zoom,area){
   const x0=Math.floor(xmin/dx)-1,x1=Math.ceil(xmax/dx)+1;
   const y0=Math.floor(ymin/dy)-1,y1=Math.ceil(ymax/dy)+1;
   const nx=x1-x0+1,ny=y1-y0+1;
-  // Sparse preview at very low zoom: cap total draw calls without changing
-  // saved world geometry, selected polygons or material IDs.
+  // LOD: skip entire stones when too far away; NEVER stretch one stone
+  // to occupy the space of several. The old dx*skip/dy*skip produced
+  // enormous paving slabs whenever the editor rendered a broad area.
   const skip=Math.max(1,Math.ceil(Math.sqrt(nx*ny/LIMIT)));
   for(let i=x0;i<=x1;i+=skip)for(let j=y0;j<=y1;j+=skip){
    if(count++>LIMIT)return;
-   cb(i*dx,j*dy,i,j,dx*skip,dy*skip);
+   cb(i*dx,j*dy,i,j,dx,dy);
   }
  };
  if(style==='sev-gerena'||style==='sev-barro'||style==='sev-quintana'||style==='sev-slab'||style==='sev-band'||style==='sev-four'){
   const config={
-   'sev-gerena':[.48,.28],'sev-barro':[.42,.28],
-   'sev-quintana':[.21,.15],'sev-slab':[1.05,.65],
-   'sev-band':[.86,.44],'sev-four':[.42,.42]
+   // Actual world-sized paving rather than oversized rectangles.
+   'sev-gerena':[.23,.15],'sev-barro':[.24,.15],
+   'sev-quintana':[.18,.13],'sev-slab':[.68,.44],
+   'sev-band':[.72,.36],'sev-four':[.32,.32]
   };
   const [dx,dy]=config[style];
   cells(dx,dy,(x,y,i,j,ww,hh)=>{
@@ -107,7 +109,7 @@ export function paintSevilleSurface(ctx,m,pixel,zoom,area){
     line([xx+.1*ww,y+.09*hh],[xx+.6*ww,y+.11*hh],'rgba(255,255,255,.25)',.012);
   });
  }else if(style==='sev-hex'||style==='sev-no8do'){
-  const r=.225,dx=1.5*r,dy=Math.sqrt(3)*r;
+  const r=.19,dx=1.5*r,dy=Math.sqrt(3)*r;
   cells(dx,dy,(x,y,i,j)=>{
    const cy=y+(i%2?dy/2:0);
    const p=[];
