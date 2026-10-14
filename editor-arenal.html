@@ -207,10 +207,20 @@
      <option value="fixed">Tejado fijo</option>
     </select>
     <p id="roof-mode-help" class="muted">Al terminar una casa, el siguiente tejado será diferente.</p>
-    <label for="roof-inset"><strong>Grosor interior del muro:</strong> <output id="roof-inset-value">0,20 m</output></label>
-    <input id="roof-inset" type="range" min="0.10" max="0.30" step="0.05" value="0.20">
+    <label for="roof-inset"><strong>Pretil fino de azotea:</strong> <output id="roof-inset-value">0,05 m</output></label>
+    <input id="roof-inset" type="range" min="0.035" max="0.075" step="0.005" value="0.05">
+    <label for="roof-detail"><strong>Detalle auténtico de cubierta (opcional)</strong></label>
+    <select id="roof-detail">
+     <option value="none">Azotea o cubierta limpia (recomendado)</option>
+     <option value="patio">Patio interior con barandilla</option>
+     <option value="castillete">Castillete / caja de escalera</option>
+     <option value="claraboya">Claraboya acristalada</option>
+     <option value="instalaciones">Unidades de climatización en cubierta</option>
+    </select>
+    <p class="muted">El detalle se añade solo cuando lo elijas; nunca aparecerán cuadrados o rombos aleatorios. Los tejados de teja tienen hiladas con volumen y las azoteas tienen solería y envejecido sutil.</p>
+    <canvas id="roof-detail-preview" width="288" height="144" role="img" aria-label="Vista cenital del tejado y sus detalles" style="max-width:100%;height:auto;border-radius:10px;background:#6b6660;border:1px solid #556875"></canvas>
     <label class="flag"><input id="roof-simplify" type="checkbox" checked> Simplificar tejados estrechos o irregulares</label>
-    <p class="muted">El tejado queda dentro de un borde de pared limpio, sin franjas blancas de las imágenes originales. Los muros y colisiones no se desplazan. Para modificar edificios existentes, selecciónalos y pulsa «Aplicar a edificios seleccionados».</p>
+    <p class="muted">Solo se modifica el aspecto visual: ni los polígonos, ni el tamaño de los edificios, ni sus colisiones se alteran. Los edificios existentes pueden cambiarse seleccionándolos y pulsando «Aplicar a edificios seleccionados».</p>
     <div class="swatches" id="palettes"></div>
     <small id="roof-selected" class="muted" aria-live="polite"></small>
     <button id="apply-roof" type="button">Aplicar a edificios seleccionados</button>
@@ -243,6 +253,8 @@
     </select>
     <label for="facade-awning-color">Color del toldo</label>
     <select id="facade-awning-color"></select>
+    <p class="muted">Toldos vistos desde arriba: tejido con costuras y pliegues, voladizo real, borde ondulado y sombra en el suelo.</p>
+    <canvas id="facade-awning-preview" width="288" height="144" role="img" aria-label="Vista cenital del toldo texturizado sobre la fachada" style="max-width:100%;height:auto;border-radius:10px;background:#6b6660;border:1px solid #556875"></canvas>
     <label for="facade-awning-depth">Salida del toldo: <output id="facade-awning-depth-value">0,55 m</output></label>
     <input type="range" id="facade-awning-depth" min=".2" max="1.2" step=".05" value=".55">
     <strong>Comercios y fachadas emblemáticas</strong>
