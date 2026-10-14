@@ -215,7 +215,7 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
  if(style.startsWith('sev-')){
   paintSevilleSurface(ctx,m,pixel,zoom,region);
   if(kind==='sidewalks'){
-   ctx.lineWidth=Math.max(.022*zoom,.004);
+   ctx.lineWidth=Math.max(.35,.010*zoom);
    ctx.strokeStyle='rgba(244,230,204,.40)';
    polygonPath(ctx,poly,pixel);ctx.stroke();
   }
@@ -241,7 +241,7 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
   }
  }
  if(kind==='sidewalks'){
-  ctx.lineWidth=Math.max(1,zoom*.045);ctx.strokeStyle='rgba(244,230,204,.47)';
+  ctx.lineWidth=Math.max(.45,zoom*.012);ctx.strokeStyle='rgba(226,217,203,.42)';
   polygonPath(ctx,poly,pixel);ctx.stroke();
  }
  ctx.restore();
