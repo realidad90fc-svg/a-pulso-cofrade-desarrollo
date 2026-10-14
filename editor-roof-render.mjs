@@ -5,7 +5,7 @@
 // with the longest frontage and clipped to the exact existing footprint.
 // The WALL INSET is a clip-constrained inner stroke; it works even for
 // concave, jagged or narrow polygons, without generating invalid offset rings.
-import {drawSevillaResidentialRoof} from './editor-residential-roofs.mjs';
+import {paintArchitecturalRoof} from './editor-roof-top-view.mjs';
 const isPoint=p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 export function roofLayout(poly,requested=.2,autoSimplify=true){
@@ -99,19 +99,22 @@ export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpec
   const top=pixel(b[0],b[3]),width=(b[2]-b[0])*imageZoom,height=(b[3]-b[1])*imageZoom;
   ctx.fillStyle='#c5ab88';ctx.fillRect(top[0],top[1],width,height);
   drawSpecial(material,top,width,height);
- }else if(material.roofFamily)drawSevillaResidentialRoof(ctx,layout,material,pixel,imageZoom,options);
- else fillCleanRoof(ctx,layout,material,pixel,imageZoom);
+ }else paintArchitecturalRoof(ctx,layout,material,pixel,imageZoom,options);
  // Stroke is clipped to the ORIGINAL polygon, leaving a wall/parapet rim
  // of consistent width inside it, even at concave corners. Never touches
  // saved footprints, checkpoints, roads, or collision geometry.
- const wall=layout.inset*imageZoom;
+ // Old 0.20–0.30m inset was rendered as a 0.4–0.6m cream wall.
+ // That produced the absurd giant white wall in narrow Sevilla alleys.
+ // Visual rim now 5–7 cm total, regardless of old saved roofInset; the
+ // ORIGINAL building polygon and physical collisions are not touched.
+ const wall=Math.min(.067,Math.max(.045,layout.inset*.30))*imageZoom;
  ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
  outline(ctx,layout.points,pixel);
- ctx.strokeStyle='#b7a78f';ctx.lineWidth=wall*2+.08*imageZoom;ctx.stroke();
+ ctx.strokeStyle='rgba(65,60,54,.28)';ctx.lineWidth=wall*2+.025*imageZoom;ctx.stroke();
  outline(ctx,layout.points,pixel);
- ctx.strokeStyle='#e6d6b7';ctx.lineWidth=wall*2;ctx.stroke();
+ ctx.strokeStyle='#e5dcc9';ctx.lineWidth=wall*1.55;ctx.stroke();
  outline(ctx,layout.points,pixel);
- ctx.strokeStyle='#8a7660';ctx.lineWidth=Math.max(.016*imageZoom,.01);ctx.stroke();
+ ctx.strokeStyle='rgba(255,249,231,.60)';ctx.lineWidth=Math.max(.010*imageZoom,.01);ctx.stroke();
  ctx.restore();ctx.restore();
  return layout;
 }
