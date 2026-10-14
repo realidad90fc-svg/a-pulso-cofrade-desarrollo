@@ -6,6 +6,7 @@
 // The WALL INSET is a clip-constrained inner stroke; it works even for
 // concave, jagged or narrow polygons, without generating invalid offset rings.
 import {paintArchitecturalRoof} from './editor-roof-top-view.mjs';
+import {drawRoofBorder} from './editor-roof-borders.mjs';
 const isPoint=p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 export function roofLayout(poly,requested=.2,autoSimplify=true){
@@ -107,14 +108,7 @@ export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpec
  // That produced the absurd giant white wall in narrow Sevilla alleys.
  // Visual rim now 5–7 cm total, regardless of old saved roofInset; the
  // ORIGINAL building polygon and physical collisions are not touched.
- const wall=Math.min(.072,Math.max(.036,layout.inset))*imageZoom;
- ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
- outline(ctx,layout.points,pixel);
- ctx.strokeStyle='rgba(65,60,54,.28)';ctx.lineWidth=wall*2+.025*imageZoom;ctx.stroke();
- outline(ctx,layout.points,pixel);
- ctx.strokeStyle='#e5dcc9';ctx.lineWidth=wall*1.55;ctx.stroke();
- outline(ctx,layout.points,pixel);
- ctx.strokeStyle='rgba(255,249,231,.60)';ctx.lineWidth=Math.max(.010*imageZoom,.01);ctx.stroke();
- ctx.restore();ctx.restore();
+ drawRoofBorder(ctx,layout.points,pixel,imageZoom,options.roofBorder||'enlucido',layout.inset);
+ ctx.restore();
  return layout;
 }
