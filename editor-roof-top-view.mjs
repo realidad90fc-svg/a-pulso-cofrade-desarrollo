@@ -46,7 +46,10 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=Math.max(.55,.012*z);ctx.strokeRect(x,y,ww,hh)}
  };
  const tint=(col,alpha)=>{ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=col;ctx.fillRect(x0,y0,w,h);ctx.restore()};
- const seed=Math.floor((layout.area*7823+layout.perimeter*2187+String(m.id||'').length*47))>>>0;
+ // Every mapped building has its own stored roofSeed, preventing a repeated
+ // texture stamp even across neighboring roofs with identical dimensions.
+ const seed=(Number.isFinite(options.roofSeed)?(options.roofSeed>>>0):
+  Math.floor(layout.area*7823+layout.perimeter*2187))^(String(m.id||'').length*2654435761>>>0);
  const noise=k=>{let v=Math.imul((k+1)^seed,1103515245)>>>0;v^=v>>>15;return (v>>>0)/4294967295};
  ctx.save();ctx.translate(...center);ctx.rotate(angle);
  // Continuous roof body, modest tonal gradient and a restrained texture.
