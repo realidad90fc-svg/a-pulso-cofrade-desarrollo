@@ -193,7 +193,8 @@
     <label for="roof-category">Tipo de tejado</label>
     <select id="roof-category">
      <option value="common">Barrio sevillano · mezcla automática</option>
-      <option value="flat">Azoteas planas · 10 modelos</option>
+      <option value="realistic">NUEVO · Texturas sevillanas detalladas (20 acabados)</option>
+     <option value="flat">Azoteas planas · 10 modelos</option>
       <option value="tile">Tejas tradicionales · 10 modelos</option>
       <option value="mixed">Cubiertas mixtas · 6 modelos</option>
      <option value="landmark">Emblemáticos de Sevilla · 10 modelos</option>
@@ -216,7 +217,12 @@
      <option value="castillete">Castillete / caja de escalera</option>
      <option value="claraboya">Claraboya acristalada</option>
      <option value="instalaciones">Unidades de climatización en cubierta</option>
+     <option value="terraza">Terraza con macetas y mobiliario</option>
+     <option value="lavadero">Lavadero y tendedero discreto</option>
     </select>
+    <label for="roof-border"><strong>Remate del borde del edificio</strong></label>
+    <select id="roof-border"></select>
+    <p class="muted">El borde es decorativo y fino: no cambia las colisiones ni el polígono.</p>
     <p class="muted">El detalle se añade solo cuando lo elijas; nunca aparecerán cuadrados o rombos aleatorios. Los tejados de teja tienen hiladas con volumen y las azoteas tienen solería y envejecido sutil.</p>
     <canvas id="roof-detail-preview" width="288" height="144" role="img" aria-label="Vista cenital del tejado y sus detalles" style="max-width:100%;height:auto;border-radius:10px;background:#6b6660;border:1px solid #556875"></canvas>
     <label class="flag"><input id="roof-simplify" type="checkbox" checked> Simplificar tejados estrechos o irregulares</label>
@@ -245,6 +251,9 @@
     <input type="range" id="facade-balcony-count" min="1" max="6" step="1" value="2">
     <label class="flag"><input id="facade-flowers" type="checkbox"> Macetas y flores</label>
     <label class="flag"><input id="facade-hangings" type="checkbox"> Colgaduras de Semana Santa</label>
+    <label for="facade-awning-preset"><strong>Nueva colección de toldos sevillanos</strong></label>
+    <select id="facade-awning-preset"></select>
+    <p class="muted">Diez tejidos distintos, lisos, rayados o envejecidos. Selecciona «Personalizado» para mantener los controles clásicos.</p>
     <label for="facade-awning"><strong>Toldos</strong></label>
     <select id="facade-awning">
      <option value="none">Sin toldo</option>
