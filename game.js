@@ -10,7 +10,7 @@ import {prepareMap,prepareStep} from './engine.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
-import {Renderer} from './renderer.mjs';
+import {Renderer} from './renderer.mjs?rev=arenal-suelo-14oc';
 import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart} from './game-editor-bridge.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
