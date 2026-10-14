@@ -318,7 +318,8 @@ export function paintArenalScene(route,ctx,images,r){
   // same proper top-down renderer as the editor instead. The native parcel
   // shape, tile painter, road layer and ALL physics remain unchanged.
   const assigned=typeof lot.material==='string'&&/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material);
-  if(assigned||lot.kind==='historic'){
+  const isMaestranza=lot.kind==='maestranza';
+  if(assigned||lot.kind==='historic'||isMaestranza){
    const spriteId=Number(String(lot.key||'').split(':').at(-1));
    const family=Math.max(0,NATIVE_ROOF_IDS.indexOf(spriteId));
    // Stable, deliberate blend: real limewash, stone terraces, and curved
@@ -331,9 +332,27 @@ export function paintArenalScene(route,ctx,images,r){
     'realista-ocre','realista-teja-rosada',
     'realista-piedra-miel','realista-soleria-gris'
    ];
-   const fallback=typicalRoofs[(lotIndex*7+family*3)%typicalRoofs.length];
+   const fallback=isMaestranza
+    ?(lotIndex%3===0?'realista-teja-vieja':lotIndex%3===1?'realista-piedra-crema':'realista-encalada-patina')
+    :typicalRoofs[(lotIndex*7+family*3)%typicalRoofs.length];
    drawRoof(ctx,lot.poly,assigned?lot.material:fallback,
     (x,y)=>[px(x),py(y)],()=>null,p,{...lot,roofSeed:lot.roofSeed??(lotIndex*5137+family*7919)});
+   // Keep the Maestranza's distinctive frontage readable from above.
+   // This is decorative only: no street masks, buildings or contacts change.
+   if(isMaestranza&&Array.isArray(lot.front)&&lot.front.length===2){
+    const [a,b]=lot.front,length=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    if(length>.25){
+     const dx=(b[0]-a[0])/length,dy=(b[1]-a[1])/length;
+     ctx.save();
+     ctx.strokeStyle='#e5d5b9';ctx.lineWidth=.085*p;
+     ctx.beginPath();ctx.moveTo(px(a[0]),py(a[1]));ctx.lineTo(px(b[0]),py(b[1]));ctx.stroke();
+     for(let d=.30;d<length-.18;d+=.62){
+      const qx=a[0]+dx*d,qy=a[1]+dy*d;
+      ctx.fillStyle='#d4bea1';ctx.beginPath();ctx.arc(px(qx),py(qy),.065*p,0,Math.PI*2);ctx.fill();
+     }
+     ctx.restore();
+    }
+   }
    continue;
   }
   // Non-residential singular buildings retain their native architecture.
