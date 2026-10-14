@@ -20,6 +20,19 @@ export const AWNING_COLORS=[
  {id:'blue',name:'Azul oscuro',hex:'#34567d'},
  {id:'ochre',name:'Ocre',hex:'#bd8946'}
 ];
+export const AWNING_PRESETS=[
+ {id:'custom',name:'Personalizado (actual)',mode:null,color:null},
+ {id:'cream',name:'Toldo crema',mode:'plain',color:'#e6d6b3'},
+ {id:'green',name:'Toldo verde botella',mode:'plain',color:'#316b57'},
+ {id:'burgundy',name:'Toldo burdeos',mode:'plain',color:'#873b46'},
+ {id:'ochre',name:'Toldo ocre',mode:'plain',color:'#c59a4b'},
+ {id:'stripe-green',name:'Rayas crema y verde',mode:'striped',color:'#32745e',stripe:'#f1e4c6'},
+ {id:'stripe-burgundy',name:'Rayas crema y burdeos',mode:'striped',color:'#883c4c',stripe:'#f1dcc6'},
+ {id:'stripe-ochre',name:'Rayas crema y ocre',mode:'striped',color:'#bc883d',stripe:'#f6e5c1'},
+ {id:'grey',name:'Toldo gris perla',mode:'plain',color:'#b1b4ac'},
+ {id:'worn',name:'Lona beige desgastada',mode:'plain',color:'#b4a58b',worn:true},
+ {id:'faded-blue',name:'Toldo azul desvaído',mode:'plain',color:'#62869b',worn:true}
+];
 export function getFacadePreset(id){
  return FACADE_PRESETS.find(x=>x.id===id)||FACADE_PRESETS[0];
 }
@@ -33,7 +46,9 @@ export function cleanFacade(input={},edgeMax=3){
   edge:Math.floor(number(input.edge,0,0,Math.max(0,edgeMax))),
   balcony,balconyCount:Math.round(number(input.balconyCount,2,1,6)),
   flowers:!!input.flowers,hangings:!!input.hangings,
-  awning,awningColor:color,awningDepth:number(input.awningDepth,.55,.2,1.2),
+  awning,awningColor:color,
+  awningPreset:AWNING_PRESETS.some(p=>p.id===input.awningPreset)?input.awningPreset:'custom',
+  awningDepth:number(input.awningDepth,.55,.2,1.2),
   shop,
   // A harmless sign label: never inserted as HTML.
   sign:String(input.sign||'').trim().slice(0,42)
@@ -69,10 +84,11 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  // Every business gets its own true top-down decorative ground plan.
  // Signs are secondary to roofline, pavement and frontage shape.
  drawDistinctShop(ctx,{shop:f.shop,sign:f.sign,at,polygon,stroke,pixel,zoom,length});
- if(f.awning!=='none'){
-  // Canvas textile canopy in bird's-eye view, not a thin flat rectangle.
-  // Anchored along the existing facade, never modifying its footprint.
-  const base=AWNING_COLORS.find(c=>c.id===f.awningColor)?.hex||'#296a57';
+ const awningPreset=AWNING_PRESETS.find(p=>p.id===f.awningPreset)||AWNING_PRESETS[0];
+ const awningMode=awningPreset.mode||f.awning;
+ if(awningMode!=='none'){
+  // Material preset changes fabric colors/aging, not the building footprint.
+  const base=awningPreset.color||AWNING_COLORS.find(c=>c.id===f.awningColor)?.hex||'#296a57';
   const from=.065,to=.935,front=.10+f.awningDepth;
   // Soft cast shadow on the ground. A real awning projects outside the wall.
   polygon(from+.014,to+.014,.19+f.awningDepth,front+.14,
@@ -82,11 +98,11 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
   // Sloping fabric deck: a graduated field with horizontal hem lines.
   polygon(from,to,.075,front,base,'rgba(41,40,35,.65)');
   const total=12,segment=(to-from)/total;
-  if(f.awning==='striped'){
+  if(awningMode==='striped'){
    for(let i=0;i<total;i++){
     const l=from+i*segment,r=from+(i+1)*segment;
     if(i%2===0)polygon(l+.001,r-.001,.082,front-.022,
-       'rgba(248,237,209,.79)',null);
+       awningPreset.stripe||'rgba(248,237,209,.79)',null);
     else polygon(l+.001,r-.001,.082,front-.022,
        'rgba(25,32,35,.09)',null);
    }
@@ -109,7 +125,15 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
   for(let i=0;i<total;i++){
    const t=from+(i+.5)*segment,point=pixel(...at(t,front+.058));
    ctx.beginPath();ctx.arc(...point,Math.max(.9,Math.min(zoom*.028,3.0)),0,Math.PI*2);
-   ctx.fillStyle=f.awning==='striped'&&i%2===0?'#e3d2b8':base;ctx.fill();
+   ctx.fillStyle=awningMode==='striped'&&i%2===0?(awningPreset.stripe||'#e3d2b8'):base;ctx.fill();
+  }
+  if(awningPreset.worn){
+   for(let i=0;i<18;i++){
+    const t=from+(.04+((i*37)%87)/100)*(to-from),dep=.13+(.13+((i*17)%79)/100)*(front-.2);
+    const p=pixel(...at(t,dep));
+    ctx.beginPath();ctx.ellipse(...p,Math.max(.6,zoom*.04),Math.max(.4,zoom*.025),i*.4,0,Math.PI*2);
+    ctx.fillStyle=i%3?'rgba(67,56,42,.11)':'rgba(242,235,214,.19)';ctx.fill();
+   }
   }
   stroke(at(from,front+.055),at(to,front+.055),
    'rgba(53,44,39,.72)',.023);
