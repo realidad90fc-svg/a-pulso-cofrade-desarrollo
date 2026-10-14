@@ -1,7 +1,7 @@
 // UI-only controller for the existing map editor. It owns NO map state,
 // geometry, photo scale or serialization; all edits use snapshot()/changed().
 import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface,drawRoof} from './editor-materials.mjs';
-import {FACADE_PRESETS,AWNING_COLORS,getFacadePreset,cleanFacade,drawFacadePresetPreview,drawFacadeDecor} from './editor-facades.mjs';
+import {FACADE_PRESETS,AWNING_COLORS,AWNING_PRESETS,getFacadePreset,cleanFacade,drawFacadePresetPreview,drawFacadeDecor} from './editor-facades.mjs';
 
 export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface}){
  const $=id=>document.getElementById(id);
@@ -70,6 +70,10 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  for(const color of AWNING_COLORS){
   const option=document.createElement('option');option.value=color.id;option.textContent=color.name;colorSelect.append(option);
  }
+ const awningPresetSelect=$('facade-awning-preset');
+ for(const preset of AWNING_PRESETS){
+  const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;awningPresetSelect.append(option);
+ }
  const presetGallery=$('facade-preset-gallery');
  const previewAwning=()=>{
   const canvas=$('facade-awning-preview');if(!canvas)return;
@@ -81,6 +85,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   drawFacadeDecor(c,{...house,facade:{
    edge:0,shop:facadeSelect.value,sign:$('facade-sign').value,
    awning:$('facade-awning').value,awningColor:colorSelect.value,
+   awningPreset:awningPresetSelect.value,
    awningDepth:Number($('facade-awning-depth').value)||.55,
    balcony:'none'
   }},px,zoom);
@@ -113,13 +118,13 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  const fields={
   edge:$('facade-edge'),balcony:$('facade-balcony'),count:$('facade-balcony-count'),
   flowers:$('facade-flowers'),hangings:$('facade-hangings'),awning:$('facade-awning'),
-  awningColor:colorSelect,awningDepth:$('facade-awning-depth'),sign:$('facade-sign')
+  awningColor:colorSelect,awningPreset:awningPresetSelect,awningDepth:$('facade-awning-depth'),sign:$('facade-sign')
  };
  const updateCount=()=>{$('facade-balcony-count-value').textContent=fields.count.value};
  const updateDepth=()=>{$('facade-awning-depth-value').textContent=Number(fields.awningDepth.value).toFixed(2).replace('.',',')+' m'};
  fields.count.addEventListener('input',updateCount);
  fields.awningDepth.addEventListener('input',()=>{updateDepth();previewAwning()});
- for(const id of ['facade-awning','facade-awning-color','facade-sign'])$(id).addEventListener('input',previewAwning);
+ for(const id of ['facade-awning','facade-awning-color','facade-awning-preset','facade-sign'])$(id).addEventListener('input',previewAwning);
  const selectedHouses=()=>state.selectedItems.filter(x=>x.type==='houses'&&getData()?.houses?.[x.index]);
  function refreshSelected(){
   // On selection, reflect the surface's CURRENT saved material in the gallery.
@@ -162,6 +167,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   fields.hangings.checked=facade.hangings;
   fields.awning.value=facade.awning;
   fields.awningColor.value=facade.awningColor;
+  fields.awningPreset.value=facade.awningPreset;
   fields.awningDepth.value=String(facade.awningDepth);
   selectPreset(facade.shop);
   fields.sign.value=facade.sign;
@@ -172,7 +178,8 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    edge:Number(fields.edge.value),balcony:fields.balcony.value,
    balconyCount:Number(fields.count.value),flowers:fields.flowers.checked,
    hangings:fields.hangings.checked,awning:fields.awning.value,
-   awningColor:fields.awningColor.value,awningDepth:Number(fields.awningDepth.value),
+   awningColor:fields.awningColor.value,awningPreset:fields.awningPreset.value,
+   awningDepth:Number(fields.awningDepth.value),
    shop:facadeSelect.value,sign:fields.sign.value
   };
  }
