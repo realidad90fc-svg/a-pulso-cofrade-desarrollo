@@ -2,7 +2,7 @@ import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {BARATILLO} from './arenal-data.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
-import {drawRoof} from './editor-materials.mjs';
+import {drawRoof,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 
 // Dedicated REGRESO POR EL ARENAL parcel map.
 // Mandatory build order: road -> spectators -> sidewalk -> houses.
@@ -310,15 +310,23 @@ export function paintArenalScene(route,ctx,images,r){
  // Los edificios quedan matemáticamente recortados fuera de la calle,
  // audience footprints and pavements. Any loose roofs are mathematically
  // impossible rather than painted over.
- for(const lot of route.buildings){
+ for(let lotIndex=0;lotIndex<route.buildings.length;lotIndex++){
+  const lot=route.buildings[lotIndex];
   if(!boxhit(lot.bbox,r))continue;
-  // Houses explicitly customised in the editor share EXACTLY the same
-  // material/border/detail renderer as their editor previews. Native lots
-  // without custom material keep their old bitmap untouched.
-  if(typeof lot.material==='string'&&/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material)){
-   drawRoof(ctx,lot.poly,lot.material,(x,y)=>[px(x),py(y)],()=>null,p,lot);
+  // The source game provided flat, stretched house sprites when an editor
+  // building had no explicit material. Render residential roofs using the
+  // same proper top-down renderer as the editor instead. The native parcel
+  // shape, tile painter, road layer and ALL physics remain unchanged.
+  const assigned=typeof lot.material==='string'&&/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material);
+  if(assigned||lot.kind==='historic'){
+   const spriteId=Number(String(lot.key||'').split(':').at(-1));
+   const family=Math.max(0,NATIVE_ROOF_IDS.indexOf(spriteId));
+   const fallback='roof-'+family+'-'+(lotIndex%4);
+   drawRoof(ctx,lot.poly,assigned?lot.material:fallback,
+    (x,y)=>[px(x),py(y)],()=>null,p,{...lot,roofSeed:lot.roofSeed??(lotIndex*5137+family*7919)});
    continue;
   }
+  // Non-residential singular buildings retain their native architecture.
   const image=img(lot.key);if(!image)continue;
   ctx.save();path(lot.poly);ctx.clip();
   const [x,y,xx,yy]=lot.bbox;
