@@ -6,7 +6,7 @@
 // The WALL INSET is a clip-constrained inner stroke; it works even for
 // concave, jagged or narrow polygons, without generating invalid offset rings.
 import {paintArchitecturalRoof} from './editor-roof-top-view.mjs';
-import {drawRoofBorder} from './editor-roof-borders.mjs';
+import {drawRoofBorder,ROOF_BORDERS} from './editor-roof-borders.mjs';
 const isPoint=p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 export function roofLayout(poly,requested=.2,autoSimplify=true){
@@ -94,13 +94,25 @@ function fillCleanRoof(ctx,layout,material,pixel,zoom){
 export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpecial=null){
  const layout=roofLayout(poly,options.roofInset,options.roofSimplify!==false);
  if(!layout)return null;
+ // Stable choices per parcel: zooming and replaying never reshuffle.
+ const v=Number.isFinite(options.roofSeed)?options.roofSeed:
+  Math.round(layout.points.reduce((sum,p)=>sum+p[0]*1739+p[1]*2999,0)*31+
+   layout.area*4679+layout.perimeter*953);
+ const seed=Math.imul(v|0,2654435761)>>>0;
+ const border=options.roofBorder&&options.roofBorder!=='auto'?options.roofBorder:
+  ROOF_BORDERS[seed%ROOF_BORDERS.length].id;
+ const detailPool=['none','none','patio','none','castillete','claraboya',
+  'none','instalaciones','terraza','none','lavadero'];
+ const detail=options.roofDetail&&options.roofDetail!=='auto'?options.roofDetail:
+  detailPool[Math.floor(seed/11)%detailPool.length];
+ const decoration={...options,roofSeed:v,roofBorder:border,roofDetail:detail};
  const imageZoom=Math.max(.00001,zoom),b=layout.bounds;
  ctx.save();outline(ctx,layout.points,pixel);ctx.clip();
  if(drawSpecial&&(material.landmark||material.temple)){
   const top=pixel(b[0],b[3]),width=(b[2]-b[0])*imageZoom,height=(b[3]-b[1])*imageZoom;
   ctx.fillStyle='#c5ab88';ctx.fillRect(top[0],top[1],width,height);
   drawSpecial(material,top,width,height);
- }else paintArchitecturalRoof(ctx,layout,material,pixel,imageZoom,options);
+ }else paintArchitecturalRoof(ctx,layout,material,pixel,imageZoom,decoration);
  // Stroke is clipped to the ORIGINAL polygon, leaving a wall/parapet rim
  // of consistent width inside it, even at concave corners. Never touches
  // saved footprints, checkpoints, roads, or collision geometry.
@@ -108,7 +120,7 @@ export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpec
  // That produced the absurd giant white wall in narrow Sevilla alleys.
  // Visual rim now 5–7 cm total, regardless of old saved roofInset; the
  // ORIGINAL building polygon and physical collisions are not touched.
- drawRoofBorder(ctx,layout.points,pixel,imageZoom,options.roofBorder||'enlucido',layout.inset);
+ drawRoofBorder(ctx,layout.points,pixel,imageZoom,decoration.roofBorder,layout.inset);
  ctx.restore();
  return layout;
 }
