@@ -21,7 +21,12 @@ const entries=[
  ['teja-albero','Teja curva · ocre','tile','#b48a65','#e7bc88','#745c4a','tile-ochre'],
  ['mixta-tradicional','Azotea + teja sevillana','mixed','#d9c9ab','#b77753','#a88d6d','mixed-red'],
  ['mixta-antigua','Azotea vieja + teja oscura','mixed','#c1b7a3','#92715b','#807464','mixed-old'],
- ['mixta-ajardinada','Azotea con jardineras + teja','mixed','#dad2bc','#c58361','#a69d81','mixed-garden']
+ ['mixta-ajardinada','Azotea con jardineras + teja','mixed','#dad2bc','#c58361','#a69d81','mixed-garden'],
+ ['pintada-blanca','Azotea pintada · blanco mate','flat','#e9e9de','#faf9ed','#acae9e','paint-white'],
+ ['pintada-hueso','Azotea pintada · hueso','flat','#e4daca','#f4edde','#ac9d87','paint-cream'],
+ ['pintada-gris','Azotea pintada · gris impermeable','flat','#afb3af','#d0d2c8','#777d7b','paint-grey'],
+ ['pintada-clorocaucho','Azotea impermeabilizada · rojo óxido','flat','#a66c60','#c18b7c','#77574f','paint-rubber'],
+ ['pintada-envejecida','Azotea encalada · capas gastadas','flat','#d4d3c5','#eeebdc','#96988a','paint-worn']
 ];
 export const REALISTIC_ROOFS=entries.map(([id,name,roofFamily,base,detail,shadow,surfaceStyle],i)=>({
  id:'realista-'+id,name,roofFamily,base,detail,shadow,surfaceStyle,
