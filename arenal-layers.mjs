@@ -294,23 +294,11 @@ export function paintArenalScene(route,ctx,images,r){
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
  for(const sw of route.sidewalks){
   if(!boxhit(sw.bbox,r))continue;
-  if(sw.material){
-   // The same saved ground material and renderer as the editor.
-   drawSurface(ctx,sw.poly,'sidewalks',sw.material,
-    (x,y)=>[px(x),py(y)],p,floor,r);
-   continue;
-  }
-  ctx.save();path(sw.poly);ctx.clip();
-  ctx.fillStyle='#a5a09a';ctx.fill();
-  ctx.strokeStyle='#b3ada6';ctx.lineWidth=.015*p;
-  const [x,y,xx,yy]=sw.bbox;
-  for(let u=Math.floor(x/.22)*.22;u<xx;u+=.22){
-   ctx.beginPath();ctx.moveTo(px(u),py(yy));ctx.lineTo(px(u),py(y));ctx.stroke();
-  }
-  for(let v=Math.floor(y/.22)*.22;v<yy;v+=.22){
-   ctx.beginPath();ctx.moveTo(px(x),py(v));ctx.lineTo(px(xx),py(v));ctx.stroke();
-  }
-  ctx.restore();
+  // The game must ALWAYS draw a recognisable pavement. The original
+  // unstyled Arenal pavement was a barely visible grey 0.22 m grid.
+  // Explicit editor choices take absolute priority over this default.
+  drawSurface(ctx,sw.poly,'sidewalks',
+   sw.material||'sidewalk-sev-quintana',(x,y)=>[px(x),py(y)],p,floor,r);
  }
  // Nivel superior: los tejados se dibujan sobre cualquier acera superpuesta.
  // Los edificios quedan matemáticamente recortados fuera de la calle,
@@ -402,20 +390,11 @@ export function paintArenalScene(route,ctx,images,r){
  for(let i=0;i<route.walkable.length;i++){
   const road=route.walkable[i];if(!boxhit(route.roadBoxes[i],r))continue;
   const selected=route.editorRoadSurfaces?.[i];
-  if(selected){
-   drawSurface(ctx,road,'roads',selected.material,(x,y)=>[px(x),py(y)],p,floor,r);
-   continue;
-  }
-  ctx.save();path(road);ctx.clip();
-  ctx.fillStyle='#505359';ctx.fill();
-  if(floor){
-   ctx.globalAlpha=.60;
-   for(let x=Math.floor(r[0]/1.05)*1.05;x<r[2];x+=1.05)
-    for(let y=Math.floor(r[1]/1.05)*1.05;y<r[3];y+=1.05)
-     ctx.drawImage(floor,322,40,110,110,px(x),py(y+1.05),1.05*p,1.05*p);
-   ctx.globalAlpha=1;
-  }
-  ctx.restore();
+  // Restore the original cobbled-street impression even when there is no
+  // user-defined road material. Do not paint raw grey rectangles.
+  // Crucial: respect all editor-chosen materials on the same road polygon.
+  drawSurface(ctx,road,'roads',selected?.material||'road-sev-gerena-dark',
+   (x,y)=>[px(x),py(y)],p,floor,r);
  }
  // Exterior kerbs are the visible limit of the *actual* collision road.
  // Avoid artificial seams between overlapping segment and corner polygons.
