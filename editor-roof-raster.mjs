@@ -1,7 +1,7 @@
 // True locally-rasterized tile surfaces, shared by editor and gameplay.
 // A 240px bitmap represents 3 native map metres. No image requests, no
 // external licenses, no changed polygons or game physics.
-const SIZE=240, METRES=3, CACHE_MAX=36, cache=new Map();
+const SIZE=240, GRAIN=96, METRES=3, CACHE_MAX=32, cache=new Map();
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function seedFor(s){
  let h=2166136261>>>0;
@@ -25,11 +25,11 @@ function rgb(hex){
  const f=s.length===3?s.split('').map(c=>c+c).join(''):s;
  return[parseInt(f.slice(0,2),16)||0,parseInt(f.slice(2,4),16)||0,parseInt(f.slice(4,6),16)||0];
 }
-function bitmap(){
+function bitmap(size=SIZE){
  if(typeof document!=='undefined'){
-  const c=document.createElement('canvas');c.width=SIZE;c.height=SIZE;return c;
+  const c=document.createElement('canvas');c.width=size;c.height=size;return c;
  }
- if(typeof OffscreenCanvas!=='undefined')return new OffscreenCanvas(SIZE,SIZE);
+ if(typeof OffscreenCanvas!=='undefined')return new OffscreenCanvas(size,size);
  return null;
 }
 function makeTile(m,variation){
@@ -39,21 +39,29 @@ function makeTile(m,variation){
  const seed=seedFor(String(m.id||m.surfaceStyle)+':'+variation);
  const base=rgb(m.base||'#cbbba6'),kind=m.surfaceStyle||'stone';
  const worn=/aged|vieja|dark|moss|antigu|patina|viejo/.test(kind);
- const data=g.createImageData(SIZE,SIZE),px=data.data;
- // Grain, mottled stains and weathering are visible in the atlas raster.
- for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
-  const broad=valNoise(x,y,57,seed^0x11111);
-  const medium=valNoise(x,y,17,seed^0x76543);
-  const dust=valNoise(x,y,4,seed^0x99cc);
+ // Compute the fine pigment field only at 96px and upscale it before adding
+ // full-resolution clay ridges and grout. This cuts the per-material grain
+ // work by 84%, keeping game startup fluid on an iPhone.
+ const grainCanvas=bitmap(GRAIN);
+ const grain=grainCanvas?.getContext('2d',{willReadFrequently:true});
+ if(!grain?.createImageData)return null;
+ const data=grain.createImageData(GRAIN,GRAIN),px=data.data;
+ for(let y=0;y<GRAIN;y++)for(let x=0;x<GRAIN;x++){
+  const xx=x*SIZE/GRAIN,yy=y*SIZE/GRAIN;
+  const broad=valNoise(xx,yy,57,seed^0x11111);
+  const medium=valNoise(xx,yy,17,seed^0x76543);
+  const dust=valNoise(xx,yy,4,seed^0x99cc);
   const grit=hash(x,y,seed^0xa45b)/4294967295-.5;
   const tone=broad*(worn?31:18)+medium*(worn?17:11)+dust*6+grit*19;
-  const i=(y*SIZE+x)*4;
+  const i=(y*GRAIN+x)*4;
   px[i]=clamp(base[0]+tone,0,255);
   px[i+1]=clamp(base[1]+tone*.98,0,255);
   px[i+2]=clamp(base[2]+tone*.92,0,255);
   px[i+3]=255;
  }
- g.putImageData(data,0,0);
+ grain.putImageData(data,0,0);
+ g.imageSmoothingEnabled=true;
+ g.drawImage(grainCanvas,0,0,SIZE,SIZE);
  let iter=0;const rand=()=>hash(++iter,seed>>>8,seed)/4294967295;
  const c=rgb(m.shadow||'#685647');
  const shadow=a=>'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';
