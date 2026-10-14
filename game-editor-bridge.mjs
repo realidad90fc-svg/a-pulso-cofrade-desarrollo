@@ -7,6 +7,7 @@ import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-dra
 import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
+import {drawFacadeDecor} from './editor-facades.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
@@ -171,7 +172,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
    const old=route.buildings||[];
    route.buildings=scene.houses.map(o=>{
     const original=old.find(h=>JSON.stringify(h.poly)===JSON.stringify(o.poly));
-    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed};
+    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,facade:o.facade};
     if(!original){item.kind='historic';item.front=[item.poly[0],item.poly[1]];item.outward=[0,1]}
     return item;
    });
@@ -230,7 +231,16 @@ export class RuntimeEditorDraft{
   }
   for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
     drawUrbanElement(ctx,o,px,1);
-   for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound))drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
+   for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
+    drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
+    if(o.facade){
+     // This canvas is already transformed in world units. Work temporarily
+     // in a 96px/unit facade canvas, then undo: no physics/geometry changes.
+     ctx.save();ctx.scale(1/96,1/96);
+     drawFacadeDecor(ctx,o,(x,y)=>[x*96,-y*96],96);
+     ctx.restore();
+    }
+   }
   for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
   for(const o of this.layers.signs)if(valid(o.point)){
    const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;
