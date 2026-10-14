@@ -1,4 +1,6 @@
 import {renderInsetRoof} from './editor-roof-render.mjs';
+import {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
+export {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
 import {SEVILLE_ROAD_MATERIALS,SEVILLE_SIDEWALK_MATERIALS,paintSevilleSurface} from './editor-seville-surfaces.mjs';
 import {SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed} from './editor-residential-roofs.mjs';
 export {SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed} from './editor-residential-roofs.mjs';
@@ -180,7 +182,7 @@ const polygonPath=(ctx,poly,pixel)=>{
  ctx.beginPath();poly.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();
 };
 const bounds=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
-export const roofById=id=>SEVILLA_ROOFS.find(m=>m.id===id)||TEMPLE_ROOF_MATERIALS.find(m=>m.id===id)||LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
+export const roofById=id=>REALISTIC_ROOFS.find(m=>m.id===id)||SEVILLA_ROOFS.find(m=>m.id===id)||TEMPLE_ROOF_MATERIALS.find(m=>m.id===id)||LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
 export const surfaceById=(id,kind='roads')=>{
  const list=kind==='sidewalks'?SIDEWALK_MATERIALS:ROAD_MATERIALS;
  return list.find(m=>m.id===id)||list[0];
