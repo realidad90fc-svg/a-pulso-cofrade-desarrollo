@@ -1,0 +1,28 @@
+/* Visual texture gallery and decorative facades. Additive: no PC layout changes. */
+.decor-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;min-width:0}
+.decor-gallery .decor-card{display:flex;flex-direction:column;gap:6px;min-width:0;align-items:stretch;
+ white-space:normal;text-align:left;font-size:11px;line-height:1.25;min-height:96px;padding:6px;
+ background:#13202b;border:1px solid #4d5962;border-radius:9px;overflow:hidden}
+.decor-gallery .decor-card:hover{border-color:#9bcfc7}
+.decor-gallery .decor-card.chosen{border:2px solid #58e4d5;background:#16423f;padding:5px}
+.decor-gallery .decor-card canvas{display:block;width:100%;height:auto;aspect-ratio:160 / 90;
+ border-radius:5px;object-fit:cover;background:#8a8a80}
+.decor-gallery .decor-card span{display:block;min-height:24px;color:#f2eee5;overflow-wrap:anywhere}
+.decor-gallery .decor-card .decor-check{font-size:10px;color:#9ff1db}
+#surface-preview-large{width:100%;height:auto;aspect-ratio:420 / 160;display:block;
+ border:1px solid #6a8185;border-radius:8px;background:#888}
+#surface-preview-name{font-size:12px}
+#facade-panel input[type=text]{width:100%;font-size:14px;line-height:1.4;
+ color:var(--text);background:#15232c;padding:10px;border-radius:8px;border:1px solid var(--line)}
+#facade-panel .actions button{white-space:normal}
+#facade-selected{font-size:12px;min-height:20px}
+#facade-panel summary{line-height:1.35}
+#facade-panel input[type=range]{width:100%}
+#facade-panel .facade-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+#facade-panel .facade-gallery .decor-card{min-height:91px}
+@media(max-width:850px){
+ .decor-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #facade-panel .facade-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .decor-gallery .decor-card{min-height:100px;padding:8px}
+ #facade-panel input[type=text]{font-size:16px}
+}
