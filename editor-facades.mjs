@@ -70,17 +70,52 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  // Signs are secondary to roofline, pavement and frontage shape.
  drawDistinctShop(ctx,{shop:f.shop,sign:f.sign,at,polygon,stroke,pixel,zoom,length});
  if(f.awning!=='none'){
+  // Canvas textile canopy in bird's-eye view, not a thin flat rectangle.
+  // Anchored along the existing facade, never modifying its footprint.
   const base=AWNING_COLORS.find(c=>c.id===f.awningColor)?.hex||'#296a57';
-  polygon(.06,.94,.42,.42+f.awningDepth,base,'#f7e8cd');
+  const from=.065,to=.935,front=.10+f.awningDepth;
+  // Soft cast shadow on the ground. A real awning projects outside the wall.
+  polygon(from+.014,to+.014,.19+f.awningDepth,front+.14,
+   'rgba(17,22,25,.22)',null);
+  // Wooden/metal bracket at wall attachment.
+  polygon(from,to,-.025,.09,'#6c6660','#eee4d1');
+  // Sloping fabric deck: a graduated field with horizontal hem lines.
+  polygon(from,to,.075,front,base,'rgba(41,40,35,.65)');
+  const total=12,segment=(to-from)/total;
   if(f.awning==='striped'){
-   for(let i=0;i<12;i++){
-    if(i%2===0){
-     const lo=.06+.88*i/12,hi=.06+.88*(i+1)/12;
-     polygon(lo,hi,.43,.41+f.awningDepth,'rgba(248,235,204,.72)',null);
-    }
+   for(let i=0;i<total;i++){
+    const l=from+i*segment,r=from+(i+1)*segment;
+    if(i%2===0)polygon(l+.001,r-.001,.082,front-.022,
+       'rgba(248,237,209,.79)',null);
+    else polygon(l+.001,r-.001,.082,front-.022,
+       'rgba(25,32,35,.09)',null);
    }
   }
-  stroke(at(.06,.42+f.awningDepth),at(.94,.42+f.awningDepth),'#d2b998',.03);
+  // Stitched panels and depth folds, perceived at a true overhead angle.
+  for(let i=0;i<=total;i++){
+   const t=from+i*segment;
+   stroke(at(t,.09),at(t,front-.018),
+     i%2?'rgba(32,37,35,.15)':'rgba(251,240,208,.24)',.009);
+  }
+  const bands=6;
+  for(let j=0;j<bands;j++){
+   const s=.10+(front-.13)*j/bands,e=.10+(front-.13)*(j+1)/bands;
+   if(j===0||j===4)polygon(from,to,s,e,
+      j===0?'rgba(255,246,220,.17)':'rgba(17,22,25,.12)',null);
+  }
+  // Weighted scalloped valance: individual downward fabric folds, not
+  // the enormous white border that the earlier implementation created.
+  polygon(from,to,front-.025,front+.055,base,'rgba(41,34,29,.7)');
+  for(let i=0;i<total;i++){
+   const t=from+(i+.5)*segment,point=pixel(...at(t,front+.058));
+   ctx.beginPath();ctx.arc(...point,Math.max(.9,Math.min(zoom*.028,3.0)),0,Math.PI*2);
+   ctx.fillStyle=f.awning==='striped'&&i%2===0?'#e3d2b8':base;ctx.fill();
+  }
+  stroke(at(from,front+.055),at(to,front+.055),
+   'rgba(53,44,39,.72)',.023);
+  // Slim, believable tubular side supports.
+  stroke(at(from,.07),at(from,front-.02),'rgba(229,221,204,.63)',.013);
+  stroke(at(to,.07),at(to,front-.02),'rgba(229,221,204,.63)',.013);
  }
  if(f.balcony!=='none'){
   const count=f.balcony==='continuous'?1:f.balconyCount;
