@@ -161,5 +161,12 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  });
  makeSurfaceGalleries();
  refreshSelected();
- return{refreshSelected,syncSurface};
+ const redrawFloorPreviews=()=>{
+  for(const kind of ['roads','sidewalks'])for(const item of materials[kind]){
+   const thumbnail=cached.get(kind+':'+item.id);
+   if(thumbnail)redrawSurface(thumbnail,kind,item.id);
+  }
+  syncSurface();
+ };
+ return{refreshSelected,syncSurface,redrawFloorPreviews};
 }
