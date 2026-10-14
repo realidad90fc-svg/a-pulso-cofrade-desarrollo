@@ -3,6 +3,7 @@
 // No invented protrusions by default; optional identifiable roof elements
 // are deliberately selected by the map author, never placed randomly.
 import {paintRoofVariant} from './editor-roof-variants.mjs';
+import {paintRasterRoof} from './editor-roof-raster.mjs';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const colors=[
  ['#c9ba9e','#e8dcc1','#a99b84'],['#c6aa87','#e5c89e','#a18367'],
@@ -102,7 +103,11 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
   }
  };
  if(m.surfaceStyle){
-  paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
+  // Prefer a genuine scale-aware raster texture with visible pigment, joins
+  // and relief. In browsers without a canvas bitmap use the older vector
+  // renderer as a safe visual fallback; physics is independent of both.
+  if(!paintRasterRoof(ctx,m,{x0,y0,w,h},z,seed))
+   paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
  }else if(p.kind==='tile'){
   tileBand(x0,w,y0,h);
   if(!compact){
