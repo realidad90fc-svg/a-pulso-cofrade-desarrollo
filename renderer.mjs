@@ -21,7 +21,17 @@ export class Renderer {
    if(sim.step.variant&&graph===sim.stepEntity.graph&&node.path.startsWith(graph.root.path+'/body/'))continue;
    if(!sim.tutorial&&!sim.routeAdapter&&(node.path.includes('/zonaInter')||node.path.includes('/zonaParada')))continue;
    if(!node.sprite?.enabled||!graph._active(node))continue;
-   const sprite=graph.data.sprites[node.sprite.key],im=images.get(node.sprite.key)||images.get(sprite.image);if(!im)continue;
+   const sprite=graph.data.sprites[node.sprite.key];
+   if(!sprite)continue;
+   const im=images.get(node.sprite.key)||(sprite.image?images.get(sprite.image):null);
+   // The procedural route reference-architecture has NO image file.
+   // Its sprite is just a world-space carrier for drawArchitecture(),
+   // which paints the actual streets, sidewalks and roofs into tiles.
+   // Requiring a loaded bitmap here silently skipped the entire Arenal
+   // scene, leaving only the canvas background (#55524f) visible.
+   const procedural=!!sim.routeAdapter&&
+    (node.name==='reference-architecture'||node.name==='extension');
+   if(!im&&!procedural)continue;
    drawable.push({graph,node,sprite,im});
   }
   if(sim.step.variant){
