@@ -6,7 +6,14 @@ export class Renderer {
  render(sim,images,showOverlay=true){
   const ctx=this.ctx,w=this.width,h=this.height,d=this.dpr;
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.fillStyle='#55524f';ctx.fillRect(0,0,this.canvas.width,this.canvas.height);ctx.imageSmoothingEnabled=true;
-  const cam=sim.camera,viewScale=Math.max(1,(sim.map.variant?.viewScale||1)*Math.min(1,h/w)),scale=h/(2*cam.size*viewScale)*d,c=Math.cos(cam.angle),s=Math.sin(cam.angle);
+  // Original Unity framing, but allow the Arenal ONLY to zoom a little
+  // closer than the general renderer's hard 1.0 lower limit. This modifies
+  // no step/body/world dimensions and leaves all other maps untouched.
+  const cam=sim.camera,isArenal=sim.map.variant?.key==='RegresoArenal';
+  const requested=(sim.map.variant?.viewScale||1)*Math.min(1,h/w);
+  const viewScale=isArenal?Math.max(.89,requested):Math.max(1,requested);
+  const scale=h/(2*cam.size*viewScale)*d,c=Math.cos(cam.angle),s=Math.sin(cam.angle);
+  if(isArenal)sim._arenalRenderInfo={viewScale,camSize:cam.size,portrait:h>=w};
   const project=[scale*c,scale*s,scale*s,-scale*c,w*d/2-scale*(c*cam.x+s*cam.y),h*d/2+scale*(-s*cam.x+c*cam.y)];
   const drawable=[];
   for(const graph of sim.renderGraphs||sim.graphs)for(const node of graph.nodes.values()){
