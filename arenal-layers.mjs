@@ -3,6 +3,7 @@ import {BARATILLO} from './arenal-data.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
 import {drawRoof,drawSurface,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {paintArenalGround} from './editor-arenal-ground.mjs';
 
 // Dedicated REGRESO POR EL ARENAL parcel map.
 // Mandatory build order: road -> spectators -> sidewalk -> houses.
@@ -281,16 +282,11 @@ export function paintArenalScene(route,ctx,images,r){
  const img=key=>images.get(key)||images.get(route.graph.data.sprites[key]?.image);
  ctx.imageSmoothingEnabled=false;
  const floor=img('sharedassets2.assets:373');
- // A neutral native cobblestone ground: NEVER blanket the whole tile with
- // roof textures. Housing textures exist ONLY inside explicitly carved lots.
- ctx.fillStyle='#7c7974';ctx.fillRect(0,0,(r[2]-r[0])*p,(r[3]-r[1])*p);
- if(floor){
-  ctx.save();ctx.globalAlpha=.30;
-  for(let x=Math.floor(r[0]/1.12)*1.12;x<r[2];x+=1.12)
-   for(let y=Math.floor(r[1]/1.12)*1.12;y<r[3];y+=1.12)
-    ctx.drawImage(floor,322,40,110,110,px(x),py(y+1.12),1.12*p,1.12*p);
-  ctx.restore();
- }
+ // Complete street base: procedural cobbles also fill tiny omissions
+ // between the individual road polygons. Otherwise the user saw the raw
+ // grey canvas beside a narrow dark polygon in BOTH editor and gameplay.
+ // Custom road and sidewalk materials still paint over this base.
+ paintArenalGround(ctx,(x,y)=>[px(x),py(y)],p,r,route.scene.bounds);
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
  for(const sw of route.sidewalks){
   if(!boxhit(sw.bbox,r))continue;
