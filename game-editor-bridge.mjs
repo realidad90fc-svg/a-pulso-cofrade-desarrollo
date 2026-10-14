@@ -162,9 +162,19 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   if(Array.isArray(scene.roads)&&scene.roads.length&&scene.roads.every(o=>polygon(o.poly))){
    route.walkable=scene.roads.map(o=>o.poly.map(p=>[...p]));
    route.roadBoxes=route.walkable.map(bbox);
+   route.editorRoadSurfaces=scene.roads.map((o,i)=>({
+    poly:o.poly.map(p=>[...p]),material:o.material||ROAD_MATERIALS[i%12].id
+   }));
   }
-  if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly)))
-   route.sidewalks=scene.sidewalks.map(o=>({poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly)}));
+  if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly))){
+   route.sidewalks=scene.sidewalks.map((o,i)=>({
+    poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
+    material:o.material||SIDEWALK_MATERIALS[i%12].id
+   }));
+   // Full Arenal sidewalks will be rendered by the base scene, beneath
+   // buildings. Do not overlay them again with a generic editor floor.
+   route.editorSidewalkMaterialReady=true;
+  }
   // CentreRoute.validPoint includes route.sidewalks as traversable ground.
   // Do NOT append them to route.walkable: the Arenal renderer uses that
   // array to paint asphalt over the original pavement texture.
@@ -201,6 +211,8 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   route.tileCache?.clear();
  }
  sim.editorDraft=new RuntimeEditorDraft(draft);
+ sim.editorDraft.baseArenalSidewalks=key==='RegresoArenal'&&!!route?.editorSidewalkMaterialReady;
+ sim.editorDraft.baseArenalRoads=key==='RegresoArenal'&&!!route?.editorRoadSurfaces;
  return sim.editorDraft;
 }
 export class RuntimeEditorDraft{
@@ -224,6 +236,10 @@ export class RuntimeEditorDraft{
   ctx.save();ctx.setTransform(...oriented);
   ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
   for(const [kind,materials]of [['sidewalks',SIDEWALK_MATERIALS],['roads',ROAD_MATERIALS]]){
+   // Only the Arenal full-scene layers, once accepted, are skipped here.
+   // All other maps keep the original additive editor painter unchanged.
+   if((kind==='sidewalks'&&this.baseArenalSidewalks)
+      ||(kind==='roads'&&this.baseArenalRoads))continue;
    const floor=images.get('sharedassets2.assets:373');
    for(const o of this.layers[kind])if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
     drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound);
