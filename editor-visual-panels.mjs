@@ -3,7 +3,7 @@
 import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface} from './editor-materials.mjs';
 import {FACADE_PRESETS,AWNING_COLORS,getFacadePreset,cleanFacade,drawFacadePresetPreview} from './editor-facades.mjs';
 
-export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage}){
+export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface}){
  const $=id=>document.getElementById(id);
  const galleries={roads:$('road-preview-gallery'),sidewalks:$('sidewalk-preview-gallery')};
  const materials={roads:ROAD_MATERIALS,sidewalks:SIDEWALK_MATERIALS};
@@ -38,6 +38,9 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   else{state.sidewalkMaterial=id;$('sidewalk-material').value=id}
   previewKind=kind;
   syncSurface();
+  // A single click on a thumbnail applies it to objects of the same layer
+  // already selected. With no selection it remains a harmless preview.
+  if(state.selectedItems.some(o=>o.type===kind))applySurface?.(kind);
  }
  function makeSurfaceGalleries(){
   for(const kind of ['roads','sidewalks']){
@@ -101,6 +104,25 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  fields.awningDepth.addEventListener('input',updateDepth);
  const selectedHouses=()=>state.selectedItems.filter(x=>x.type==='houses'&&getData()?.houses?.[x.index]);
  function refreshSelected(){
+  // On selection, reflect the surface's CURRENT saved material in the gallery.
+  // Do not mistake a highlighted thumbnail for an applied one.
+  const surfaceSelection=state.selectedItems.find(o=>
+   (o.type==='roads'||o.type==='sidewalks')&&getData()?.[o.type]?.[o.index]);
+  if(surfaceSelection){
+   const kind=surfaceSelection.type,obj=getData()[kind][surfaceSelection.index];
+   const oldDefault=materials[kind][surfaceSelection.index%12]?.id||materials[kind][0].id;
+   const value=obj.material||oldDefault;
+   if(materials[kind].some(x=>x.id===value)){
+    if(kind==='roads'){state.roadMaterial=value;$('road-material').value=value}
+    else{state.sidewalkMaterial=value;$('sidewalk-material').value=value}
+    previewKind=kind;
+    const name=materials[kind].find(x=>x.id===value)?.name||value;
+    $('surface-apply-status').textContent=(kind==='roads'?'Calzada':'Acera')+' '+(surfaceSelection.index+1)+' · Material actual: '+name;
+    syncSurface();
+   }
+  }else{
+   $('surface-apply-status').textContent='Selecciona una calzada o acera para ver su textura actual y cambiarla.';
+  }
   const selected=selectedHouses();
   $('facade-selected').textContent=selected.length
    ?selected.length+' edificio(s) seleccionados. Elige el tramo de fachada y aplica los detalles.'
