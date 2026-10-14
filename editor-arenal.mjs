@@ -2,7 +2,7 @@ import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
-import {ROOF_MATERIALS,SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {ROOF_MATERIALS,REALISTIC_ROOFS,SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS,SEVILLA_ROOFS_BY_FAMILY,residentialSeed,LANDMARK_ROOF_MATERIALS,TEMPLE_ROOF_MATERIALS,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS,roofById,drawRoof,drawSurface,drawTree,drawFurniture,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
@@ -11,6 +11,7 @@ import {nextRoofId} from './editor-roof-cycle.mjs';
 import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
+import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
 
 const $=id=>document.getElementById(id);
@@ -39,8 +40,9 @@ function setSelection(items){
  if(state.selected?.type==='labels')$('street-name-text').value=data.labels[state.selected.index]?.[0]||'';
  if(state.selected?.type==='houses'&&state.selectedItems.length===1){
   const house=data.houses[state.selected.index];
-  const savedDetail=['none','patio','castillete','claraboya','instalaciones'].includes(house.roofDetail)?house.roofDetail:'none';
+  const savedDetail=['none','patio','castillete','claraboya','instalaciones','terraza','lavadero'].includes(house.roofDetail)?house.roofDetail:'none';
   $('roof-detail').value=savedDetail;
+  $('roof-border').value=ROOF_BORDERS.some(b=>b.id===house.roofBorder)?house.roofBorder:'enlucido';
   const inset=Math.max(.035,Math.min(.075,Number(house.roofInset)||.05));
   $('roof-inset').value=String(inset);
   $('roof-inset-value').textContent=inset.toFixed(3).replace('.',',')+' m';
@@ -502,7 +504,7 @@ function finishPolygon(){
  if(a<.015){show('Polígono demasiado estrecho o cruzado. Corrige sus puntos.','error');return}
  snapshot();
  const roof=roofById(state.material);
- data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value,roofSimplify:$('roof-simplify').checked,roofSeed:residentialSeed(poly,data.houses.length)}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
+ data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value,roofBorder:$('roof-border').value,roofSimplify:$('roof-simplify').checked,roofSeed:residentialSeed(poly,data.houses.length)}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
  state.working=[];changed();
  if(kind==='houses'){
   advanceRoof();
@@ -744,7 +746,8 @@ function prepareMap(animation){
  };
 }
 function roofsInCategory(group=$('roof-category').value){
- return group==='common'?SEVILLA_NEIGHBOURHOOD_ROOFS:
+ return group==='realistic'?REALISTIC_ROOFS:
+  group==='common'?SEVILLA_NEIGHBOURHOOD_ROOFS:
   group==='flat'?SEVILLA_ROOFS_BY_FAMILY('flat'):
   group==='tile'?SEVILLA_ROOFS_BY_FAMILY('tile'):
   group==='mixed'?SEVILLA_ROOFS_BY_FAMILY('mixed'):
@@ -754,6 +757,10 @@ function roofsInCategory(group=$('roof-category').value){
 function advanceRoof(){
  state.material=nextRoofId(roofsInCategory(),state.material,$('roof-mode').value);
  palette();
+}
+for(const border of ROOF_BORDERS){
+ const option=document.createElement('option');option.value=border.id;option.textContent=border.name;
+ $('roof-border').append(option);
 }
 function previewRoofDetail(){
  const preview=$('roof-detail-preview');if(!preview)return;
@@ -765,7 +772,7 @@ function previewRoofDetail(){
  c.fillStyle='#818078';c.fillRect(0,h*.76,w,h*.24);
  const poly=[[.75,.64],[8.60,.64],[8.60,4.12],[.75,4.12]],z=28;
  drawRoof(c,poly,state.material,(x,y)=>[x*z,h-y*z],
-  ()=>null,z,{roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value});
+  ()=>null,z,{roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value,roofBorder:$('roof-border').value});
 }
 function palette(){
  const parent=$('palettes');parent.replaceChildren();
@@ -895,6 +902,7 @@ function bind(){
  $('roof-mode').onchange=palette;
  $('roof-inset').oninput=()=>{const v=Number($('roof-inset').value);$('roof-inset-value').textContent=v.toFixed(3).replace('.',',')+' m';previewRoofDetail();};
  $('roof-detail').onchange=previewRoofDetail;
+ $('roof-border').onchange=previewRoofDetail;
  $('public-mode').onchange=updatePeopleHint;
  $('public-spacing').oninput=e=>{$('public-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
  $('people-row-spacing').oninput=e=>{$('people-row-spacing-value').textContent=Number(e.target.value).toFixed(2).replace('.',',')+' m'};
@@ -920,7 +928,7 @@ function bind(){
   for(const sel of selected){
    const obj=data.houses[sel.index];if(!obj)continue;
    const roof=roofById(state.material);obj.material=roof.id;obj.key=roof.key;
-   obj.roofInset=Number($('roof-inset').value)||.05;obj.roofDetail=$('roof-detail').value;obj.roofSimplify=$('roof-simplify').checked;
+   obj.roofInset=Number($('roof-inset').value)||.05;obj.roofDetail=$('roof-detail').value;obj.roofBorder=$('roof-border').value;obj.roofSimplify=$('roof-simplify').checked;
     if(!Number.isFinite(obj.roofSeed))obj.roofSeed=residentialSeed(obj.poly,sel.index);
    count++;state.material=nextRoofId(roofsInCategory(),roof.id,mode);
   }
