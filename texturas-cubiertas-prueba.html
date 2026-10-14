@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>Vista previa de texturas — A Pulso Cofrade</title>
+ <style>
+ *{box-sizing:border-box}body{background:#14212b;color:#f0eee5;font:15px system-ui,sans-serif;margin:0;padding:16px}
+ h1{font-size:22px;margin:0 0 6px}p{color:#becbc8;margin:0 0 20px;line-height:1.5}
+ main{max-width:1280px;margin:auto}
+ .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:14px}
+ figure{margin:0;padding:7px;background:#223440;border:1px solid #435b64;border-radius:11px}
+ canvas{display:block;width:100%;height:auto;aspect-ratio:220/158;border-radius:7px}
+ figcaption{padding:8px 4px 4px;font-size:13px;min-height:38px}
+ small{color:#9edacb}a{color:#9edacb} .note{background:#293f47;border-left:3px solid #7ddfca;padding:12px;border-radius:8px}
+ </style>
+</head>
+<body><main>
+ <h1>Texturas de cubiertas — prueba cenital</h1>
+ <p>Se dibujan con el mismo motor que utiliza el editor y el juego. Esta página no modifica tus mapas ni los datos de la partida.</p>
+ <div id="gallery" class="gallery" aria-label="Galería de veinte acabados de cubiertas"></div>
+ <p class="note">Las texturas son imágenes rasterizadas generadas localmente con juntas, relieve y desgaste. No son fotografías. <a href="./editor-arenal.html">Volver al editor</a></p>
+</main>
+<script type="module">
+import {REALISTIC_ROOFS,drawRoof} from './editor-materials.mjs';
+const gallery=document.getElementById('gallery');
+for(let i=0;i<REALISTIC_ROOFS.length;i++){
+ const m=REALISTIC_ROOFS[i];
+ const figure=document.createElement('figure'),canvas=document.createElement('canvas');
+ canvas.width=220;canvas.height=158;canvas.setAttribute('role','img');canvas.setAttribute('aria-label',m.name);
+ const g=canvas.getContext('2d');g.fillStyle='#797874';g.fillRect(0,0,220,158);
+ g.fillStyle='#626767';g.fillRect(0,121,220,37);
+ const z=28,poly=[[.42,1.15],[7.38,1.15],[7.38,5.18],[.42,5.18]];
+ drawRoof(g,poly,m.id,(x,y)=>[x*z,154-y*z],()=>null,z,{
+  roofSeed:i*39017+17,roofInset:.05,roofDetail:'none'
+ });
+ const caption=document.createElement('figcaption');caption.textContent=m.name;
+ figure.append(canvas,caption);gallery.append(figure);
+}
+</script></body></html>
