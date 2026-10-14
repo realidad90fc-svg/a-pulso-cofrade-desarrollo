@@ -1,3 +1,4 @@
+import {drawDistinctShop} from './editor-shop-overhead.mjs';
 // Decorative Sevillian street fronts in native editor world units.
 // Attached to existing buildings; never exported as collision geometry.
 // This is a stylised library of references, not photographic replicas.
@@ -65,32 +66,9 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  const span=Math.min(.045,.14/length);
  ctx.save();
  // Door/window rhythm and shopfront: drawn against one selected facade edge.
- const preset=getFacadePreset(f.shop);
- if(f.shop!=='none'){
-  polygon(span,1-span,-.06,.10,preset.color,'#3a3330');
-  const count=Math.min(5,Math.max(2,Math.floor(length/1.15)));
-  for(let i=0;i<count;i++){
-   const t=span+(1-2*span)*(i+.5)/count,half=Math.min(.055,(1-2*span)/count*.31);
-   polygon(t-half,t+half,.10,.18,'#7f9496','#4a5554');
-   stroke(at(t-half,.13),at(t+half,.13),'#dee9de',.014);
-  }
-  polygon(.14,.86,.18,.40,preset.color,'#d2aa6a');
-  const mid=pixel(...at(.5,.29));
-  const axis=pixel(...at(1,.29)),first=pixel(...at(0,.29));
-  const angle=Math.atan2(axis[1]-first[1],axis[0]-first[0]);
-  ctx.save();ctx.translate(...mid);
-  let txtAngle=angle;
-  if(txtAngle>Math.PI/2||txtAngle<-Math.PI/2)txtAngle+=Math.PI;
-  ctx.rotate(txtAngle);
-  const label=(f.sign||preset.sign).slice(0,36);
-  if(label){
-   const size=Math.min(15,Math.max(8,zoom*.2));
-   ctx.font='800 '+size+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-   const maxWidth=Math.max(10,length*.67*zoom);
-   ctx.fillStyle=preset.ink;ctx.fillText(label,0,0,maxWidth);
-  }
-  ctx.restore();
- }
+ // Every business gets its own true top-down decorative ground plan.
+ // Signs are secondary to roofline, pavement and frontage shape.
+ drawDistinctShop(ctx,{shop:f.shop,sign:f.sign,at,polygon,stroke,pixel,zoom,length});
  if(f.awning!=='none'){
   const base=AWNING_COLORS.find(c=>c.id===f.awningColor)?.hex||'#296a57';
   polygon(.06,.94,.42,.42+f.awningDepth,base,'#f7e8cd');
@@ -133,20 +111,35 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  ctx.restore();
 }
 // Preview built from original preset colors rather than external trademark imagery.
+// The thumbnail is a TOP-DOWN map crop using the EXACT SAME rendering
+// function as the real editor/game, not a front/elevation illustration.
 export function drawFacadePresetPreview(ctx,preset){
  const w=ctx.canvas.width,h=ctx.canvas.height;
+ const scale=Math.min((w-20)/7.6,(h-9)/4.55);
+ const pix=(x,y)=>[10+x*scale,5+(4.5-y)*scale];
+ const poly=[[.4,1.12],[7.15,1.12],[7.15,4.13],[.4,4.13]];
+ ctx.save();
  ctx.clearRect(0,0,w,h);
- ctx.fillStyle='#d8c5a6';ctx.fillRect(0,0,w,h);
- ctx.fillStyle='#c5a985';ctx.fillRect(0,0,w,13);
- ctx.strokeStyle='#987a57';ctx.lineWidth=3;ctx.strokeRect(1,1,w-2,h-2);
- for(let i=0;i<3;i++){
-  const x=14+i*(w-28)/3;
-  ctx.fillStyle='#496977';ctx.fillRect(x,18,17,15);
-  ctx.strokeStyle='#262d31';ctx.lineWidth=2;ctx.strokeRect(x,18,17,15);
+ ctx.fillStyle='#797770';ctx.fillRect(0,0,w,h);
+ // Aerial roof surface/terrace: lines are parallel to the building edge.
+ const tl=pix(.4,4.13),br=pix(7.15,1.12);
+ ctx.fillStyle=preset.id==='maquedano'?'#cfbfa9':
+  preset.id==='campana'?'#e5d1af':preset.id==='baratillo'?'#c59670':
+  preset.id==='morales'?'#b9ab93':'#d8c5a6';
+ ctx.fillRect(tl[0],tl[1],br[0]-tl[0],br[1]-tl[1]);
+ ctx.strokeStyle='#79664f';ctx.lineWidth=3;
+ ctx.strokeRect(tl[0],tl[1],br[0]-tl[0],br[1]-tl[1]);
+ // Parallel tile courses. Deliberately no perspective, horizon or windows
+ // in an upright wall: this is what the player sees from above.
+ ctx.strokeStyle='rgba(82,56,40,.24)';ctx.lineWidth=1;
+ for(let y=1.8;y<4;y+=.47){
+  const p0=pix(.47,y),p1=pix(7.08,y);
+  ctx.beginPath();ctx.moveTo(...p0);ctx.lineTo(...p1);ctx.stroke();
  }
- ctx.fillStyle=preset.color;ctx.fillRect(8,h*.55,w-16,22);
- ctx.fillStyle=preset.ink;ctx.font='bold 15px system-ui';
- ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(preset.sign||preset.name,w/2,h*.55+11,w-25);
- ctx.fillStyle='#445b61';ctx.fillRect(18,h*.55+26,w-36,h*.45-34);
- ctx.strokeStyle='#eadcbd';ctx.lineWidth=2;ctx.strokeRect(18,h*.55+26,w-36,h*.45-34);
+ const facade={shop:preset.id,sign:preset.sign,
+  edge:0,balcony:'none',awning:'none',flowers:false,hangings:false};
+ drawFacadeDecor(ctx,{poly,facade},pix,scale);
+ ctx.font='700 9px system-ui';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+ ctx.fillStyle='#f3f0e9';ctx.fillText('CALLE · VISTA CENITAL',9,h-3,Math.max(30,w-18));
+ ctx.restore();
 }
