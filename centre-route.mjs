@@ -126,9 +126,10 @@ export class CentreRoute{
   for(let iy=Math.max(0,Math.floor(r[1]/t));iy<=Math.min(Math.ceil(sprite.rectSize[1]/t)-1,Math.floor(r[3]/t));iy++)for(let ix=Math.max(0,Math.floor(r[0]/t));ix<=Math.min(Math.ceil(sprite.rectSize[0]/t)-1,Math.floor(r[2]/t));ix++){
    const key=ix+','+iy;let canvas=this.tileCache.get(key);if(!canvas){canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(t,t):typeof document!=='undefined'?document.createElement('canvas'):new ctx.canvas.constructor(t,t);canvas.width=t;canvas.height=t;this.paintTile(canvas.getContext('2d'),images,[v.bounds[0]+ix*v.tileSize,v.bounds[3]-(iy+1)*v.tileSize,v.bounds[0]+(ix+1)*v.tileSize,v.bounds[3]-iy*v.tileSize]);}this.tileCache.delete(key);this.tileCache.set(key,canvas);while(this.tileCache.size>v.maxCachedTiles){const oldest=this.tileCache.keys().next().value;this.tileCache.delete(oldest);}// Tiny adjacent-tile bleed prevents the camera-following dark seams
    // seen on Arenal tile boundaries. Never alters world coordinates.
-   if(this.scene.key==='RegresoArenal')
-    ctx.drawImage(canvas,ix*t-.32,iy*t-.32,t+.64,t+.64);
-   else ctx.drawImage(canvas,ix*t,iy*t);
+   // Do not stretch Arenal terrain tiles: even a small world-space bleed
+   // shifts grout lines against the separately painted roof and road edges.
+   // Every tile must occupy its exact world position.
+   ctx.drawImage(canvas,ix*t,iy*t);
   }ctx.restore();
  }
  paintTile(ctx,images,r){const v=this.scene,p=v.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
