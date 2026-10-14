@@ -906,7 +906,7 @@ function bind(){
  $('show-new-roofs').onclick=()=>{
   $('roof-category').value='realistic';
   $('roof-category').onchange();
-  show('20 nuevas texturas visibles. Selecciona los edificios a los que quieres aplicarlas.','good');
+  show('25 texturas detalladas visibles. Selecciona los edificios a los que quieres aplicarlas.','good');
  };
  $('roof-mode').onchange=palette;
  $('roof-inset').oninput=()=>{const v=Number($('roof-inset').value);$('roof-inset-value').textContent=v.toFixed(3).replace('.',',')+' m';previewRoofDetail();};
