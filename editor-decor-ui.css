@@ -4,6 +4,9 @@
  white-space:normal;text-align:left;font-size:11px;line-height:1.25;min-height:96px;padding:6px;
  background:#13202b;border:1px solid #4d5962;border-radius:9px;overflow:hidden}
 .decor-gallery .decor-card:hover{border-color:#9bcfc7}
+.decor-gallery .decor-card[hidden]{display:none!important}
+#surface-search{width:100%;min-height:40px;padding:9px 10px;border-radius:8px;
+ border:1px solid #687e85;background:#172a34;color:#f5f1e8;font-size:14px}
 .decor-gallery .decor-card.chosen{border:2px solid #58e4d5;background:#16423f;padding:5px}
 .decor-gallery .decor-card canvas{display:block;width:100%;height:auto;aspect-ratio:160 / 90;
  border-radius:5px;object-fit:cover;background:#8a8a80}
