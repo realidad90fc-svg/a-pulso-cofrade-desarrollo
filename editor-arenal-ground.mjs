@@ -1,38 +1,38 @@
-// Shared Arenal ground painter: editor and playable scene use the same
-// world-anchored Sevilla paving. This is VISUAL ONLY. It does not add
-// roads, sidewalks, walkable polygons or collision geometry.
-import {SEVILLE_ROAD_MATERIALS,paintSevilleSurface} from './editor-seville-surfaces.mjs';
-
-const ROAD=SEVILLE_ROAD_MATERIALS.find(m=>m.id==='road-sev-gerena-dark')
- || SEVILLE_ROAD_MATERIALS[0];
-
-/**
- * Paint the exposed street ground underneath all explicit road and sidewalk
- * polygons. Previously the engine and editor filled this with flat #676863,
- * so any gaps between segment polygons looked like a missing road.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {(x:number,y:number)=>[number,number]} pixel  World-to-canvas transform
- * @param {number} zoom  Pixels per world unit
- * @param {number[]} visible  World bounds [xmin,ymin,xmax,ymax]
- * @param {number[]} sceneBounds  Full Arenal map bounds
- */
+// Shared neutral city-block backdrop for the Arenal.
+// It is NOT the street texture. Roads and sidewalks are painted separately,
+// clipped to their true editable polygons with their chosen materials.
+// Previous releases erroneously tiled large granite bricks over the entire
+// Arenal map, making squares appear on roofs and out-of-street terrain.
+const BACKDROP='#6c6d69';
+function hash(i,j){
+ let h=Math.imul(i,374761393)^Math.imul(j,668265263)^0x9e3779b9;
+ h=Math.imul(h^(h>>>13),1274126177);
+ return (h^(h>>>16))>>>0;
+}
 export function paintArenalGround(ctx,pixel,zoom,visible,sceneBounds){
- if(!Array.isArray(visible)||visible.length!==4||!Number.isFinite(zoom)||zoom<=0)return false;
- const extent=Array.isArray(sceneBounds)&&sceneBounds.length===4?sceneBounds:visible;
- const x0=Math.max(visible[0],extent[0]),y0=Math.max(visible[1],extent[1]);
- const x1=Math.min(visible[2],extent[2]),y1=Math.min(visible[3],extent[3]);
- if(!(x1>x0&&y1>y0))return false;
- const a=pixel(x0,y1),b=pixel(x1,y0);
- const left=Math.min(a[0],b[0]),top=Math.min(a[1],b[1]);
- const width=Math.abs(b[0]-a[0]),height=Math.abs(b[1]-a[1]);
- if(!(width>0&&height>0))return false;
- ctx.save();
- ctx.beginPath();ctx.rect(left,top,width,height);ctx.clip();
- ctx.fillStyle=ROAD.base;ctx.fillRect(left,top,width,height);
- // Coordinates are locked to the world, not to the camera or tile edges.
- // Never stroke the outer perimeter: that created seam lines between tiles.
- paintSevilleSurface(ctx,ROAD,pixel,zoom,[x0,y0,x1,y1]);
- ctx.restore();
- return true;
+ if(!Array.isArray(visible)||visible.length!==4||!(zoom>0))return false;
+ const bounds=Array.isArray(sceneBounds)&&sceneBounds.length===4?sceneBounds:visible;
+ const left=Math.max(visible[0],bounds[0]),bottom=Math.max(visible[1],bounds[1]);
+ const right=Math.min(visible[2],bounds[2]),top=Math.min(visible[3],bounds[3]);
+ if(!(right>left&&top>bottom))return false;
+ const topLeft=pixel(left,top),bottomRight=pixel(right,bottom);
+ const x0=Math.min(topLeft[0],bottomRight[0]),y0=Math.min(topLeft[1],bottomRight[1]);
+ const w=Math.abs(bottomRight[0]-topLeft[0]),h=Math.abs(bottomRight[1]-topLeft[1]);
+ if(!(w>0&&h>0))return false;
+ ctx.save();ctx.beginPath();ctx.rect(x0,y0,w,h);ctx.clip();
+ ctx.fillStyle=BACKDROP;ctx.fillRect(x0,y0,w,h);
+ // Very subtle weathering of unfinished parcels. This must NOT resemble
+ // road slabs. Dots stay fixed in metres and never grow when zooming out.
+ const step=.23,nx=Math.ceil((right-left)/step),ny=Math.ceil((top-bottom)/step);
+ const skip=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,nx*ny)/4000)));
+ for(let i=Math.floor(left/step);i<=Math.ceil(right/step);i+=skip)
+  for(let j=Math.floor(bottom/step);j<=Math.ceil(top/step);j+=skip){
+   const hsh=hash(i,j);
+   if((hsh&3)!==0)continue;
+   const x=(i+.2+(hsh%9)/15)*step,y=(j+.2+(hsh%7)/14)*step;
+   const p=pixel(x,y),r=Math.max(.1,.016*zoom);
+   ctx.fillStyle=(hsh&8)?'rgba(226,221,207,.095)':'rgba(55,55,52,.12)';
+   ctx.fillRect(p[0],p[1],r,r);
+  }
+ ctx.restore();return true;
 }
