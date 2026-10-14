@@ -221,9 +221,15 @@ export function attachEditorDraft(sim,draftOverride=undefined){
  // The Arenal custom renderer already owns these complete layers. Overlaying
  // the same polygons a second time painted roofs on top of streets or hid
  // the pavement finishes. Keep the layers intact for physics/checkpoints.
- if(key==='RegresoArenal'&&route&&draft.arenalScene)
-  sim.editorDraft.renderedInBase=new Set(
-   ['roads','sidewalks','houses','people'].filter(k=>Array.isArray(draft.arenalScene[k])));
+ if(key==='RegresoArenal'&&route&&draft.arenalScene){
+  const scene=draft.arenalScene;
+  sim.editorDraft.renderedInBase=new Set([
+   ...(Array.isArray(scene.roads)&&scene.roads.length&&scene.roads.every(o=>polygon(o.poly))?['roads']:[]),
+   ...(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly))?['sidewalks']:[]),
+   ...(Array.isArray(scene.houses)&&scene.houses.every(o=>polygon(o.poly))?['houses']:[]),
+   ...(Array.isArray(scene.people)&&scene.people.every(o=>valid(o.point))?['people']:[])
+  ]);
+ }
  return sim.editorDraft;
 }
 export class RuntimeEditorDraft{
