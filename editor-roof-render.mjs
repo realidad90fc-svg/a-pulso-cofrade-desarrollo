@@ -25,7 +25,7 @@ export function roofLayout(poly,requested=.2,autoSimplify=true){
  if(area<1e-7||perimeter<1e-5)return null;
  // 2A/P estimates the tight dimension in long, narrow building footprints.
  const thickness=2*area/perimeter;
- const inset=clamp(Number.isFinite(requested)?requested:.2,.10,.30);
+ const inset=clamp(Number.isFinite(requested)?requested:.055,.035,.09);
  const safeInset=Math.min(inset,Math.max(.025,thickness*.25));
  const spanX=bounds[2]-bounds[0],spanY=bounds[3]-bounds[1];
  const aspect=Math.max(spanX,spanY)/Math.max(.001,Math.min(spanX,spanY));
@@ -107,7 +107,7 @@ export function renderInsetRoof(ctx,poly,material,pixel,zoom,options={},drawSpec
  // That produced the absurd giant white wall in narrow Sevilla alleys.
  // Visual rim now 5–7 cm total, regardless of old saved roofInset; the
  // ORIGINAL building polygon and physical collisions are not touched.
- const wall=Math.min(.067,Math.max(.045,layout.inset*.30))*imageZoom;
+ const wall=Math.min(.072,Math.max(.036,layout.inset))*imageZoom;
  ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
  outline(ctx,layout.points,pixel);
  ctx.strokeStyle='rgba(65,60,54,.28)';ctx.lineWidth=wall*2+.025*imageZoom;ctx.stroke();
