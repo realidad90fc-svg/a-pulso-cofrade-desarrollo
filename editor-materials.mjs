@@ -250,6 +250,26 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
   }
   ctx.globalAlpha=1;
  }
+ // Old asphalt/concrete materials previously became a featureless gray
+ // rectangle when the extracted bitmap was not present. Use subtle
+ // world-locked mineral grain, keeping their original material colour.
+ if(style==='asphalt'||style==='concrete'){
+  const grain=.17;
+  const nx=Math.ceil((region[2]-region[0])/grain),
+   ny=Math.ceil((region[3]-region[1])/grain);
+  const skip=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,nx*ny)/4500)));
+  let count=0;
+  for(let i=Math.floor(region[0]/grain);i<=Math.ceil(region[2]/grain);i+=skip)
+   for(let j=Math.floor(region[1]/grain);j<=Math.ceil(region[3]/grain);j+=skip){
+    if(count++>4500)break;
+    let h=Math.imul(i,374761393)^Math.imul(j,668265263);
+    h=Math.imul(h^(h>>>13),1274126177)>>>0;
+    if((h&3)!==0)continue;
+    const [x,y]=pixel((i+.25+(h%5)*.08)*grain,(j+.25+(h%7)*.06)*grain);
+    ctx.fillStyle=(h&8)?'rgba(234,224,204,.15)':'rgba(31,34,32,.18)';
+    ctx.fillRect(x,y,.025*zoom,.025*zoom);
+   }
+ }
  if(style==='tiles'||style==='slabs'||style==='cobbles'||style==='stone'){
   lineGridWorld(ctx,pixel,region,metres,style==='cobbles'?metres*.52:metres,
    style==='cobbles'?.28:.2);
