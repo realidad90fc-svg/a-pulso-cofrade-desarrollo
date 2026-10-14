@@ -15,6 +15,19 @@ export class Renderer {
   const scale=h/(2*cam.size*viewScale)*d,c=Math.cos(cam.angle),s=Math.sin(cam.angle);
   if(isArenal)sim._arenalRenderInfo={viewScale,camSize:cam.size,portrait:h>=w};
   const project=[scale*c,scale*s,scale*s,-scale*c,w*d/2-scale*(c*cam.x+s*cam.y),h*d/2+scale*(-s*cam.x+c*cam.y)];
+  // Arenal's world is PROCEDURAL: it is not a sprite and must not depend
+  // on reference-architecture image loading, node visibility, sprite culling,
+  // or draw order. Paint its 8m cached world tiles behind all actors/props.
+  // This is the ONLY base-scene draw for Arenal, preventing double painting.
+  if(isArenal&&sim.routeAdapter?.drawArchitecture){
+   const route=sim.routeAdapter,scene=route.scene,bounds=scene?.bounds;
+   const p=scene?.ppu;
+   if(Array.isArray(bounds)&&bounds.length===4&&p>0){
+    const worldToTile=multiply(project,[1/p,0,0,-1/p,bounds[0],bounds[3]]);
+    const sprite={rectSize:[Math.round((bounds[2]-bounds[0])*p),Math.round((bounds[3]-bounds[1])*p)]};
+    route.drawArchitecture(ctx,worldToTile,null,sprite,null,images);
+   }
+  }
   const drawable=[];
   for(const graph of sim.renderGraphs||sim.graphs)for(const node of graph.nodes.values()){
    // Keep the original body animator and contacts; replace only its visible art.
@@ -31,6 +44,8 @@ export class Renderer {
    // scene, leaving only the canvas background (#55524f) visible.
    const procedural=!!sim.routeAdapter&&
     (node.name==='reference-architecture'||node.name==='extension');
+   // Already painted directly above; do not draw a second time.
+   if(isArenal&&node.name==='reference-architecture')continue;
    if(!im&&!procedural)continue;
    drawable.push({graph,node,sprite,im});
   }
