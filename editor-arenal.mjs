@@ -202,10 +202,22 @@ function renderStaticScene(){
  if(!data)return;
  // Orden visual fijo: los tejados se pintan sobre aceras y calzada,
  // independientemente del orden de creación o del solapamiento de polígonos.
- if($('sidewalks-on').checked){
-  for(let i=0;i<data.sidewalks.length;i++){const o=data.sidewalks[i];drawFloor(o.poly,'sidewalks',o.material||SIDEWALK_MATERIALS[i%12].id)}
+ // Existing Arenal polygons often have no material ID. Use the SAME
+ // default in editor and playable map, never an index-dependent legacy
+ // material that can randomly display flat asphalt or wrong paving.
+ const isArenal=data.metadata?.mapKey==='RegresoArenal';
+ const roadDefault=isArenal?'road-sev-gerena-dark':null;
+ const curbDefault=isArenal?'sidewalk-sev-quintana':null;
+ if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){
+  const o=data.roads[i];
+  drawFloor(o.poly,'roads',o.material||roadDefault||ROAD_MATERIALS[i%12].id);
  }
- if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){const o=data.roads[i];drawFloor(o.poly,'roads',o.material||ROAD_MATERIALS[i%12].id)}
+ if($('sidewalks-on').checked){
+  for(let i=0;i<data.sidewalks.length;i++){
+   const o=data.sidewalks[i];
+   drawFloor(o.poly,'sidewalks',o.material||curbDefault||SIDEWALK_MATERIALS[i%12].id);
+  }
+ }
  if($('houses-on').checked){
   for(let i=0;i<data.houses.length;i++){
    const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o);
