@@ -321,7 +321,17 @@ export function paintArenalScene(route,ctx,images,r){
   if(assigned||lot.kind==='historic'){
    const spriteId=Number(String(lot.key||'').split(':').at(-1));
    const family=Math.max(0,NATIVE_ROOF_IDS.indexOf(spriteId));
-   const fallback='roof-'+family+'-'+(lotIndex%4);
+   // Stable, deliberate blend: real limewash, stone terraces, and curved
+   // traditional tiles. Different parcels vary, but never on each repaint.
+   const typicalRoofs=[
+    'realista-encalada-clara','realista-teja-arabe',
+    'realista-piedra-crema','realista-encalada-patina',
+    'realista-teja-vieja','realista-cemento-claro',
+    'realista-terracota','realista-mixta-tradicional',
+    'realista-ocre','realista-teja-rosada',
+    'realista-piedra-miel','realista-soleria-gris'
+   ];
+   const fallback=typicalRoofs[(lotIndex*7+family*3)%typicalRoofs.length];
    drawRoof(ctx,lot.poly,assigned?lot.material:fallback,
     (x,y)=>[px(x),py(y)],()=>null,p,{...lot,roofSeed:lot.roofSeed??(lotIndex*5137+family*7919)});
    continue;
