@@ -10,6 +10,8 @@ import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,cross
 import {nextRoofId} from './editor-roof-cycle.mjs';
 import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
+import {drawFacadeDecor} from './editor-facades.mjs';
+import {setupVisualPanels} from './editor-visual-panels.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -23,7 +25,7 @@ const images=new Map();
 const roofPreviewCache=new Map(); // Reuse drawings when switching roofs or adding many houses.
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
 const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
-let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null;
+let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null,visualPanels=null;
 
 function show(message,type='info'){
  const el=$('status');el.textContent=message;
@@ -35,7 +37,7 @@ function setSelection(items){
  state.selectedItems=unifySelections(items).filter(o=>data?.[o.type]?.[o.index]);
  state.selected=state.selectedItems.at(-1)||null;
  if(state.selected?.type==='labels')$('street-name-text').value=data.labels[state.selected.index]?.[0]||'';
- updateCounts();requestDraw();
+ updateCounts();visualPanels?.refreshSelected();requestDraw();
 }
 function clearSelection(){setSelection([])}
 function savedStart(){return data?.startPose||data?.paso}
@@ -182,7 +184,15 @@ function renderStaticScene(){
   for(let i=0;i<data.sidewalks.length;i++){const o=data.sidewalks[i];drawFloor(o.poly,'sidewalks',o.material||SIDEWALK_MATERIALS[i%SIDEWALK_MATERIALS.length].id)}
  }
  if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){const o=data.roads[i];drawFloor(o.poly,'roads',o.material||ROAD_MATERIALS[i%ROAD_MATERIALS.length].id)}
- if($('houses-on').checked)for(let i=0;i<data.houses.length;i++){const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o)}
+ if($('houses-on').checked){
+  for(let i=0;i<data.houses.length;i++){
+   const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o);
+  }
+  // Applied after the roof: balcony/awning/storefront decorations stay visible
+  // without changing the original polygon, scale, physics or roof texture.
+  for(const o of data.houses)if(o.facade&&bboxHit(rect(o.poly),visualBounds()))
+   drawFacadeDecor(ctx,o,pixel,view.zoom);
+ }
  if($('urban-on').checked)for(const o of data.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  if($('public-on').checked)drawPeople();
  if($('trees-on').checked)for(const t of data.trees||[])drawTree(ctx,t,pixel,view.zoom,getImage);
@@ -1014,7 +1024,9 @@ async function init(){
      view.zoom=Math.max(1.5,Math.min(145,usableW/(photo.width*photo.scale),usableH/(photo.height*photo.scale)));
      requestDraw();
     }});
-  palette();setupUrbanPalette();bind();resize();
+  palette();setupUrbanPalette();bind();
+  visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,getFloorImage:()=>getImage(FLOOR_KEY)});
+  resize();
   setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
