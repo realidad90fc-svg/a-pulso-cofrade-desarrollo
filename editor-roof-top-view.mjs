@@ -2,6 +2,7 @@
 // and clipped by editor-roof-render to each EXISTING building footprint.
 // No invented protrusions by default; optional identifiable roof elements
 // are deliberately selected by the map author, never placed randomly.
+import {paintRoofVariant} from './editor-roof-variants.mjs';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const colors=[
  ['#c9ba9e','#e8dcc1','#a99b84'],['#c6aa87','#e5c89e','#a18367'],
@@ -16,7 +17,7 @@ const palettes={
 function paletteFor(m){
  if(m.roofFamily){
   const p=palettes[m.roofFamily]||palettes.flat;
-  return{base:m.base||p[0],highlight:m.detail||p[1],shadow:p[2],kind:m.roofFamily};
+  return{base:m.base||p[0],highlight:m.detail||p[1],shadow:m.shadow||p[2],kind:m.roofFamily};
  }
  const id=String(m.id||'roof-0-0').match(/^roof-(\d+)-(\d+)$/);
  const idx=id?+id[1]:0,mode=id?+id[2]:2;
@@ -97,7 +98,9 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
    }
   }
  };
- if(p.kind==='tile'){
+ if(m.surfaceStyle){
+  paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
+ }else if(p.kind==='tile'){
   tileBand(x0,w,y0,h);
   if(!compact){
    strokeLine(x0,y0+h*.5,x1,y0+h*.5,'rgba(85,51,39,.77)',.065);
@@ -120,7 +123,7 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
  }
  // Do not manufacture anonymous squares/diamonds above houses.
  // Architectural structures only appear when explicitly chosen in the editor.
- const feature=['patio','castillete','claraboya','instalaciones'].includes(options.roofDetail)?options.roofDetail:'none';
+ const feature=['patio','castillete','claraboya','instalaciones','terraza','lavadero'].includes(options.roofDetail)?options.roofDetail:'none';
  const sx=Math.min(1.15*z,w*.27),sy=Math.min(.95*z,h*.35);
  if(!compact&&w>2*z&&h>1.6*z&&feature!=='none'){
   const fx=x0+w*.58-sx*.5,fy=y0+h*.54-sy*.5;
@@ -147,6 +150,31 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
     ctx.strokeStyle='#555951';ctx.lineWidth=.027*z;ctx.stroke();
     strokeLine(cx-.1*z,cy-.1*z,cx+.1*z,cy+.1*z,'#535951',.019);
    }
+  }else if(feature==='terraza'){
+   // Recognisable top-view pots and a little round terrace table.
+   const cx=fx+sx*.5,cy=fy+sy*.5,r=Math.min(.20*z,sy*.30);
+   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+   ctx.fillStyle='#c5b08d';ctx.fill();ctx.strokeStyle='#756653';
+   ctx.lineWidth=.024*z;ctx.stroke();
+   for(let i=0;i<4;i++){
+    const a=i*Math.PI/2,tx=cx+Math.cos(a)*r*1.9,ty=cy+Math.sin(a)*r*1.9;
+    ctx.beginPath();ctx.arc(tx,ty,.075*z,0,Math.PI*2);
+    ctx.fillStyle=i%2?'#4d723c':'#74904d';ctx.fill();
+    ctx.strokeStyle='#98755b';ctx.lineWidth=.023*z;ctx.stroke();
+   }
+  }else if(feature==='lavadero'){
+   // Two small washing lines, laundry silhouettes and outdoor washbasin.
+   const xa=fx+.1*z,xb=fx+sx-.07*z;
+   for(let k=0;k<2;k++){
+    const yy=fy+.16*z+k*.27*z;
+    strokeLine(xa,yy,xb,yy,'#666b69',.022);
+    for(let j=0;j<3;j++){
+     const xx=xa+.09*z+j*.23*z;
+     thin(xx,yy+.014*z,.12*z,.17*z,[(k+j)%2?'#e5e5d7':'#92b6bd']);
+     strokeLine(xx,yy,xx+.12*z,yy,'#4d5c59',.012);
+    }
+   }
+   thin(fx+sx*.63,fy+sy*.68,.28*z,.18*z,'#cac6bb','#868c89');
   }
  }
  ctx.restore();
