@@ -194,10 +194,28 @@ export function drawRoof(ctx,poly,material,pixel,getImage,zoom,options={}){
   else if(item.landmark)drawLandmarkRoof(ctx,item,top,w,h);
  });
 }
-function lineGrid(ctx,x0,y0,x1,y1,stepX,stepY,vertical,alpha){
- ctx.save();ctx.strokeStyle='rgba(27,26,26,'+alpha+')';ctx.lineWidth=.7;
- for(let x=x0;x<x1;x+=stepX){ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y1);ctx.stroke()}
- for(let y=y0;y<y1;y+=stepY){ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke()}
+// Lines are anchored to world coordinates rather than the viewport edge.
+// Both editor pixels/metro and the game's world-unit camera now use the
+// same slab/cobble dimensions. No fixed 7px/0.7-world-unit minimum.
+function lineGridWorld(ctx,pixel,box,dx,dy,alpha){
+ const [x0,y0,x1,y1]=box;
+ if(!(x1>x0&&y1>y0))return;
+ const t=pixel(x0,y0),q=pixel(x1,y0);
+ const z=Math.max(.00001,Math.hypot(q[0]-t[0],q[1]-t[1])/(x1-x0));
+ ctx.save();ctx.strokeStyle='rgba(27,26,26,'+alpha+')';ctx.lineWidth=.012*z;
+ let count=0;const limit=14000;
+ const nx=Math.ceil((x1-x0)/dx),ny=Math.ceil((y1-y0)/dy);
+ const skip=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,(nx+ny))/limit)));
+ for(let i=Math.floor(x0/dx);i<=Math.ceil(x1/dx);i+=skip){
+  if(++count>limit)break;
+  const x=i*dx,a=pixel(x,y0),b=pixel(x,y1);
+  ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
+ }
+ for(let j=Math.floor(y0/dy);j<=Math.ceil(y1/dy);j+=skip){
+  if(++count>limit)break;
+  const y=j*dy,a=pixel(x0,y),b=pixel(x1,y);
+  ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
+ }
  ctx.restore();
 }
 export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visible=null){
@@ -209,13 +227,14 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
  const region=area[2]>area[0]&&area[3]>area[1]?area:b;
  const top=pixel(region[0],region[3]),x0=top[0],y0=top[1],x1=x0+(region[2]-region[0])*zoom,y1=y0+(region[3]-region[1])*zoom;
  ctx.fillStyle=m.base;ctx.fillRect(x0,y0,x1-x0,y1-y0);
- const style=m.pattern,step=Math.max(7,zoom*(style==='cobbles'?.23:style==='tiles'?.42:style==='stone'?.67:1.15));
+ const style=m.pattern,metres=style==='cobbles'?.23:style==='tiles'?.42:
+  style==='stone'?.67:style==='slabs'?.65:1.15;
  // Sevilla-specific profiles use world-space joints, repeatable across
  // large maps and matching their own preview at the exact same scale.
  if(style.startsWith('sev-')){
   paintSevilleSurface(ctx,m,pixel,zoom,region);
   if(kind==='sidewalks'){
-   ctx.lineWidth=Math.max(.35,.010*zoom);
+   ctx.lineWidth=.010*zoom;
    ctx.strokeStyle='rgba(244,230,204,.40)';
    polygonPath(ctx,poly,pixel);ctx.stroke();
   }
@@ -232,16 +251,20 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
   ctx.globalAlpha=1;
  }
  if(style==='tiles'||style==='slabs'||style==='cobbles'||style==='stone'){
-  lineGrid(ctx,x0,y0,x1,y1,step,style==='cobbles'?step*.52:step,0,style==='cobbles'?.28:.2);
+  lineGridWorld(ctx,pixel,region,metres,style==='cobbles'?metres*.52:metres,
+   style==='cobbles'?.28:.2);
   if(style==='cobbles'||style==='stone'){
-   ctx.strokeStyle='rgba(238,225,206,.25)';ctx.lineWidth=.75;
-   for(let y=y0+step/2;y<y1;y+=step){for(let x=x0+step/2;x<x1;x+=step*1.5){
-    ctx.beginPath();ctx.moveTo(x,y-step*.22);ctx.lineTo(x+step*.22,y);ctx.stroke()
-   }}
+   ctx.strokeStyle='rgba(238,225,206,.25)';ctx.lineWidth=.010*zoom;
+   let count=0;
+   for(let y=Math.floor(region[1]/metres)*metres;y<region[3]&&count<6500;y+=metres)
+    for(let x=Math.floor(region[0]/(metres*1.5))*metres*1.5;x<region[2]&&count<6500;x+=metres*1.5){
+     const a=pixel(x+.1*metres,y),b=pixel(x+.24*metres,y+.18*metres);
+     ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();count++;
+    }
   }
  }
  if(kind==='sidewalks'){
-  ctx.lineWidth=Math.max(.45,zoom*.012);ctx.strokeStyle='rgba(226,217,203,.42)';
+  ctx.lineWidth=zoom*.012;ctx.strokeStyle='rgba(226,217,203,.42)';
   polygonPath(ctx,poly,pixel);ctx.stroke();
  }
  ctx.restore();
