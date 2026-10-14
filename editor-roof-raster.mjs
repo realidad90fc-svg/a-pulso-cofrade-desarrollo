@@ -1,7 +1,20 @@
 // True locally-rasterized tile surfaces, shared by editor and gameplay.
-// A 240px bitmap represents 3 native map metres. No image requests, no
-// external licenses, no changed polygons or game physics.
-const SIZE=240, GRAIN=96, METRES=3, CACHE_MAX=30, cache=new Map();
+// Each 240px bitmap represents a different number of metres depending
+// on material. These are purely visual UV/repetition settings: never change
+// geometry, collisions, sprite sizes, photo proportions, or map storage.
+const SIZE=240, GRAIN=96, CACHE_MAX=30, cache=new Map();
+
+/** World metres covered by one 240px image tile (used in editor and game). */
+export function textureMetresFor(m){
+ const style=String(m?.surfaceStyle||'');
+ if(style.startsWith('tile-'))return 1.12; // curved clay pieces ~12 cm
+ if(style.startsWith('mixed-'))return 1.08; // finer mixed roofs
+ if(style==='marble'||style==='hydraulic'||style==='stone'
+   ||style==='stone-aged'||style==='soleria-gris'
+   ||style.startsWith('terracotta'))return .95; // stone/terracotta slabs
+ if(style.startsWith('lime')||style.startsWith('concrete')||style==='ochre')return 1.25;
+ return 1.12;
+}
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function seedFor(s){
  let h=2166136261>>>0;
@@ -163,7 +176,7 @@ function cachedTile(m,seed){
 export function paintRasterRoof(ctx,m,area,ppu,seed=0){
  if(!m?.surfaceStyle)return false;
  const image=cachedTile(m,seed);if(!image)return false;
- const {x0,y0,w,h}=area,z=Math.max(.001,ppu),step=METRES*z;
+ const {x0,y0,w,h}=area,z=Math.max(.001,ppu),step=textureMetresFor(m)*z;
  if(!(w>0&&h>0)||!Number.isFinite(w+h))return false;
  const xb=Math.floor(x0/step)*step,yb=Math.floor(y0/step)*step;
  ctx.save();ctx.beginPath();ctx.rect(x0,y0,w,h);ctx.clip();
