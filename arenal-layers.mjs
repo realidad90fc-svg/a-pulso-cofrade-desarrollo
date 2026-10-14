@@ -2,7 +2,7 @@ import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {BARATILLO} from './arenal-data.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
-import {drawRoof,NATIVE_ROOF_IDS} from './editor-materials.mjs';
+import {drawRoof,drawSurface,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 
 // Dedicated REGRESO POR EL ARENAL parcel map.
 // Mandatory build order: road -> spectators -> sidewalk -> houses.
@@ -294,6 +294,12 @@ export function paintArenalScene(route,ctx,images,r){
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
  for(const sw of route.sidewalks){
   if(!boxhit(sw.bbox,r))continue;
+  if(sw.material){
+   // The same saved ground material and renderer as the editor.
+   drawSurface(ctx,sw.poly,'sidewalks',sw.material,
+    (x,y)=>[px(x),py(y)],p,floor,r);
+   continue;
+  }
   ctx.save();path(sw.poly);ctx.clip();
   ctx.fillStyle='#a5a09a';ctx.fill();
   ctx.strokeStyle='#b3ada6';ctx.lineWidth=.015*p;
@@ -395,6 +401,11 @@ export function paintArenalScene(route,ctx,images,r){
  // additional safety net; no later building paint can cover the lane.
  for(let i=0;i<route.walkable.length;i++){
   const road=route.walkable[i];if(!boxhit(route.roadBoxes[i],r))continue;
+  const selected=route.editorRoadSurfaces?.[i];
+  if(selected){
+   drawSurface(ctx,road,'roads',selected.material,(x,y)=>[px(x),py(y)],p,floor,r);
+   continue;
+  }
   ctx.save();path(road);ctx.clip();
   ctx.fillStyle='#505359';ctx.fill();
   if(floor){
@@ -409,7 +420,9 @@ export function paintArenalScene(route,ctx,images,r){
  // Exterior kerbs are the visible limit of the *actual* collision road.
  // Avoid artificial seams between overlapping segment and corner polygons.
  const onStreet=q=>route.walkable.some(poly=>pointInPolygon(q,poly));
- ctx.strokeStyle='#c9c0b4';ctx.lineWidth=.042*p;ctx.lineCap='butt';
+ // A thin stone kerb, not a broad light stripe surrounding the paso.
+ // Geometry is unchanged: visual stroke only.
+ ctx.strokeStyle='rgba(194,188,179,.50)';ctx.lineWidth=.013*p;ctx.lineCap='butt';
  for(const poly of route.walkable){
   if(!boxhit(bounds(poly),r))continue;
   for(let i=0;i<poly.length;i++){
