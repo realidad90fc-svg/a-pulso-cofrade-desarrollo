@@ -238,7 +238,10 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  }
  function draw(layer){
   const atop=el('reference-overlay').checked;
-  if((layer==='overlay'&&atop)||(layer==='background'&&!atop))for(const p of photos)drawPhoto(p);
+  // Material-inspection mode draws the guide behind surfaces, without
+  // mutating the user's overlay checkbox, photo coordinates or image opacity.
+  if((layer==='overlay'&&atop)||(layer==='background'&&!atop)||layer==='material-background')
+   for(const p of photos)drawPhoto(p);
   if(layer==='handles'){
    const p=selected();
    if(!p?.visible)return;
