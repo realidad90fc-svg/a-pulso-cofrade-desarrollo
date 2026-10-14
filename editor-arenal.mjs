@@ -176,7 +176,8 @@ function drawGrid(){
 function renderStaticScene(){
  ctx.setTransform(view.dpr,0,0,view.dpr,0,0);
  ctx.imageSmoothingEnabled=false;ctx.fillStyle=colors.bg;ctx.fillRect(0,0,view.w,view.h);
- photoGuides?.draw('background');
+ const showMaterialsAbovePhotos=$('surface-clear-preview')?.checked;
+ photoGuides?.draw(showMaterialsAbovePhotos?'material-background':'background');
  if(!data)return;
  // Orden visual fijo: los tejados se pintan sobre aceras y calzada,
  // independientemente del orden de creación o del solapamiento de polígonos.
@@ -206,7 +207,7 @@ function renderStaticScene(){
  }
  if($('urban-on').checked)for(const o of data.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  drawGrid();
- photoGuides?.draw('overlay');
+ if(!showMaterialsAbovePhotos)photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[]){
   const p=pixel(...cp.position);ctx.strokeStyle='#58f7dc';ctx.lineWidth=2;ctx.beginPath();
   ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]+9,p[1]);ctx.moveTo(p[0],p[1]-9);ctx.lineTo(p[0],p[1]+9);ctx.stroke();
@@ -821,9 +822,43 @@ function setupUrbanPalette(){
  };
  select.onchange=update;$('urban-depth').oninput=update;update();
 }
+// Single application path for the gallery and the explicit Apply button.
+// Uses the live selected objects, not a stale preview or a cached material ID.
+// Works for multi-select, respects undo, and stores the original geometry.
+function applySurfaceToSelection(kind=null){
+ const selected=state.selectedItems.filter(o=>
+  (o.type==='roads'||o.type==='sidewalks')&&(!kind||o.type===kind)&&data[o.type]?.[o.index]);
+ if(!selected.length){
+  if(!kind)show('Selecciona una calzada o acera con «Seleccionar» antes de aplicar.','error');
+  return 0;
+ }
+ const differences=selected.filter(o=>{
+  const material=o.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
+  return data[o.type][o.index].material!==material;
+ });
+ if(differences.length){
+  snapshot();
+  for(const item of differences){
+   const material=item.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
+   data[item.type][item.index].material=material;
+  }
+  changed();
+ }
+ // Preserve selected outlines to make the applied surface immediately clear.
+ const names=selected.map(item=>{
+  const material=item.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
+  const m=(item.type==='roads'?ROAD_MATERIALS:SIDEWALK_MATERIALS).find(x=>x.id===material);
+  return m?.name||material;
+ });
+ const label=[...new Set(names)].join(', ');
+ const message=selected.length+' superficie(s) · '+label+(differences.length?' · APLICADO':' · YA APLICADO');
+ $('surface-apply-status').textContent=message;
+ show(message,'good');
+ return differences.length;
+}
 function bind(){
  for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>configureTool(button.dataset.tool);
- for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on','urban-on'])$(id).onchange=requestDraw;
+ for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on','urban-on','surface-clear-preview'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
  $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
  $('delete-selected').onclick=deleteSelected;
@@ -870,16 +905,7 @@ function bind(){
   }
   changed();palette();show('Tejado aplicado a '+count+' edificios'+(mode==='fixed'?'.':' con alternancia.'),'good');
  };
- $('apply-surface').onclick=()=>{
-  const selected=state.selectedItems.filter(o=>o.type==='roads'||o.type==='sidewalks');
-  if(!selected.length){show('Selecciona las calzadas o aceras que quieras modificar.','error');return}
-  snapshot();
-  for(const sel of selected){
-   const obj=data[sel.type]?.[sel.index];
-   if(obj)obj.material=sel.type==='roads'?state.roadMaterial:state.sidewalkMaterial;
-  }
-  changed();show('Pavimento aplicado a '+selected.length+' superficies.','good');
- };
+ $('apply-surface').onclick=()=>applySurfaceToSelection();
  const selectedFurniture=()=>state.selectedItems.filter(o=>['fences','chairs'].includes(o.type));
  $('duplicate-selected').onclick=()=>{
   const items=selectedFurniture();if(!items.length){show('Selecciona una o varias vallas o sillas.','error');return}
@@ -1025,7 +1051,8 @@ async function init(){
      requestDraw();
     }});
   palette();setupUrbanPalette();bind();
-  visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,getFloorImage:()=>getImage(FLOOR_KEY)});
+  visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,
+   getFloorImage:()=>getImage(FLOOR_KEY),applySurface:applySurfaceToSelection});
   // The native asphalt grain sprite may arrive after the editor UI: update
   // the thumbnails once, so the gallery matches the finished map texture.
   const floorImage=spriteFor(FLOOR_KEY);
