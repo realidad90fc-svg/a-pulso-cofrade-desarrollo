@@ -182,6 +182,15 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   show('Decoración eliminada; geometría y tejados conservados.','good');
  });
  makeSurfaceGalleries();
+ // Search both catalogs without changing any material id, geometry or state.
+ const normalized=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ $('surface-search')?.addEventListener('input',e=>{
+  const needle=normalized(e.target.value);
+  for(const kind of ['roads','sidewalks']){
+   const cards=galleries[kind].querySelectorAll('button[data-material]');
+   for(const button of cards)button.hidden=!normalized(button.textContent).includes(needle);
+  }
+ });
  refreshSelected();
  const redrawFloorPreviews=()=>{
   for(const kind of ['roads','sidewalks'])for(const item of materials[kind]){
