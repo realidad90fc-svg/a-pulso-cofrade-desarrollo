@@ -40,9 +40,9 @@ function setSelection(items){
  if(state.selected?.type==='labels')$('street-name-text').value=data.labels[state.selected.index]?.[0]||'';
  if(state.selected?.type==='houses'&&state.selectedItems.length===1){
   const house=data.houses[state.selected.index];
-  const savedDetail=['none','patio','castillete','claraboya','instalaciones','terraza','lavadero'].includes(house.roofDetail)?house.roofDetail:'none';
+  const savedDetail=['auto','none','patio','castillete','claraboya','instalaciones','terraza','lavadero'].includes(house.roofDetail)?house.roofDetail:'auto';
   $('roof-detail').value=savedDetail;
-  $('roof-border').value=ROOF_BORDERS.some(b=>b.id===house.roofBorder)?house.roofBorder:'enlucido';
+  $('roof-border').value=ROOF_BORDERS.some(b=>b.id===house.roofBorder)?house.roofBorder:'auto';
   const inset=Math.max(.035,Math.min(.075,Number(house.roofInset)||.05));
   $('roof-inset').value=String(inset);
   $('roof-inset-value').textContent=inset.toFixed(3).replace('.',',')+' m';
