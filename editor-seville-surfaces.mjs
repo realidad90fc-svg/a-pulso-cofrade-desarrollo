@@ -67,7 +67,7 @@ export function paintSevilleSurface(ctx,m,pixel,zoom,area){
   path(points);ctx.fillStyle=color;ctx.fill();
   if(stroke){setStroke(stroke,.014);ctx.stroke()}
  };
- let count=0;const LIMIT=3200;
+ let count=0;const LIMIT=12000;
  const cells=(dx,dy,cb)=>{
   const x0=Math.floor(xmin/dx)-1,x1=Math.ceil(xmax/dx)+1;
   const y0=Math.floor(ymin/dy)-1,y1=Math.ceil(ymax/dy)+1;
