@@ -1,7 +1,7 @@
 // True locally-rasterized tile surfaces, shared by editor and gameplay.
 // A 240px bitmap represents 3 native map metres. No image requests, no
 // external licenses, no changed polygons or game physics.
-const SIZE=240, GRAIN=96, METRES=3, CACHE_MAX=32, cache=new Map();
+const SIZE=240, GRAIN=96, METRES=3, CACHE_MAX=30, cache=new Map();
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function seedFor(s){
  let h=2166136261>>>0;
@@ -154,9 +154,9 @@ function makeTile(m,variation){
  return tile;
 }
 function cachedTile(m,seed){
- const key=String(m.id||m.surfaceStyle)+':'+(Math.abs(seed)%4);
+ const key=String(m.id||m.surfaceStyle)+':'+(Math.abs(seed)%2);
  if(cache.has(key))return cache.get(key);
- const t=makeTile(m,Math.abs(seed)%4);if(!t)return null;
+ const t=makeTile(m,Math.abs(seed)%2);if(!t)return null;
  if(cache.size>=CACHE_MAX)cache.delete(cache.keys().next().value);
  cache.set(key,t);return t;
 }
