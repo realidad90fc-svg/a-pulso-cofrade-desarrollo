@@ -2,7 +2,7 @@
 // The production game retains its native source data; local drafts are opt-in
 // by existence and can be disabled via ?editor=off.
 import {multiply,inverse} from './original-scene.mjs';
-import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS} from './editor-materials.mjs';
+import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
 import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
@@ -162,18 +162,35 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   if(Array.isArray(scene.roads)&&scene.roads.length&&scene.roads.every(o=>polygon(o.poly))){
    route.walkable=scene.roads.map(o=>o.poly.map(p=>[...p]));
    route.roadBoxes=route.walkable.map(bbox);
+   // Preserve the actual materials picked in the editor (including its
+   // original 12 fallback variations) for the Arenal base tile renderer.
+   route.editorRoadSurfaces=scene.roads.map((o,i)=>({
+    poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
+    material:o.material||ROAD_MATERIALS[i%12].id
+   }));
   }
   if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly)))
-   route.sidewalks=scene.sidewalks.map(o=>({poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly)}));
+   route.sidewalks=scene.sidewalks.map((o,i)=>({
+    poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
+    material:o.material||SIDEWALK_MATERIALS[i%12].id
+   }));
   // CentreRoute.validPoint includes route.sidewalks as traversable ground.
   // Do NOT append them to route.walkable: the Arenal renderer uses that
   // array to paint asphalt over the original pavement texture.
   if(Array.isArray(scene.houses)&&scene.houses.every(o=>polygon(o.poly))){
    const old=route.buildings||[];
-   route.buildings=scene.houses.map(o=>{
+   route.buildings=scene.houses.map((o,i)=>{
     const original=old.find(h=>JSON.stringify(h.poly)===JSON.stringify(o.poly));
     const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,roofDetail:o.roofDetail,roofBorder:o.roofBorder,facade:o.facade};
     if(!original){item.kind='historic';item.front=[item.poly[0],item.poly[1]];item.outward=[0,1]}
+    // For unstyled legacy buildings, paint the SAME default material that
+    // the editor previews: it was previously ignored by the game, so most
+    // lots reverted to flat bitmap blocks. This fallback is runtime-only.
+    if(!item.material){
+     const spriteId=Number(String(item.key).split(':').at(-1));
+     const nativeIdx=Math.max(0,NATIVE_ROOF_IDS.indexOf(spriteId));
+     item.material='roof-'+nativeIdx+'-'+(i%4);
+    }
     return item;
    });
   }
@@ -201,6 +218,12 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   route.tileCache?.clear();
  }
  sim.editorDraft=new RuntimeEditorDraft(draft);
+ // The Arenal custom renderer already owns these complete layers. Overlaying
+ // the same polygons a second time painted roofs on top of streets or hid
+ // the pavement finishes. Keep the layers intact for physics/checkpoints.
+ if(key==='RegresoArenal'&&route&&draft.arenalScene)
+  sim.editorDraft.renderedInBase=new Set(
+   ['roads','sidewalks','houses','people'].filter(k=>Array.isArray(draft.arenalScene[k])));
  return sim.editorDraft;
 }
 export class RuntimeEditorDraft{
@@ -210,6 +233,7 @@ export class RuntimeEditorDraft{
    this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
   this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
   this.obstacles=obstaclesFor(this.layers);
+  this.renderedInBase=new Set();
   this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
  }
  draw(ctx,project,images,canvas){
@@ -224,6 +248,7 @@ export class RuntimeEditorDraft{
   ctx.save();ctx.setTransform(...oriented);
   ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
   for(const [kind,materials]of [['sidewalks',SIDEWALK_MATERIALS],['roads',ROAD_MATERIALS]]){
+   if(this.renderedInBase.has(kind))continue;
    const floor=images.get('sharedassets2.assets:373');
    for(const o of this.layers[kind])if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
     drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound);
@@ -231,7 +256,7 @@ export class RuntimeEditorDraft{
   }
   for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
     drawUrbanElement(ctx,o,px,1);
-   for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
+   for(const o of this.renderedInBase.has('houses')?[]:this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
     drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
     if(o.facade){
      // This canvas is already transformed in world units. Work temporarily
@@ -257,7 +282,7 @@ export class RuntimeEditorDraft{
    ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
    ctx.moveTo(x,y-.28);ctx.lineTo(x,y+.28);ctx.stroke();
   }
-  for(const o of this.layers.people)if(valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
+  for(const o of this.renderedInBase.has('people')?[]:this.layers.people)if(valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
    if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
