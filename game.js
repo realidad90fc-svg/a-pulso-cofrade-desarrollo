@@ -119,6 +119,19 @@ async function startGame(scene=2,snapshot=null){
    if(startWarning)toast(startWarning,12);
    else if(editorDraft)toast('Mapa de prueba del editor activo · '+editorDraft.total+' cambios · sin fotos',5);
    processEvents();saveActive();
+   // Optional screenshot-friendly diagnostic; no permanent HUD elements.
+   // ?diagnostico=1 also forces a fresh full-page navigation when opened
+   // via the unique versioned link. Never clears saved editor work.
+   if(next.map.variant?.key==='RegresoArenal'
+      &&new URLSearchParams(location.search).get('diagnostico')==='1'){
+    const v=next.map.variant,ar=next.routeAdapter,
+     road=ar?.editorRoadSurfaces?.[0]?.material||'road-sev-gerena-dark',
+     pavement=ar?.sidewalks?.[0]?.material||'sidewalk-sev-quintana',
+     ratio=Math.min(1,$('app').clientHeight/Math.max(1,$('app').clientWidth)),
+     effective=Math.max(.89,(v.viewScale||1)*ratio).toFixed(2);
+    toast('PRUEBA ARENAL 14O-B · cámara '+effective
+     +' · calzada '+road+' · acera '+pavement,12);
+   }
  }catch(error){if(run!==loading)return;loading++;console.error(error);$('load-detail').textContent='No se ha podido terminar la carga. '+error.message;$('load-retry').hidden=false;}
 }
 function buildButtons(){
