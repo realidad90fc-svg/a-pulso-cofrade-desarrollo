@@ -287,6 +287,17 @@ export function paintArenalScene(route,ctx,images,r){
  // grey canvas beside a narrow dark polygon in BOTH editor and gameplay.
  // Custom road and sidewalk materials still paint over this base.
  paintArenalGround(ctx,(x,y)=>[px(x),py(y)],p,r,route.scene.bounds);
+ // Roads and sidewalks render on the same ground plane, before all roofs.
+ // Every stone is clipped to its original exact polygon. No fake ground area.
+ for(let i=0;i<route.walkable.length;i++){
+  const road=route.walkable[i];if(!boxhit(route.roadBoxes[i],r))continue;
+  const selected=route.editorRoadSurfaces?.[i];
+  // Restore the original cobbled-street impression even when there is no
+  // user-defined road material. Do not paint raw grey rectangles.
+  // Crucial: respect all editor-chosen materials on the same road polygon.
+  drawSurface(ctx,road,'roads',selected?.material||'road-sev-gerena-dark',
+   (x,y)=>[px(x),py(y)],p,floor,r);
+ }
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
  for(const sw of route.sidewalks){
   if(!boxhit(sw.bbox,r))continue;
@@ -379,18 +390,6 @@ export function paintArenalScene(route,ctx,images,r){
    }
   }
   ctx.restore();
- }
- // FIRST-BUILT: only these polygons draw asphalt, exactly the polygons
- // that validate TreCai's collisions. The road is drawn AFTER roofs as an
- // additional safety net; no later building paint can cover the lane.
- for(let i=0;i<route.walkable.length;i++){
-  const road=route.walkable[i];if(!boxhit(route.roadBoxes[i],r))continue;
-  const selected=route.editorRoadSurfaces?.[i];
-  // Restore the original cobbled-street impression even when there is no
-  // user-defined road material. Do not paint raw grey rectangles.
-  // Crucial: respect all editor-chosen materials on the same road polygon.
-  drawSurface(ctx,road,'roads',selected?.material||'road-sev-gerena-dark',
-   (x,y)=>[px(x),py(y)],p,floor,r);
  }
  // Exterior kerbs are the visible limit of the *actual* collision road.
  // Avoid artificial seams between overlapping segment and corner polygons.
