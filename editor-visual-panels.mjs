@@ -1,7 +1,7 @@
 // UI-only controller for the existing map editor. It owns NO map state,
 // geometry, photo scale or serialization; all edits use snapshot()/changed().
-import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface} from './editor-materials.mjs';
-import {FACADE_PRESETS,AWNING_COLORS,getFacadePreset,cleanFacade,drawFacadePresetPreview} from './editor-facades.mjs';
+import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface,drawRoof} from './editor-materials.mjs';
+import {FACADE_PRESETS,AWNING_COLORS,getFacadePreset,cleanFacade,drawFacadePresetPreview,drawFacadeDecor} from './editor-facades.mjs';
 
 export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface}){
  const $=id=>document.getElementById(id);
@@ -71,6 +71,22 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   const option=document.createElement('option');option.value=color.id;option.textContent=color.name;colorSelect.append(option);
  }
  const presetGallery=$('facade-preset-gallery');
+ const previewAwning=()=>{
+  const canvas=$('facade-awning-preview');if(!canvas)return;
+  const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+  c.clearRect(0,0,w,h);c.fillStyle='#737673';c.fillRect(0,0,w,h);
+  const zoom=29,px=(x,y)=>[x*zoom,h-y*zoom];
+  const house={poly:[[.65,1.50],[8.7,1.50],[8.7,4.60],[.65,4.60]]};
+  drawRoof(c,house.poly,state.material,px,()=>null,zoom,{roofDetail:'none',roofInset:.05});
+  drawFacadeDecor(c,{...house,facade:{
+   edge:0,shop:facadeSelect.value,sign:$('facade-sign').value,
+   awning:$('facade-awning').value,awningColor:colorSelect.value,
+   awningDepth:Number($('facade-awning-depth').value)||.55,
+   balcony:'none'
+  }},px,zoom);
+  c.fillStyle='#ffffff';c.font='600 11px system-ui';
+  c.fillText('CALLE · VISTA CENITAL',12,h-8);
+ };
  const selectPreset=id=>{
   facadeSelect.value=id;
   const p=getFacadePreset(id);
@@ -80,6 +96,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    button.classList.toggle('chosen',active);
    button.setAttribute('aria-pressed',String(active));
   }
+  previewAwning();
  };
  for(const preset of FACADE_PRESETS){
   const button=document.createElement('button');button.type='button';
@@ -101,7 +118,8 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  const updateCount=()=>{$('facade-balcony-count-value').textContent=fields.count.value};
  const updateDepth=()=>{$('facade-awning-depth-value').textContent=Number(fields.awningDepth.value).toFixed(2).replace('.',',')+' m'};
  fields.count.addEventListener('input',updateCount);
- fields.awningDepth.addEventListener('input',updateDepth);
+ fields.awningDepth.addEventListener('input',()=>{updateDepth();previewAwning()});
+ for(const id of ['facade-awning','facade-awning-color','facade-sign'])$(id).addEventListener('input',previewAwning);
  const selectedHouses=()=>state.selectedItems.filter(x=>x.type==='houses'&&getData()?.houses?.[x.index]);
  function refreshSelected(){
   // On selection, reflect the surface's CURRENT saved material in the gallery.
@@ -147,7 +165,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   fields.awningDepth.value=String(facade.awningDepth);
   selectPreset(facade.shop);
   fields.sign.value=facade.sign;
-  updateCount();updateDepth();
+  updateCount();updateDepth();previewAwning();
  }
  function readInputs(){
   return{
