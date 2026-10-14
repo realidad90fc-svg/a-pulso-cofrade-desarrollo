@@ -87,6 +87,8 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    awning:$('facade-awning').value,awningColor:colorSelect.value,
    awningPreset:awningPresetSelect.value,
    awningDepth:Number($('facade-awning-depth').value)||.55,
+   awningStart:Number($('facade-awning-start').value)/100,
+   awningWidth:Number($('facade-awning-width').value)/100,
    balcony:'none'
   }},px,zoom);
   c.fillStyle='#ffffff';c.font='600 11px system-ui';
@@ -118,12 +120,23 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  const fields={
   edge:$('facade-edge'),balcony:$('facade-balcony'),count:$('facade-balcony-count'),
   flowers:$('facade-flowers'),hangings:$('facade-hangings'),awning:$('facade-awning'),
-  awningColor:colorSelect,awningPreset:awningPresetSelect,awningDepth:$('facade-awning-depth'),sign:$('facade-sign')
+  awningColor:colorSelect,awningPreset:awningPresetSelect,awningDepth:$('facade-awning-depth'),
+  awningStart:$('facade-awning-start'),awningWidth:$('facade-awning-width'),
+  balconyStart:$('facade-balcony-start'),balconyWidth:$('facade-balcony-width'),
+  sign:$('facade-sign')
  };
  const updateCount=()=>{$('facade-balcony-count-value').textContent=fields.count.value};
  const updateDepth=()=>{$('facade-awning-depth-value').textContent=Number(fields.awningDepth.value).toFixed(2).replace('.',',')+' m'};
+ const updateSpans=()=>{
+  for(const name of ['awningStart','awningWidth','balconyStart','balconyWidth']){
+   const id='facade-'+name.replace(/[A-Z]/g,c=>'-'+c.toLowerCase());
+   $(id+'-value').textContent=fields[name].value+' %';
+  }
+ };
  fields.count.addEventListener('input',updateCount);
  fields.awningDepth.addEventListener('input',()=>{updateDepth();previewAwning()});
+ for(const field of ['awningStart','awningWidth','balconyStart','balconyWidth'])
+  fields[field].addEventListener('input',()=>{updateSpans();previewAwning()});
  for(const id of ['facade-awning','facade-awning-color','facade-awning-preset','facade-sign'])$(id).addEventListener('input',previewAwning);
  const selectedHouses=()=>state.selectedItems.filter(x=>x.type==='houses'&&getData()?.houses?.[x.index]);
  function refreshSelected(){
@@ -169,9 +182,13 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   fields.awningColor.value=facade.awningColor;
   fields.awningPreset.value=facade.awningPreset;
   fields.awningDepth.value=String(facade.awningDepth);
+  fields.awningStart.value=String(Math.round(facade.awningStart*100));
+  fields.awningWidth.value=String(Math.round(facade.awningWidth*100));
+  fields.balconyStart.value=String(Math.round(facade.balconyStart*100));
+  fields.balconyWidth.value=String(Math.round(facade.balconyWidth*100));
   selectPreset(facade.shop);
   fields.sign.value=facade.sign;
-  updateCount();updateDepth();previewAwning();
+  updateCount();updateDepth();updateSpans();previewAwning();
  }
  function readInputs(){
   return{
@@ -180,6 +197,10 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    hangings:fields.hangings.checked,awning:fields.awning.value,
    awningColor:fields.awningColor.value,awningPreset:fields.awningPreset.value,
    awningDepth:Number(fields.awningDepth.value),
+   awningStart:Number(fields.awningStart.value)/100,
+   awningWidth:Number(fields.awningWidth.value)/100,
+   balconyStart:Number(fields.balconyStart.value)/100,
+   balconyWidth:Number(fields.balconyWidth.value)/100,
    shop:facadeSelect.value,sign:fields.sign.value
   };
  }
