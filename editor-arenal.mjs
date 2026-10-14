@@ -152,7 +152,11 @@ function bboxHit(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1]}
 function drawTexture(poly,key,fallback,variant=0,roofOptions={}){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
  const base=roofById(key),baseIndex=Math.max(0,NATIVE_ROOF_IDS.indexOf(Number(String(base.key).split(':').at(-1))));
- const material=/^(sevilla-|roof-|landmark-|temple-)/.test(String(key||''))?key:'roof-'+baseIndex+'-'+variant%4;
+ // Accept ALL registered roof material IDs, including the new 'realista-' family.
+// Previously the editor silently replaced them with a native roof sprite.
+const material=typeof key==='string'&&key!==''
+ &&(key===base.id||/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(key))
+ ?base.id:'roof-'+baseIndex+'-'+variant%4;
  drawRoof(ctx,poly,material,pixel,getImage,view.zoom,roofOptions);
 }
 function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
