@@ -262,11 +262,31 @@ export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
   for(let i=1;i<Math.max(2,Math.floor(w/12));i++){const xx=-w/2+i*w/Math.max(2,Math.floor(w/12));ctx.fillRect(xx-1,-d*.34,2,d*.68)}
   ctx.fillStyle='#912524';ctx.fillRect(-w/2,-d,w*.06,d*2);ctx.fillRect(w/2-w*.06,-d,w*.06,d*2);
  }else{
-  // Chair with backrest, seat and four legs; distinct from public sprites.
-  ctx.fillStyle='#d6c7a5';ctx.strokeStyle='#6b5c47';ctx.fillRect(-w/2,-d/2,w,d);ctx.strokeRect(-w/2,-d/2,w,d);
-  ctx.fillStyle='#756956';ctx.fillRect(-w/2,-d/2,w,d*.20);
-  ctx.fillStyle='#5c5244';const leg=Math.max(2,w*.10);
-  for(const xx of [-w/2,w/2-leg])for(const yy of [-d/2,d/2-leg])ctx.fillRect(xx,yy,leg,leg);
+  // Folding wooden Carrera Oficial chair. Keep the saved .40 x .43 m footprint
+  // and orientation: the backrest is at negative screen Y in every view.
+  const image=textureImage('chair-carrera'),iw=image?.naturalWidth||image?.width,ih=image?.naturalHeight||image?.height;
+  if(iw>0&&ih>0){
+   const fit=Math.min(w/iw,d/ih);
+   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+   ctx.drawImage(image,-iw*fit/2,-ih*fit/2,iw*fit,ih*fit);
+  }else{
+   // A recognisable slatted wooden chair also remains visible while loading.
+   ctx.save();ctx.scale(w,d);ctx.lineWidth=.018;ctx.strokeStyle='#71401d';
+   const wood=(x,y,width,height,tone)=>{
+    const grain=ctx.createLinearGradient(x,y,x,y+height);
+    grain.addColorStop(0,'#dfaa65');grain.addColorStop(.22,tone);grain.addColorStop(1,'#915625');
+    ctx.fillStyle=grain;ctx.fillRect(x,y,width,height);ctx.strokeRect(x,y,width,height);
+    ctx.strokeStyle='rgba(92,48,18,.23)';ctx.lineWidth=.006;ctx.beginPath();ctx.moveTo(x+.04,y+height*.55);ctx.lineTo(x+width-.04,y+height*.64);ctx.stroke();
+    ctx.strokeStyle='#71401d';ctx.lineWidth=.018;
+   };
+   wood(-.48,-.48,.08,.96,'#af722f');wood(.40,-.48,.08,.96,'#ad6b2a');
+   wood(-.43,-.45,.86,.095,'#ba7c35');
+   for(let i=0;i<6;i++){
+    const y=-.20+i*.111;wood(-.40,y,.80,.092,i%2?'#c98a42':'#ce954e');
+    ctx.fillStyle='#77716a';for(const x of [-.355,.355]){ctx.beginPath();ctx.arc(x,y+.045,.013,0,Math.PI*2);ctx.fill()}
+   }
+   ctx.restore();
+  }
  }
  if(selected){ctx.strokeStyle='#51ebef';ctx.lineWidth=2;ctx.strokeRect(-w/2-3,-d/2-3,w+6,d+6)}
  ctx.restore();

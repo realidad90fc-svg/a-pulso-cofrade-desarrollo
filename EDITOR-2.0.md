@@ -1,5 +1,11 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.0.6: sillas de madera de Carrera Oficial
+
+La silla utiliza una textura cenital de madera barnizada color miel, con asiento de listones, respaldo abierto y herrajes discretos, basada en la construcción de la fotografía de referencia. La misma textura aparece en las miniaturas, el visor ampliado, las filas, el mapa y la partida. También se incluye sin conexión en Windows. Si la imagen no carga, se dibuja una silla de madera con listones separados.
+
+Los mapas anteriores muestran el nuevo aspecto sin recolocar sillas. Se mantienen el ancho, el giro, la separación de las filas y la huella de colisión de 0,40 × 0,43 m. La foto se utiliza solo como referencia; no se distribuye ni se modifica. Prompt completo: `assets/sevilla/silla-carrera-prompts.json`.
+
 ## Actualización 2.0.5: primavera y visor completo
 
 En Ajustes se encuentra **Visor de todos los elementos**: imagen ampliada, miniaturas seleccionables y acceso a los ajustes del elemento. Incluye veinte secciones: edificios, calzadas, aceras, árboles, público, vallas/sillas, urbanismo, señales, checkpoints, puntos de calle, huella del paso, detalles de cubierta, pretiles, comercios, balcones/rejas, toldos, banderolas, colores de toldo, macetas/colgaduras y fotografías guía privadas. El visor utiliza los mismos dibujantes y recursos que el editor. La fila de mobiliario sigue su separación; el modo aleatorio de público prepara y muestra el próximo personaje antes de colocarlo. Navegar por miniaturas no crea objetos ni modifica las fotografías.

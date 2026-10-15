@@ -1157,7 +1157,7 @@ async function init(){
    getPaso:()=>state.paso||data?.paso,getFacade:()=>visualPanels.readInputs(),
    getPhotos:()=>photoGuides?.previewItems()||[],selectPhoto:id=>photoGuides?.selectPreview(id)});
   const treeImage=spriteFor('sharedassets2.assets:563');
-  onTextureReady(key=>{if(key.startsWith('tree-'))requestDraw()});
+  onTextureReady(key=>{if(key.startsWith('tree-')||key==='chair-carrera')requestDraw()});
   if(treeImage&&!treeImage.complete)treeImage.addEventListener('load',()=>vegetationPreview?.redraw(),{once:true});
   // The native asphalt grain sprite may arrive after the editor UI: update
   // the thumbnails once, so the gallery matches the finished map texture.

@@ -13,7 +13,7 @@ export function onTextureReady(notify){listeners.add(notify);return()=>listeners
 export async function loadSevilleTextures(){
  if(pending)return pending;
  if(typeof Image==='undefined')return;
- const files={piedra:'piedra.webp',caliza:'caliza.webp',teja:'teja.webp',gambrinus:'gambrinus.png',
+ const files={piedra:'piedra.webp',caliza:'caliza.webp',teja:'teja.webp',gambrinus:'gambrinus.png','chair-carrera':'silla-carrera-oficial-v1.webp',
   ...Object.fromEntries(Object.entries(VEGETATION_FILES).map(([name,file])=>['tree-'+name,file]))};
  pending=Promise.all(Object.entries(files).map(([key,file])=>new Promise(resolve=>{
   const image=new Image();let done=false;

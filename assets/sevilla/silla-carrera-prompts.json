@@ -1,0 +1,10 @@
+{
+  "tool": "image_gen built-in",
+  "use_case": "stylized-concept",
+  "reference": "Fotografía aportada por el usuario: construcción de silla plegable y madera. No se incluye ni modifica la fotografía.",
+  "prompt": "Use case: stylized-concept. Asset type: one transparent raster game sprite for a realistic top-down Sevilla RPG map editor, shared by catalogue and gameplay. Input image 1 is a construction and wood-material reference only, NOT an edit target. Generate a completely new isolated single traditional folding wooden chair of the Carrera Oficial in Seville matching the photo's chair construction: honey/amber varnished wood with fine natural grain, several narrow horizontal seat slats with slender open gaps, two slim wooden uprights and a simple broad wooden horizontal backrest with open space below, restrained aged metal hinge/screw details, no armrests, no cushion. Camera must be exactly vertically overhead, orthographic, looking straight down at the seat. The chair faces the bottom of the image: backrest at upper edge, front of seat at lower edge. Under this true overhead projection the backrest is a narrow wood rail across the top, NOT a tall forward-facing backrest. Seat occupies most of the footprint. Square composition; actual chair width 40cm and depth 43cm, fills about 90% of canvas, centered, backrest and seat aligned with canvas axes. Realistic finely textured RPG raster art with believable wood, softly shaded bevels, subtle ambient shadows within the wooden structure, diffuse daylight. Actual transparent background and transparent openings; very small contact shadow only. No floor, people, other chairs, text, border, diagram, watermark, labels, perspective, isometric projection or visible tall legs. Keep crisp silhouette and readable slats at small sizes.",
+  "asset": "silla-carrera-oficial-v1.webp",
+  "generation_date": "2026-10-15",
+  "output": "512 × 512 WebP, transparencia preservada",
+  "orientation": "Cenital, respaldo arriba y asiento hacia abajo. Huella guardada 0,40 × 0,43 m."
+}
