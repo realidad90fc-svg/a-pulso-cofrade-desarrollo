@@ -4,10 +4,15 @@ import {drawUrbanElement,urbanIsMarking,urbanCollisionSize} from './editor-urban
 import {drawTrafficSign,drawCheckpointGuide} from './editor-object-render.mjs';
 import {drawStreetTriggerGuide} from './street-identifiers.mjs';
 import {pasoFootprint,pasoPoint} from './editor-paso-orientation.mjs';
+import {assetById,isSurfaceAsset,newCustomObject,drawCustomObject} from './custom-assets.mjs';
 
 const building=[[-3,0],[3,0],[3,3],[-3,3]];
 const bounds=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
 function extent(s){
+ if(s.kind==='custom'){
+  const a=assetById(s.id),w=a?.width||1,d=a?.depth||1,angle=(a?.angle||0)*Math.PI/180;
+  return{width:s.row?(s.spacing||.7)*4+w+Math.max(w,d)*.35:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*d+Math.max(w,d)*.35,height:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*d+Math.max(w,d)*.35};
+ }
  if(['roof','facade'].includes(s.kind)){
   const b=bounds(s.poly||building);return{width:b[2]-b[0]+1,height:b[3]-b[1]+2.3,center:[(b[0]+b[2])/2,(b[1]+b[3])/2-.45]};
  }
@@ -26,6 +31,9 @@ function extent(s){
  return{width:4,height:2.2};
 }
 export function paintPlacementPreview(canvas,spec,getImage=()=>null){
+ if(spec.kind==='custom'){
+  const asset=assetById(spec.id);if(isSurfaceAsset(asset))return paintPlacementPreview(canvas,{kind:{roads:'road',sidewalks:'sidewalk',houses:'roof'}[asset.category],material:asset.id},getImage);
+ }
  const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height,density=w/288;
  c.clearRect(0,0,w,h);c.fillStyle=['road','urban','sign'].includes(spec.kind)?'#65686a':'#c2bfae';c.fillRect(0,0,w,h);
  c.strokeStyle='rgba(65,72,65,.10)';c.lineWidth=density;
@@ -34,7 +42,11 @@ export function paintPlacementPreview(canvas,spec,getImage=()=>null){
  const e=extent(spec),z=Math.min((w-28*density)/e.width,(h-24*density)/e.height),center=e.center||[0,0];
  const pixel=(x,y)=>[w/2+(x-center[0])*z,h/2-(y-center[1])*z];
  c.save();c.imageSmoothingEnabled=false;
- if(spec.kind==='roof'||spec.kind==='facade'){
+ if(spec.kind==='custom'){
+  const asset=assetById(spec.id);
+  if(asset){const n=spec.row?5:1;for(let i=0;i<n;i++)drawCustomObject(c,newCustomObject(asset,[(i-(n-1)/2)*(spec.spacing||.7),0]),pixel,z)}
+  else{c.fillStyle='#344a4d';c.textAlign='center';c.font=12*density+'px system-ui';c.fillText('Importa tu primer recurso en Mis recursos',w/2,h/2)}
+ }else if(spec.kind==='roof'||spec.kind==='facade'){
   const poly=spec.poly||building;
   drawRoof(c,poly,spec.material,pixel,getImage,z,spec.roof||{roofDetail:'none',roofInset:.05});
   if(spec.kind==='facade')drawFacadeDecor(c,{poly,facade:spec.facade},pixel,z);

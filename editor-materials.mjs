@@ -1,5 +1,7 @@
 import {paintWorldSurface} from './surface-renderer.mjs';
 import {textureImage} from './seville-textures.mjs';
+import {customAssetMaterial} from './custom-assets.mjs';
+import {traceSurface} from './map-geometry.mjs';
 import {renderInsetRoof} from './editor-roof-render.mjs';
 import {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
 export {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
@@ -184,17 +186,20 @@ const polygonPath=(ctx,poly,pixel)=>{
  ctx.beginPath();poly.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();
 };
 const bounds=poly=>[Math.min(...poly.map(p=>p[0])),Math.min(...poly.map(p=>p[1])),Math.max(...poly.map(p=>p[0])),Math.max(...poly.map(p=>p[1]))];
-export const roofById=id=>REALISTIC_ROOFS.find(m=>m.id===id)||SEVILLA_ROOFS.find(m=>m.id===id)||TEMPLE_ROOF_MATERIALS.find(m=>m.id===id)||LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
+export const roofById=id=>customAssetMaterial(id)||REALISTIC_ROOFS.find(m=>m.id===id)||SEVILLA_ROOFS.find(m=>m.id===id)||TEMPLE_ROOF_MATERIALS.find(m=>m.id===id)||LANDMARK_ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.id===id)||ROOF_MATERIALS.find(m=>m.key===id)||ROOF_MATERIALS[0];
 export const surfaceById=(id,kind='roads')=>{
  const list=kind==='sidewalks'?SIDEWALK_MATERIALS:ROAD_MATERIALS;
- return list.find(m=>m.id===id)||list[0];
+ return customAssetMaterial(id)||list.find(m=>m.id===id)||list[0];
 };
 export function drawRoof(ctx,poly,material,pixel,getImage,zoom,options={}){
+ const custom=customAssetMaterial(material);
+ if(custom)return paintWorldSurface(ctx,poly,custom,pixel,null,options);
  const m=roofById(material);
- return renderInsetRoof(ctx,poly,m,pixel,zoom,options,(item,top,w,h)=>{
+ ctx.save();if(options.holes?.length){traceSurface(ctx,{poly,holes:options.holes},pixel);ctx.clip('evenodd')}
+ const result=renderInsetRoof(ctx,poly,m,pixel,zoom,options,(item,top,w,h)=>{
   if(item.temple)drawTempleRoof(ctx,item,top,w,h);
   else if(item.landmark)drawLandmarkRoof(ctx,item,top,w,h);
- });
+ });ctx.restore();return result;
 }
 // Lines are anchored to world coordinates rather than the viewport edge.
 // Both editor pixels/metro and the game's world-unit camera now use the
@@ -220,9 +225,9 @@ function lineGridWorld(ctx,pixel,box,dx,dy,alpha){
  }
  ctx.restore();
 }
-export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visible=null){
- const m=surfaceById(materialId,kind);
- return paintWorldSurface(ctx,poly,m,pixel,visible);
+export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visible=null,options={}){
+ const m=customAssetMaterial(materialId)||surfaceById(materialId,kind);
+ return paintWorldSurface(ctx,poly,m,pixel,visible,options);
 }
 // The editor zoom is pixels/world-unit, but the game draws in world units
 // through its camera transform. Never impose a screen-pixel minimum on world units.

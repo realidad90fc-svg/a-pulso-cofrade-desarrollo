@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {saveCustomAssets,initializeCustomAssets,newCustomObject,embedDocumentAssets,lightweightDocument,loadDocumentAssets,validateCustomAsset,customObjectCollider,assetById} from '../custom-assets.mjs';
+import {mergeSurfaces,subtractSurface,splitSurface,surfaceArea,inSurface,shapeOnSurfaces,snapPoint,validSurface} from '../map-geometry.mjs';
+import {blankMapDocument,validateMapDocument,transformMapDocument,createCityProject,addCityMap,exportCityBundle,validateCityBundle} from '../city-project.mjs';
+import {makeGameDraft} from '../editor-game-draft.mjs';
+import {RuntimeEditorDraft,inspectEditorSpawn,applyEditorStart} from '../game-editor-bridge.mjs';
+import {drawSurface,drawRoof} from '../editor-materials.mjs';
+import {paintCityScene} from '../city-scene.mjs';
+import {CentreRoute} from '../centre-route.mjs';
+import {CityRoute} from '../city-runtime.mjs';
+import {translateSelections,rotateSelections,captureSelection} from '../editor-interactions.mjs';
+import {OriginalSimulation} from '../original-engine.mjs';
+import {prepareMap,prepareStep} from '../engine.mjs';
+import {CONTENT_STEPS} from '../content-catalogue.mjs';
+import {customStep} from '../custom-steps.mjs';
+import {Renderer} from '../renderer.mjs';
+const runtime=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/'),qa=createRequire((process.env.APULSO_DOM_TEST_MODULES||process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES)+'/');
+const {createCanvas,Image}=runtime('@napi-rs/canvas'),{indexedDB}=qa('fake-indexeddb');
+Object.assign(globalThis,{Image,indexedDB,OffscreenCanvas:class{constructor(w,h){return createCanvas(w,h)}}});
+const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
+function fixture(a,b){const c=createCanvas(32,32),ctx=c.getContext('2d');ctx.fillStyle=a;ctx.fillRect(0,0,32,32);ctx.fillStyle=b;ctx.fillRect(0,0,8,24);ctx.clearRect(20,20,8,8);return c.toDataURL('image/png')}
+const assets=[
+ {id:'asset-test-chair',name:'Silla propia',category:'chairs',width:.4,depth:.43,angle:37,collision:{kind:'box',width:.4,depth:.43},image:fixture('#a96c39','#f1bd76')},
+ {id:'asset-test-road',name:'Pavimento propio',category:'roads',width:1.2,depth:.6,angle:19,collision:{kind:'none'},image:fixture('#548893','#d9d6b4')},
+ {id:'asset-test-roof',name:'Cubierta propia',category:'houses',width:.8,depth:.9,angle:11,collision:{kind:'none'},image:fixture('#8e5442','#dbc297')}
+];
+await saveCustomAssets(assets);await initializeCustomAssets();
+const project=createCityProject([]),{meta,document:doc}=addCityMap(project,{name:'Prueba de recursos',width:16,height:16});
+doc.roads=[{poly:rect(0,0,12,12),material:assets[1].id,texture:{width:1.2,depth:.6,angle:31,mode:'repeat'}}];
+doc.houses=subtractSurface({poly:rect(7,7,4,4),material:assets[2].id},rect(8,8,2,2));
+doc.customObjects=[newCustomObject(assets[0],[4,4])];doc.resources=assets;
+const light=lightweightDocument(doc);validateMapDocument(light);
+assert(light.resources.every(a=>!a.image),'Autosave must not duplicate raster bytes in localStorage');
+const portable=embedDocumentAssets(light);assert(portable.resources.every(a=>a.image?.startsWith('data:image/png;base64,')));
+assert.deepEqual(portable.customObjects,doc.customObjects);assert.deepEqual(portable.houses[0].holes,doc.houses[0].holes);
+const restored=validateCityBundle(JSON.parse(JSON.stringify(exportCityBundle(project,key=>light))));
+assert.equal(restored.documents[meta.key].resources.length,3);await loadDocumentAssets(restored.documents[meta.key],{persist:true});
+const moved=transformMapDocument(light,[20,10],90);
+assert.deepEqual(moved.houses[0].holes[0][0],[12,18],'Linked zone transforms must move courtyard rings with the building');
+const editable=structuredClone(light),before=[...editable.houses[0].holes[0][0]];translateSelections(editable,[{type:'houses',index:0}],2,3);assert.deepEqual(editable.houses[0].holes[0][0],[before[0]+2,before[1]+3]);
+const original=captureSelection(editable,[{type:'houses',index:0}]);rotateSelections(editable,[{type:'houses',index:0}],[0,0],90,original);assert(Math.abs(editable.houses[0].holes[0][0][0]+before[1]+3)<1e-7);
+const square={poly:rect(0,0,10,10),material:'road-art-granite',texture:{width:1,depth:1,angle:0,mode:'repeat'}};
+const courtyard=subtractSurface(square,rect(3,3,4,4))[0];assert(validSurface(courtyard));assert.equal(surfaceArea(courtyard),84);assert(!inSurface([5,5],courtyard));assert(inSurface([2,5],courtyard));
+const pieces=splitSurface(courtyard,[-1,5],[11,5]);assert.equal(pieces.length,2);assert.equal(pieces.reduce((sum,o)=>sum+surfaceArea(o),0),84);
+const joined=mergeSurfaces(pieces);assert.equal(joined.length,1);assert.equal(surfaceArea(joined[0]),84);assert.equal(joined[0].holes.length,1);assert.deepEqual(joined[0].texture,square.texture);
+assert.throws(()=>splitSurface(square,[12,0],[12,10]),/atravesar/);
+assert(!validSurface({poly:rect(0,0,10,10),holes:[rect(9,9,2,2)]}));
+assert(!validSurface({poly:[[0,0],[4,0],[4,4],[2,2],[0,4],[2,2]]}),'A self-touching outline must be rejected');
+assert.throws(()=>validateMapDocument({...light,roads:[{poly:rect(0,0,3,3),texture:{width:-1,depth:1,angle:0,mode:'repeat'}}]}));
+assert.throws(()=>validateCustomAsset({...assets[0],image:'https://example.com/image.png'}));
+assert.throws(()=>validateCustomAsset({...assets[0],width:0}));
+await assert.rejects(()=>loadDocumentAssets({...light,resources:assets.map((a,i)=>i===0?{...a,name:'No debe reemplazarse',image:'data:image/png;base64,AAAA'}:a)},{persist:true}));
+assert.equal(assetById(assets[0].id).name,assets[0].name,'A broken map image must not partially replace a saved catalogue');
+const snapped=snapPoint([.12,.26],{roads:[square]},{grid:true,step:.1});assert(Math.abs(snapped.point[0]-.1)<1e-8&&Math.abs(snapped.point[1]-.3)<1e-8);
+assert.deepEqual(snapPoint([.02,.03],{roads:[square]},{edges:true,tolerance:.1}).point,[0,0]);
+assert.deepEqual(snapPoint([2,.04],{roads:[square]},{edges:true,tolerance:.1}).point,[2,0]);
+const tinyHole=subtractSurface(square,rect(4.95,4.95,.1,.1))[0],cover=rect(4.5,4.5,1,1);
+assert(!shapeOnSurfaces(cover,[tinyHole]),'A hole entirely under a collider must still be detected');
+assert(shapeOnSurfaces(cover,[tinyHole,{poly:rect(4.9,4.9,.2,.2)}]),'An actual second floor may cover the hole');
+assert(!CityRoute.prototype.validShape.call({surfaces:[tinyHole]},{points:cover}));
+const route={editorRoadSurfaces:[tinyHole],walkable:[square.poly],sidewalks:[],editorWalkable:[],obstacles:[],validPoint:CentreRoute.prototype.validPoint};
+assert(!CentreRoute.prototype.validShape.call(route,{points:cover}),'Arenal physics must reject an enclosed hole');
+const object=doc.customObjects[0],runtimeDraft=new RuntimeEditorDraft({...makeGameDraft(light,null),total:1});
+let collided=false;const sim={state:{status:'playing'},frameCount:1,prefs:{},stepColliders:[{enabled:true,entity:{name:'mesa'},world:()=>({points:rect(3.98,3.98,.04,.04)})}],send(){collided=true}};
+runtimeDraft.collision(sim);assert(collided&&sim.prefs.motivoGameOver===9,'Imported chair must collide in the real runtime layer');
+collided=false;sim.frameCount++;sim.stepColliders[0].world=()=>({points:rect(8.4,8.4,.2,.2)});runtimeDraft.collision(sim);assert(!collided,'A building courtyard must not retain the former solid collision');
+assert.equal(customObjectCollider({...object,collision:{kind:'circle',radius:.12}}).length,24);
+const editor=createCanvas(960,960),game=createCanvas(960,960),pixel=(x,y)=>[x*80,960-y*80];
+paintCityScene(editor.getContext('2d'),light,pixel,80);
+runtimeDraft.draw(game.getContext('2d'),[80,0,0,-80,0,960],new Map(),game);
+const a=editor.getContext('2d').getImageData(0,0,960,960).data,b=game.getContext('2d').getImageData(0,0,960,960).data;
+let delta=0;for(let i=0;i<a.length;i++)delta+=Math.abs(a[i]-b[i]);assert(delta/a.length<.005,'Imported textures, holes and object placement must match editor and game');
+const sample=createCanvas(800,800),sc=sample.getContext('2d'),px=(x,y)=>[x*80,800-y*80];drawSurface(sc,courtyard.poly,'roads','road-art-granite',px,80,null,null,courtyard);assert.equal(sc.getImageData(400,400,1,1).data[3],0,'Rendered floor must leave the courtyard transparent');
+sc.clearRect(0,0,800,800);drawRoof(sc,courtyard.poly,assets[2].id,px,()=>null,80,courtyard);assert.equal(sc.getImageData(400,400,1,1).data[3],0,'Imported roof must also respect courtyard clipping');
+// Culling must never resize a stretched image to the camera's visible area.
+const s={poly:rect(0,0,10,10),material:assets[1].id,texture:{width:1,depth:1,angle:0,mode:'stretch'}};
+const full=createCanvas(800,800),crop=createCanvas(800,800);drawSurface(full.getContext('2d'),s.poly,'roads',s.material,px,80,null,null,s);drawSurface(crop.getContext('2d'),s.poly,'roads',s.material,px,80,null,[2,2,8,8],s);
+assert.deepEqual(crop.getContext('2d').getImageData(240,240,320,320).data,full.getContext('2d').getImageData(240,240,320,320).data,'Texture scale must stay fixed as the camera moves');
+// Exercise the complete authored-native path with every original procession.
+const read=name=>JSON.parse(fs.readFileSync(new URL('../assets/'+name+'.json',import.meta.url)));
+const data=read('game-data'),engineResources={code:read('original-code'),assets:read('original-assets'),animation:read('original-animation'),controls:read('runtime-controls'),random:()=>.5};
+const native={...structuredClone(light),metadata:{...light.metadata,mapKey:'native-1',precisionGeometry:true},startPose:{x:3,y:3,angle:0},customObjects:[newCustomObject(assets[0],[10,2])]};
+native.roads=subtractSurface(native.roads[0],rect(5,5,1,1));
+const draft=makeGameDraft(native,null);assert(draft.authoringScene.metadata.inheritNativeLimits);
+let first=null;
+for(const choice of CONTENT_STEPS){
+ const step=customStep(prepareStep(data.steps[choice.engineId-1]),choice.engineVariant),map={...prepareMap(data.maps[0]),variant:{kind:'city',key:'native-1',document:{...draft.authoringScene,resources:draft.resources}}};
+ const actual=new OriginalSimulation(map,step,engineResources,'practice');assert(inspectEditorSpawn(actual).ok,choice.id+' must fit the authored floor');
+ for(let i=0;i<90;i++)actual.tick(1/60);
+ assert.equal(actual.state.status,'playing');assert.equal(actual.buttons.length,16);assert(actual.stepColliders.length>0);
+ const reopened=new OriginalSimulation(map,step,engineResources,'practice',actual.snapshot());assert.equal(reopened.step.code,choice.engineCode);assert(inspectEditorSpawn(reopened).ok);
+ assert(!applyEditorStart(reopened,{x:5.5,y:5.5,angle:0}).ok,'A real paso must not spawn over the empty courtyard');
+ assert(!applyEditorStart(reopened,{x:10,y:2,angle:0}).ok,'A real paso must not spawn inside imported furniture');
+ first??=actual;
+}
+first.camera={x:6,y:6,angle:.37,size:7};const portrait=createCanvas(480,560),renderer=new Renderer(portrait);renderer.resize(480,560,1);renderer.render(first,new Map(),false);
+const projectCamera=([x,y])=>{const z=560/14,c=Math.cos(.37),s=Math.sin(.37);return[Math.round(240+z*(c*(x-6)+s*(y-6))),Math.round(280+z*(s*(x-6)-c*(y-6)))]};
+const holePixel=projectCamera([5.5,5.5]);assert.deepEqual([...portrait.getContext('2d').getImageData(...holePixel,1,1).data],[85,82,79,255],'The actual rotated game camera must show empty background in the courtyard');
+fs.mkdirSync(new URL('../../qa-renders/',import.meta.url),{recursive:true});fs.writeFileSync(new URL('../../qa-renders/custom-content-precision.png',import.meta.url),editor.toBuffer('image/png'));
+fs.writeFileSync(new URL('../../qa-renders/custom-native-precision.png',import.meta.url),portrait.toBuffer('image/png'));
+console.log('PASS custom content and precision: atomic IndexedDB imports, portable assets, real collisions, courtyards/union/split, snapping, editor/game raster parity and all 8 pasos on authored native geometry.');

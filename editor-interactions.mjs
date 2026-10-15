@@ -1,6 +1,7 @@
 // Pure editor operations: continuous crowd brush and Windows-style area selection.
 // Coordinates are always map-world units, independent of zoom or device pixels.
-export const PICKABLE_TYPES=['urban','labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
+import {customObjectBounds} from './custom-assets.mjs';
+export const PICKABLE_TYPES=['customObjects','urban','labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
 export const PUBLIC_MIN_DISTANCE=.135;
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const length=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
@@ -32,7 +33,7 @@ export function unifySelections(items){
  for(const item of items){
   if(!item||!Number.isInteger(item.index)||!item.type)continue;
   const id=item.type+'|'+item.index;
-  if(!keys.has(id)){keys.add(id);unique.push({type:item.type,index:item.index,vertex:item.vertex??-1})}
+  if(!keys.has(id)){keys.add(id);unique.push({type:item.type,index:item.index,vertex:item.vertex??-1,...(item.ring!==undefined?{ring:item.ring}:{})})}
  }
  return unique;
 }
@@ -40,7 +41,7 @@ export function translateSelections(map,selections,dx,dy){
  if(!dx&&!dy)return;
  for(const {type,index} of unifySelections(selections)){
   const item=map[type]?.[index];if(!item)continue;
-  if(Array.isArray(item.poly))for(const p of item.poly){p[0]=round(p[0]+dx);p[1]=round(p[1]+dy)}
+  if(Array.isArray(item.poly))for(const ring of [item.poly,...(item.holes||[])])for(const p of ring){p[0]=round(p[0]+dx);p[1]=round(p[1]+dy)}
   else{
    const point=editorPoint(item);
    if(point){point[0]=round(point[0]+dx);point[1]=round(point[1]+dy)}
@@ -113,6 +114,7 @@ export function selectionGeometry(map,selections){
  const points=[];
  for(const {type,index}of unifySelections(selections)){
   const item=map[type]?.[index];if(!item)continue;
+  if(type==='customObjects'){points.push(...customObjectBounds(item));continue}
   if(Array.isArray(item.poly)){points.push(...item.poly);continue}
   const p=editorPoint(item);if(!valid(p))continue;
   const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):type==='urban'?(['crosswalk','raised-crosswalk','stop-line'].includes(item.type)?Math.max(item.width||3,item.depth||2.6)*.5:.75):.2;
@@ -132,7 +134,7 @@ export function rotateSelections(map,selections,center,degrees,originals){
  for(const {type,index}of unifySelections(selections)){
   const item=map[type]?.[index],origin=originals?.[type+'|'+index];
   if(!item||!origin)continue;
-  if(Array.isArray(origin.poly))item.poly=origin.poly.map(rotate);
+  if(Array.isArray(origin.poly)){item.poly=origin.poly.map(rotate);if(origin.holes)item.holes=origin.holes.map(r=>r.map(rotate))}
   else{
    const field=type==='labels'?1:(origin.point?'point':'position'),p=origin[field];if(valid(p))item[field]=rotate(p);
    if(type!=='labels'){

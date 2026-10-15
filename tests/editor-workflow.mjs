@@ -17,7 +17,7 @@ function adaptCanvas(node){
  for(const key of ['width','height'])Object.defineProperty(node,key,{get:()=>native[key],set:v=>{native[key]=v},configurable:true});
  const context=native.getContext('2d'),draw=context.drawImage.bind(context);context.drawImage=(image,...args)=>draw(canvases.get(image)||image,...args);
  node.setPointerCapture=()=>{};
- node.getContext=()=>context;node.getBoundingClientRect=()=>({left:0,top:0,width:1050,height:700,right:1050,bottom:700});return node;
+ node.getContext=()=>context;node.toDataURL=(...args)=>native.toDataURL(...args);node.getBoundingClientRect=()=>({left:0,top:0,width:1050,height:700,right:1050,bottom:700});return node;
 }
 const create=document.createElement.bind(document);document.createElement=(name,...args)=>adaptCanvas(create(name,...args));for(const c of document.querySelectorAll('canvas'))adaptCanvas(c);
 const inputProto=window.HTMLInputElement.prototype;
@@ -26,7 +26,7 @@ Object.defineProperty(inputProto,'disabled',{get(){return this.hasAttribute('dis
 Object.defineProperty(window.HTMLSelectElement.prototype,'value',{get(){return this.querySelector('option[selected]')?.getAttribute('value')||this.querySelector('option')?.getAttribute('value')||''},set(value){for(const o of this.querySelectorAll('option'))o.toggleAttribute('selected',o.getAttribute('value')===String(value))},configurable:true});
 for(const dialog of document.querySelectorAll('dialog')){dialog.showModal=function(){this.open=true};dialog.close=function(){this.open=false}}
 const baseCreate=document.createElement;document.createElement=(name,...args)=>{const n=baseCreate(name,...args);if(name==='dialog'){n.showModal=function(){this.open=true};n.close=function(){this.open=false}}return n};
-class Image extends NativeImage{set src(v){super.src=String(v).startsWith('file:')?fileURLToPath(new URL(v)):path.join(root,String(v).replace(/^\.\//,''))}get src(){return super.src}addEventListener(type,fn){if(type==='load'){const old=this.onload;this.onload=()=>{old?.();fn()}}}}
+class Image extends NativeImage{set src(v){super.src=String(v).startsWith('data:')?v:String(v).startsWith('file:')?fileURLToPath(new URL(v)):path.join(root,String(v).replace(/^\.\//,''))}get src(){return super.src}addEventListener(type,fn){if(type==='load'){const old=this.onload;this.onload=()=>{old?.();fn()}}}}
 const localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
 window.matchMedia=()=>({matches:false,addEventListener(){}});window.indexedDB=indexedDB;window.open=()=>({});window.requestAnimationFrame=fn=>frames.push(fn);
 Object.assign(globalThis,{window,document,Image,Event:window.Event,localStorage,indexedDB,location:{search:'',protocol:'https:'},devicePixelRatio:1,requestAnimationFrame:window.requestAnimationFrame,confirm:()=>true});
@@ -93,7 +93,7 @@ assert.deepEqual(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).l
 assert.equal(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).houses[0].facade.bladeSign,'pharmacy','Shop symbol survives reopen');
 
 // Every placeable tool, including decorative options, has the same visual chooser.
-const category=$('placement-category');assert.equal(category.options.length,20,'All placement families have a visual catalogue');
+const category=$('placement-category');assert.equal(category.options.length,21,'All placement families and imported resources have a visual catalogue');
 const chooseCategory=id=>{category.value=id;category.dispatchEvent(new window.Event('change',{bubbles:true}))};
 const chooseCard=id=>{$('placement-preview-gallery').querySelector('[data-preview-item="'+id+'"]').click()};
 const catalogueBefore=storage.get('apulso-universal-editor-v2:'+active);
@@ -126,6 +126,37 @@ chooseCategory('balcony');chooseCard('continuous');assert.equal($('facade-balcon
 chooseCategory('awning');chooseCard('stripe-burgundy');assert.equal($('facade-awning-preset').value,'stripe-burgundy');
 chooseCategory('street-name');$('street-name-text').value='Calle de primavera';$('street-name-text').dispatchEvent(new window.Event('input',{bubbles:true}));assert($('placement-preview-name').textContent.includes('Calle de primavera'));
 fs.writeFileSync(new URL('editor-canvas.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));
-clearTimeout();
-console.log('PASS editor UI: all 17 maps, create/open/save, shared streets, brotherhood links, 20 visual catalogues, chair/row/urban placement and the actual next random spectator. DOM/Canvas only; browser QA remains separate.');
+// Exercise the requested tools through their actual controls in a fresh map.
+$('open-city').onclick();[...document.querySelectorAll('[data-city-tab]')].find(n=>n.dataset.cityTab==='maps').onclick();
+const preciseForm=$('city-form').querySelector('form');preciseForm.querySelector('[name=name]').value='Herramientas precisas';await preciseForm.onsubmit({preventDefault(){}});await flush();
+const preciseKey=$('map-select').value,readPrecise=()=>JSON.parse(storage.get('apulso-universal-editor-v2:'+preciseKey));
+document.querySelector('[data-tool="road"]').onclick();
+const exact=p=>{$('precision-x').value=p[0];$('precision-y').value=p[1];$('precision-point').onclick()};
+for(const p of [[2,2],[30,2],[30,30],[2,30]])exact(p);$('finish-shape').onclick();$('save').onclick();
+assert.deepEqual(readPrecise().roads[0].poly,[[2,2],[30,2],[30,30],[2,30]],'Numeric input preserves exact world metres');
+const fixture=createCanvas(32,32),f=fixture.getContext('2d');f.fillStyle='#b48043';f.fillRect(3,3,26,26);f.clearRect(9,8,14,5);const imageBytes=fixture.toBuffer('image/png');
+const importImage=async()=>{const input=$('custom-asset-file');Object.defineProperty(input,'files',{value:[{type:'image/png',name:'valla-propia.png',size:imageBytes.length,arrayBuffer:async()=>imageBytes.buffer.slice(imageBytes.byteOffset,imageBytes.byteOffset+imageBytes.byteLength)}],configurable:true});await input.onchange({target:input})};
+await importImage();$('custom-asset-name').value='Valla importada de prueba';$('custom-asset-category').value='fences';$('custom-asset-aspect').checked=false;$('custom-asset-width').value='1.2';$('custom-asset-depth').value='.18';$('custom-asset-angle').value='30';$('custom-asset-collision').value='box';$('custom-collision-width').value='1.2';$('custom-collision-depth').value='.18';
+await $('custom-asset-save').onclick();await flush();assert.equal($('editor-canvas').dataset.tool,'custom');assert($('placement-preview-name').textContent.includes('Valla importada'));
+const assetId=$('custom-asset-list').value;assert(assetId.startsWith('asset-'));
+const scale=670/43.6,at=([x,y])=>[525+(x-20)*scale,350-(y-20)*scale],clickWorld=p=>{const [x,y]=at(p);pointer('pointerdown',x,y);pointer('pointerup',x,y)};
+clickWorld([4,4]);$('save').onclick();assert.equal(readPrecise().customObjects[0].assetId,assetId);assert.equal(readPrecise().customObjects[0].angle,30);assert(!readPrecise().resources[0].image,'Autosave keeps image bytes out of localStorage');
+let download=null;const originalCreate=URL.createObjectURL;URL.createObjectURL=blob=>{download=blob;return originalCreate(blob)};
+$('export').onclick();let portable=JSON.parse(await download.text());assert(portable.resources[0].image.startsWith('data:image/'));
+// Rows use the same image, physical size and collision as an individual.
+await $('custom-asset-row').onclick();const from=at([4,6]),to=at([8,6]);pointer('pointerdown',...from);pointer('pointermove',...to);pointer('pointerup',...to);$('save').onclick();assert(readPrecise().customObjects.length>3);assert(readPrecise().customObjects.every(o=>o.width===1.2));
+document.querySelector('[data-tool="select"]').onclick();clickWorld([25,25]);$('precision-add-vertex').onclick();clickWorld([30,15]);$('save').onclick();assert.equal(readPrecise().roads[0].poly.length,5);
+$('precision-remove-vertex').onclick();$('save').onclick();assert.equal(readPrecise().roads[0].poly.length,4);
+$('precision-split').onclick();clickWorld([35,0]);clickWorld([35,32]);$('save').onclick();assert.equal(readPrecise().roads.length,1,'An outside cut must leave the surface intact');clickWorld([16,0]);clickWorld([16,32]);$('save').onclick();assert.equal(readPrecise().roads.length,2,'A corrected cut works after an invalid attempt');
+$('precision-union').onclick();$('save').onclick();assert.equal(readPrecise().roads.length,1);
+$('precision-hole').onclick();for(const p of [[12,12],[18,12],[18,18],[12,18]])exact(p);$('finish-shape').onclick();$('save').onclick();assert.equal(readPrecise().roads[0].holes.length,1,'Courtyard command saves a real inner ring');
+$('undo').onclick();$('save').onclick();assert(!readPrecise().roads[0].holes);$('redo').onclick();$('save').onclick();assert.equal(readPrecise().roads[0].holes.length,1,'Undo/redo preserve complete courtyard geometry');
+document.querySelector('[data-tool="select"]').onclick();clickWorld([25,25]);$('precision-texture-width').value='.8';$('precision-texture-depth').value='.6';$('precision-texture-angle').value='35';$('precision-texture-mode').value='repeat';$('precision-texture-apply').onclick();$('save').onclick();assert.deepEqual(readPrecise().roads[0].texture,{width:.8,depth:.6,angle:35,mode:'repeat'});
+$('precision-measure').onclick();clickWorld([2,2]);clickWorld([5,6]);assert($('precision-measure-value').textContent.startsWith('5.000 m'),'Ruler measures five world metres independently of zoom');
+$('custom-asset-new').onclick();await importImage();$('custom-asset-name').value='Adoquín importado';$('custom-asset-category').value='roads';$('custom-asset-width').value='.6';$('custom-asset-depth').value='.3';$('custom-asset-collision').value='none';
+document.querySelector('[data-tool="select"]').onclick();clickWorld([25,25]);await $('custom-asset-save').onclick();$('save').onclick();assert(readPrecise().roads[0].material.startsWith('asset-'));assert.equal(readPrecise().resources.length,2);
+$('export').onclick();portable=JSON.parse(await download.text());assert(portable.resources.every(a=>a.image));assert.equal(portable.roads[0].holes.length,1);
+const mapImport=$('import');Object.defineProperty(mapImport,'files',{value:[{text:async()=>JSON.stringify(portable)}],configurable:true});await mapImport.onchange({target:mapImport});$('save').onclick();await flush();assert.equal(readPrecise().roads[0].holes.length,1);assert(readPrecise().resources.every(a=>!a.image));
+fs.writeFileSync(new URL('editor-custom-precision.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));URL.createObjectURL=originalCreate;
+console.log('PASS editor UI: all original maps, shared city, 21 catalogues, image import/place/row/export/reopen, exact points, vertex insertion/removal, split/union/courtyard undo and a five-metre ruler. DOM/Canvas only; browser QA remains separate.');
 process.exit(0);

@@ -1,6 +1,7 @@
 // Publicación explícita de mapas desde el editor. La autorización se usa
 // una sola vez y nunca se guarda en localStorage, IndexedDB ni en el JSON.
 import {makeGameDraft} from './editor-game-draft.mjs';
+import {embedDocumentAssets} from './custom-assets.mjs';
 
 export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show}){
  const el=id=>document.getElementById(id);
@@ -23,10 +24,11 @@ export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show
  button.onclick=()=>{
   try{
    if(location.hostname?.endsWith('.chatgpt.site'))throw Error('Para probar el mapa aquí basta con Guardar. Para trasladar mapas y hermandades usa Ciudad → Exportar ciudad completa. La publicación en GitHub está disponible en el editor de desarrollo.');
-   const data=getData(),base=getBaseline(),key=getMapKey();
+   const data=embedDocumentAssets(getData()),base=getBaseline(),key=getMapKey();
    if(key.startsWith('city-')||data?.zoneRefs?.length)throw Error('Este diseño utiliza mapas o zonas compartidas. Guárdalo con Ciudad → Exportar ciudad completa para conservar sus vínculos. La publicación individual se mantiene para los mapas existentes.');
    if(!data||!base||data.metadata?.mapKey!==key)throw Error('No hay un mapa válido seleccionado.');
    const draft=makeGameDraft(data,base);
+   if(draft.authoringScene&&!draft.authoringScene.checkpoints.some(cp=>cp.finish))throw Error('Este mapa clásico usa contornos personalizados. Marca un checkpoint como «Llegada del mapa» antes de publicarlo; así la geometría completa tendrá una llegada jugable. Puedes probarlo sin publicar.');
    if(draft.total<1)throw Error('Este mapa todavía no tiene modificaciones para publicar.');
    pending={mapKey:key,draft};
    confirm.checked=false;token.value='';

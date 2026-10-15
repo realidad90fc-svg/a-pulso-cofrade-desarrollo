@@ -10,6 +10,9 @@ import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-cleara
 import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {StreetIdentifiers} from './street-identifiers.mjs';
 import {drawTrafficSign,drawCheckpointGuide} from './editor-object-render.mjs';
+import {customObjectCollider,drawCustomObject,loadDocumentAssets,registerCustomAssets} from './custom-assets.mjs';
+import {surfacesOverlapPolygon} from './map-geometry.mjs';
+import {validateMapDocument} from './city-project.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
@@ -42,7 +45,8 @@ function obstaclesFor(layers){
  const obstacles=[];
  for(const o of layers.fences||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.95,.18,o.angle||0),reason:9});
  for(const o of layers.chairs||[])if(valid(o.point))obstacles.push({poly:around(o.point,.40,.43,o.angle||0),reason:9});
- for(const o of layers.houses||[])if(polygon(o.poly))obstacles.push({poly:o.poly,reason:2});
+ for(const o of layers.houses||[])if(polygon(o.poly))obstacles.push({poly:o.poly,holes:o.holes||[],reason:2});
+ for(const o of layers.customObjects||[]){const poly=customObjectCollider(o);if(poly)obstacles.push({poly,reason:9})}
  for(const o of layers.trees||[])if(valid(o.point)){
   const r=Math.min(.65,Math.max(.10,(o.radius||.35)*(o.scale||1)*.43));
   obstacles.push({poly:around(o.point,r*2,r*2),reason:2});
@@ -61,7 +65,9 @@ function parseDraft(obj,key){
  const layers=Object.fromEntries(MAP_KINDS.map(kind=>{
   const arr=obj.layers[kind];return [kind,Array.isArray(arr)?arr.slice(0,kind==='people'?12000:kind==='houses'?7000:6000):[]]
  }));
- return{mapKey:key,layers,total:obj.total,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
+ registerCustomAssets(obj.resources||[]);
+ const authoringScene=obj.authoringScene?validateMapDocument({...obj.authoringScene,resources:obj.resources||[]}):null;
+ return{mapKey:key,layers,total:obj.total,resources:obj.resources||[],authoringScene,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
 }
 function readDraft(key){
  try{
@@ -105,7 +111,7 @@ export function inspectEditorSpawn(sim){
   const polygonPoints=shapePolygon(world);
   if(polygon(polygonPoints)){
    const bb=bbox(polygonPoints);
-   for(const item of overlays)if(hits(bb,item.box||bbox(item.poly))&&overlaps(polygonPoints,item.poly)){
+   for(const item of overlays)if(hits(bb,item.box||bbox(item.poly))&&surfacesOverlapPolygon(polygonPoints,item)){
     return{ok:false,reason:part+' invade '+(item.reason===13?'al público':item.reason===9?'mobiliario de la calle':'un edificio')}
    }
   }
@@ -168,12 +174,12 @@ export function attachEditorDraft(sim,draftOverride=undefined){
     // Original editor polygons often have no stored 'material'. Do not
     // silently turn those into road-0..11 (flat asphalt/grey). The explicit
     // choice always wins, including deliberately selected original asphalt.
-    poly:o.poly.map(p=>[...p]),material:o.material||'road-art-granite'
+    ...o,poly:o.poly.map(p=>[...p]),material:o.material||'road-art-granite'
    }));
   }
   if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly))){
    route.sidewalks=scene.sidewalks.map((o,i)=>({
-    poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
+    ...o,poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
     material:o.material||'sidewalk-art-caliza'
    }));
    // Full Arenal sidewalks will be rendered by the base scene, beneath
@@ -187,7 +193,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
    const old=route.buildings||[];
    route.buildings=scene.houses.map(o=>{
     const original=old.find(h=>JSON.stringify(h.poly)===JSON.stringify(o.poly));
-    const item={...(original||{}),poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,roofDetail:o.roofDetail,roofBorder:o.roofBorder,facade:o.facade};
+    const item={...(original||{}),...o,poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),key:o.key||original?.key||'sharedassets2.assets:569',material:o.material||original?.material,roofInset:o.roofInset,roofSimplify:o.roofSimplify,roofSeed:o.roofSeed,roofDetail:o.roofDetail,roofBorder:o.roofBorder,facade:o.facade};
     if(!original){item.kind='historic';item.front=[item.poly[0],item.poly[1]];item.outward=[0,1]}
     return item;
    });
@@ -230,7 +236,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
 }
 export class RuntimeEditorDraft{
  constructor(draft){
-  this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;
+  this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;this.resources=draft.resources||[];
    // Previously discarded by the runtime wrapper: caused editor-defined starts not to load.
    this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
   this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
@@ -258,7 +264,7 @@ export class RuntimeEditorDraft{
       ||(kind==='roads'&&this.baseArenalRoads))continue;
    const floor=images.get('sharedassets2.assets:373');
    for(const o of this.layers[kind])if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
-    drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound);
+    drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound,o);
    }
   }
   for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
@@ -273,6 +279,7 @@ export class RuntimeEditorDraft{
     drawUrbanElement(ctx,o,px,1);
    for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
   for(const cp of this.layers.checkpoints||[])if(valid(cp.position))drawCheckpointGuide(ctx,cp,px,1,{label:false});
+  for(const o of this.layers.customObjects||[])if(valid(o.point))drawCustomObject(ctx,o,px,1);
   for(const o of this.layers.people)if(!this.baseArenalPeople&&valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
@@ -311,7 +318,7 @@ export class RuntimeEditorDraft{
   for(const c of parts){
    const poly=shapePolygon(c.world());if(!polygon(poly))continue;
    const bounds=bbox(poly);
-   for(const o of this.obstacles)if(hits(bounds,o.box)&&overlaps(poly,o.poly)){
+   for(const o of this.obstacles)if(hits(bounds,o.box)&&surfacesOverlapPolygon(poly,o)){
     s.prefs.motivoGameOver=o.reason;
     s.send(s.stepEntity,'gameOverMet');return;
    }
@@ -320,6 +327,7 @@ export class RuntimeEditorDraft{
 }
 export async function loadEditorDraftImages(layer,load,images){
  if(!layer)return;
+ await loadDocumentAssets({...layer.layers,resources:layer.resources||layer.layers.resources||[]});
  const all=[...new Set([
   ...layer.layers.houses.map(o=>roofById(o.material||o.key).key),
   ...layer.layers.people.map(o=>o.key),

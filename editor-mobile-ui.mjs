@@ -5,7 +5,7 @@ const body=document.body;
 const sidebar=document.querySelector('.sidebar');
 const toolbar=document.querySelector('.toolbar');
 const canvas=document.querySelector('#editor-canvas');
-const details=[...sidebar.querySelectorAll('details')];
+let details=[...sidebar.querySelectorAll('details')];
 const originalOpen=new Map(details.map(el=>[el,el.open]));
 const byId=id=>document.getElementById(id);
 const quick=[...document.querySelectorAll('.mobile-quick [data-mobile-tool]')];
@@ -27,6 +27,7 @@ function toggleSheet(sheet){
  if(sheet==='settings')openRelevantSettings();
 }
 function openRelevantSettings(){
+ details=[...sidebar.querySelectorAll('details')];
  const current=canvas.dataset.tool;
  const choose={
   house:'Tejados',road:'Pavimentos',sidewalk:'Pavimentos',tree:'Árboles',
@@ -54,16 +55,17 @@ function syncActiveTool(){
   button.classList.toggle('active',active);
   button.setAttribute('aria-pressed',String(active));
  }
- const drawing=['road','sidewalk','house'].includes(name);
+ const drawing=['road','sidewalk','house','hole'].includes(name);
  body.classList.toggle('mobile-polygon-mode',drawing&&mobileQuery.matches);
  body.classList.toggle('mobile-paso-mode',name==='paso'&&mobileQuery.matches);
 }
 function switchLayout(){
+ details=[...sidebar.querySelectorAll('details')];
  closeSheets();
  if(mobileQuery.matches){
   details.forEach((el,i)=>{el.open=i===0});
  }else{
-  details.forEach(el=>{el.open=originalOpen.get(el)});
+  details.forEach(el=>{el.open=originalOpen.get(el)??el.open});
  }
  syncActiveTool();
  // Existing map renderer already listens for resize: keep geometry untouched.
@@ -83,6 +85,10 @@ toolbar.addEventListener('click',e=>{
 more.addEventListener('click',()=>toggleSheet('tools'));
 options.addEventListener('click',()=>toggleSheet('settings'));
 headerOptions.addEventListener('click',()=>toggleSheet('settings'));
+document.addEventListener('editor-open-panel',event=>{
+ if(!mobileQuery.matches)return;closeSheets();body.classList.add('mobile-settings-open');options.setAttribute('aria-expanded','true');headerOptions.setAttribute('aria-expanded','true');const section=byId(event.panelId);if(section){section.open=true;requestAnimationFrame(()=>{sidebar.scrollTop=Math.max(0,section.offsetTop-sidebar.offsetTop-70)})}
+});
+document.addEventListener('editor-tool-selected',()=>{if(mobileQuery.matches){closeSheets();syncActiveTool()}});
 byId('mobile-tools-close').addEventListener('click',closeSheets);
 byId('mobile-settings-close').addEventListener('click',closeSheets);
 byId('mobile-backdrop').addEventListener('click',closeSheets);

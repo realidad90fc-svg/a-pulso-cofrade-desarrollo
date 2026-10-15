@@ -1,6 +1,7 @@
 import {paintAyuntamiento} from './city-landmarks.mjs';
 import {SceneGraph} from './original-scene.mjs';
 import {pointInPolygon,segmentDistance} from './engine.mjs';
+import {inSurface,shapeOnSurfaces} from './map-geometry.mjs';
 import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 const rect=([x,y,xx,yy])=>[[x,y],[xx,y],[xx,yy],[x,yy]];
 const inRect=(p,r)=>p[0]>=r[0]&&p[0]<=r[2]&&p[1]>=r[1]&&p[1]<=r[3];
@@ -80,15 +81,15 @@ export class CentreRoute{
  // Pavements are traversable ground, not physical walls. Keep them separate
  // from the asphalt polygons so they retain their original surface rendering.
  validPoint(p,obstacles=this.obstacles){
-  const street=this.walkable.some(poly=>pointInPolygon(p,poly));
+  const street=this.editorRoadSurfaces?this.editorRoadSurfaces.some(o=>inSurface(p,o)):this.walkable.some(poly=>pointInPolygon(p,poly));
   const paving=!street&&(this.sidewalks||[]).some(o=>
-   (!o.bbox||inRect(p,o.bbox))&&pointInPolygon(p,o.poly||o));
+   (!o.bbox||inRect(p,o.bbox))&&inSurface(p,o));
   const addedPaving=!street&&!paving&&(this.editorWalkable||[]).some(o=>
-   (!o.bbox||inRect(p,o.bbox))&&pointInPolygon(p,o.poly||o));
+   (!o.bbox||inRect(p,o.bbox))&&inSurface(p,o));
   return (street||paving||addedPaving)&&!obstacles.some(o=>
    o.center?Math.hypot(p[0]-o.center[0],p[1]-o.center[1])<=o.radius:inRect(p,o.rect));
  }
- validShape(w,obstacles=this.obstacles){const poly=samples(w);return poly.every((a,i)=>{const b=poly[(i+1)%poly.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.05));for(let j=0;j<=n;j++)if(!this.validPoint([a[0]+(b[0]-a[0])*j/n,a[1]+(b[1]-a[1])*j/n],obstacles))return false;return true;})&&!obstacles.some(o=>!w.edge&&(o.center?[o.center]:rect(o.rect)).some(p=>pointInPolygon(p,poly)));}
+ validShape(w,obstacles=this.obstacles){const poly=samples(w),authored=[...(this.editorRoadSurfaces||[]),...(this.sidewalks||[]),...(this.editorWalkable||[])];if(authored.some(o=>o.holes?.length)&&!shapeOnSurfaces(poly,[...(this.editorRoadSurfaces||this.walkable.map(poly=>({poly}))),...(this.sidewalks||[]),...(this.editorWalkable||[])],.05))return false;return poly.every((a,i)=>{const b=poly[(i+1)%poly.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.05));for(let j=0;j<=n;j++)if(!this.validPoint([a[0]+(b[0]-a[0])*j/n,a[1]+(b[1]-a[1])*j/n],obstacles))return false;return true;})&&!obstacles.some(o=>!w.edge&&(o.center?[o.center]:rect(o.rect)).some(p=>pointInPolygon(p,poly)));}
  follow(){this.checkpoints.forEach((cp,i)=>{const marker=this.graph.nodes.get(cp.id===this.scene.checkpoint?.id?'centre-checkpoint-marker':'centre-checkpoint-marker-'+cp.id);if(marker)marker.active=!this.checkpointIds.includes(cp.id);});const s=this.sim,p=s.position(s.stepEntity.transform),a=s.angle(s.stepEntity.transform)*Math.PI/180,d=this.nearest(p.x,p.y).along;for(const [e,offset,rotation]of [[s.capatazEntity,1.2,-90],[s.contraEntity,-1.3,90]]){s.setPosition(e.transform,[p.x-Math.sin(a)*offset,p.y+Math.cos(a)*offset,0]);s.setAngle(e.transform,s.angle(s.stepEntity.transform)+rotation);}s.cortejos.forEach((e,i)=>{const q=this.at(d+[3.5,-3,-4.5][i]);s.setPosition(e.transform,[q.x,q.y,0]);s.setAngle(e.transform,q.angle*180/Math.PI);});
   if(this.lastCrowdAlong===undefined||Math.abs(d-this.lastCrowdAlong)>.3){this.lastCrowdAlong=d;for(const person of this.people)if(!person.baked)this.graph.nodes.get(person.id).active=Math.hypot(person.point[0]-p.x,person.point[1]-p.y)<=this.scene.crowd.liveDistance;}
  }

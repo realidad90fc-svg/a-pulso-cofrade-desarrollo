@@ -133,7 +133,7 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
    let painted=true;
    for(const [part,material] of [[first,stoneMaterial],[second,tileMaterial]]){
     ctx.save();ctx.beginPath();ctx.rect(part.x0,part.y0,part.w,part.h);ctx.clip();
-    painted=paintRasterRoof(ctx,material,part,z,seed)&&painted;ctx.restore();
+    painted=paintRasterRoof(ctx,material,part,z,seed,options.texture)&&painted;ctx.restore();
    }
    if(!painted)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
    const seam=sideVertical?x0+w*ratio:y0+h*ratio;
@@ -151,7 +151,7 @@ export function paintArchitecturalRoof(ctx,layout,m,pixel,zoom,options={}){
      ctx.fillStyle=i%2?'#547b48':'#71834e';ctx.fill();
     }
    }
-  }else if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed)){
+  }else if(!paintRasterRoof(ctx,rasterMaterial,{x0,y0,w,h},z,seed,options.texture)){
    if(m.surfaceStyle)paintRoofVariant(ctx,m,{x0,y0,w,h},z,noise);
    else if(p.kind==='tile')tileBand(x0,w,y0,h);
    else slabs(x0,w,y0,h);

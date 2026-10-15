@@ -3,7 +3,9 @@
 export const CITY_SCHEMA='apulso-city-project-v1';
 export const CITY_KEY='apulso-city-project-v1';
 export const MAP_STORAGE_PREFIX='apulso-universal-editor-v2:';
-export const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban'];
+import {validateResourceManifest,validateCustomObject,embedDocumentAssets} from './custom-assets.mjs';
+import {validSurface,validateTextureSettings} from './map-geometry.mjs';
+export const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 const clone=v=>structuredClone(v);
 export const normalizeStreet=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘´'`]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/^(calle|c)\s+/,'').replace(/^avda\s+/,'avenida ');
 const id=prefix=>prefix+'-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));
@@ -13,11 +15,15 @@ export function polygonBounds(p){const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);retur
 const intersects=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 export function validateMapDocument(doc){
  if(!doc||typeof doc!=='object'||typeof doc.metadata?.mapKey!=='string'||!doc.metadata.mapKey||doc.metadata.mapKey.length>150)throw Error('El mapa necesita un identificador válido.');
+ const resources=validateResourceManifest(doc.resources||[]),resourceIds=new Set(resources.map(a=>a.id));
  for(const kind of KINDS){
   if(doc[kind]!==undefined&&!Array.isArray(doc[kind]))throw Error('Capa no válida: '+kind);
   const list=doc[kind]||[];if(list.length>20000)throw Error('La capa '+kind+' supera el límite de elementos.');
   for(const o of list){
    if(['roads','sidewalks','houses'].includes(kind)&&!poly(o?.poly))throw Error('Hay polígonos no válidos en '+kind);
+   if(o?.poly){if(o.holes!==undefined&&!validSurface(o))throw Error('Hay un patio o contorno no válido en '+kind);validateTextureSettings(o.texture)}
+   if(kind==='customObjects'){validateCustomObject(o);if(!resourceIds.has(o.assetId))throw Error('Falta la definición de un recurso importado.')}
+   if(o?.material?.startsWith('asset-')&&!resourceIds.has(o.material))throw Error('Falta una textura importada en el catálogo del mapa.');
    if(['people','trees','signs','fences','chairs','urban'].includes(kind)&&!point(o?.point))throw Error('Hay posiciones no válidas en '+kind);
    if(kind==='checkpoints'&&!point(o?.position))throw Error('Hay un checkpoint sin posición válida.');
    if(kind==='labels'&&(!Array.isArray(o)||typeof o[0]!=='string'||!point(o[1])))throw Error('Hay nombres de calle no válidos.');
@@ -121,7 +127,7 @@ export function transformMapDocument(doc,offset=[0,0],angle=0){
  const c=Math.cos(angle*Math.PI/180),s=Math.sin(angle*Math.PI/180),move=([x,y])=>[x*c-y*s+offset[0],x*s+y*c+offset[1]];
  const out=clone(doc);for(const k of KINDS)out[k]=(doc[k]||[]).map(o=>{
   if(k==='labels')return[o[0],move(o[1]),...o.slice(2).map(clone)];
-  const v=clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;return v;
+  const v=clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.holes)v.holes=v.holes.map(r=>r.map(move));if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;return v;
  });
  if(doc.bounds)out.bounds=polygonBounds([[doc.bounds[0],doc.bounds[1]],[doc.bounds[2],doc.bounds[1]],[doc.bounds[2],doc.bounds[3]],[doc.bounds[0],doc.bounds[3]]].map(move));
  for(const key of ['paso','startPose'])if(doc[key]){const q=move([doc[key].x,doc[key].y]);out[key]={...doc[key],x:q[0],y:q[1],angle:doc[key].angle+angle};}
@@ -137,11 +143,12 @@ export function resolveCityMap(p,mapKey,getDocument,trail=new Set()){
   const linked=selectCityZone(p,ref.zoneId,key=>resolveCityMap(p,key,getDocument,visited));
   const moved=transformMapDocument(linked,ref.offset||[0,0],ref.angle||0);
   for(const k of KINDS)doc[k]=[...(doc[k]||[]),...(moved[k]||[]).map(o=>k==='labels'?o:{...o,sharedZone:ref.zoneId})];
+  doc.resources=[...new Map([...(doc.resources||[]),...(moved.resources||[])].map(a=>[a.id,a])).values()];
  }
  return doc;
 }
 export function exportCityBundle(p,getDocument){
- validateProject(p);return{schema:CITY_SCHEMA,project:clone(p),documents:Object.fromEntries(p.maps.map(m=>[m.key,clone(getDocument(m.key))])),exportedAt:new Date().toISOString(),note:'Mapas y referencias compartidas; sin fotografías privadas.'};
+ validateProject(p);return{schema:CITY_SCHEMA,project:clone(p),documents:Object.fromEntries(p.maps.map(m=>[m.key,embedDocumentAssets(getDocument(m.key))])),exportedAt:new Date().toISOString(),note:'Mapas, recursos propios y referencias compartidas; sin fotografías privadas.'};
 }
 export function validateCityBundle(bundle){
  if(bundle?.schema!==CITY_SCHEMA||!bundle.project||!bundle.documents)throw Error('Este archivo no es una copia completa de la ciudad.');

@@ -197,11 +197,19 @@ function cachedTile(m,seed){
  if(cache.size>=CACHE_MAX)cache.delete(cache.keys().next().value);
  cache.set(key,t);return t;
 }
-export function paintRasterRoof(ctx,m,area,ppu,seed=0){
+export function paintRasterRoof(ctx,m,area,ppu,seed=0,texture=null){
  if(!m?.surfaceStyle)return false;
  const image=cachedTile(m,seed);if(!image)return false;
  const {x0,y0,w,h}=area,z=Math.max(.001,ppu),step=textureMetresFor(m)*z;
  if(!(w>0&&h>0)||!Number.isFinite(w+h))return false;
+ if(texture){
+  const stretch=texture.mode==='stretch',width=stretch?w:Math.max(.02,texture.width||textureMetresFor(m))*z,depth=stretch?h:Math.max(.02,texture.depth||textureMetresFor(m))*z;
+  const a=-(texture.angle||0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a),ox=stretch?x0:0,oy=stretch?y0:0;
+  const pattern=ctx.createPattern(image,stretch?'no-repeat':'repeat');if(!pattern)return false;
+  ctx.save();ctx.beginPath();ctx.rect(x0,y0,w,h);ctx.clip();ctx.translate(ox,oy);ctx.rotate(a);ctx.scale(width/SIZE,depth/SIZE);
+  const points=[[x0,y0],[x0+w,y0],[x0+w,y0+h],[x0,y0+h]].map(([x,y])=>{const dx=x-ox,dy=y-oy;return[(dx*c+dy*s)*SIZE/width,(-dx*s+dy*c)*SIZE/depth]});
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),left=Math.min(...xs),top=Math.min(...ys);ctx.fillStyle=pattern;ctx.imageSmoothingEnabled=true;ctx.fillRect(left,top,Math.max(...xs)-left,Math.max(...ys)-top);ctx.restore();return true;
+ }
  const xb=Math.floor(x0/step)*step,yb=Math.floor(y0/step)*step;
  ctx.save();ctx.beginPath();ctx.rect(x0,y0,w,h);ctx.clip();
  ctx.imageSmoothingEnabled=true;

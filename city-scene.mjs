@@ -4,12 +4,13 @@ import {drawUrbanElement,urbanIsMarking} from './editor-urban-elements.mjs';
 import {polygonBounds} from './city-project.mjs';
 import {drawStreetTriggerGuide} from './street-identifiers.mjs';
 import {drawTrafficSign} from './editor-object-render.mjs';
+import {drawCustomObject} from './custom-assets.mjs';
 const hits=(a,b)=>!b||a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 // Shared scenery painter for map cards, linked zones and new playable maps.
 // Guides/selection handles are intentionally owned by the editor only.
 export function paintCityScene(ctx,doc,pixel,zoom,getImage=()=>null,visible=null,{crowd=true,labels=false}={}){
  const floor=getImage('sharedassets2.assets:373');
- for(const kind of ['roads','sidewalks'])for(const o of doc[kind]||[])if(o.poly&&hits(polygonBounds(o.poly),visible))drawSurface(ctx,o.poly,kind,o.material||(kind==='roads'?'road-art-granite':'sidewalk-art-caliza'),pixel,zoom,floor,visible);
+ for(const kind of ['roads','sidewalks'])for(const o of doc[kind]||[])if(o.poly&&hits(polygonBounds(o.poly),visible))drawSurface(ctx,o.poly,kind,o.material||(kind==='roads'?'road-art-granite':'sidewalk-art-caliza'),pixel,zoom,floor,visible,o);
  for(const o of doc.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,zoom);
  for(const o of doc.houses||[])if(o.poly&&hits(polygonBounds(o.poly),visible))drawRoof(ctx,o.poly,o.material||o.key||'realista-mixta-tradicional',pixel,getImage,zoom,o);
  for(const o of doc.houses||[])if(o.poly&&o.facade&&hits(facadeVisualBounds(o),visible))drawFacadeDecor(ctx,o,pixel,zoom);
@@ -17,6 +18,7 @@ export function paintCityScene(ctx,doc,pixel,zoom,getImage=()=>null,visible=null
  for(const kind of ['fences','chairs'])for(const o of doc[kind]||[])drawFurniture(ctx,o,kind==='fences'?'fence':'chair',pixel,zoom);
  for(const o of doc.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,zoom);
  for(const o of doc.signs||[])drawTrafficSign(ctx,o,pixel,zoom);
+ for(const o of doc.customObjects||[])drawCustomObject(ctx,o,pixel,zoom);
  if(crowd)for(const o of doc.people||[]){
   const image=getImage(o.key),[x,y]=pixel(...o.point),w=(o.size?.[0]||.19)*zoom,h=(o.size?.[1]||.19)*zoom;
   ctx.save();ctx.translate(x,y);ctx.rotate(-(o.angle||0)*Math.PI/180);

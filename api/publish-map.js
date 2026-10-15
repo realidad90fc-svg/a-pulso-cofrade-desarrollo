@@ -2,13 +2,16 @@
 // repository. Requires a fine-grained GitHub token provided by the repository
 // owner for this one request. No token is persisted or logged.
 'use strict';
+import {validateResourceManifest,validateCustomObject} from '../custom-assets.mjs';
+import {validSurface,validateTextureSettings} from '../map-geometry.mjs';
+import {validateMapDocument} from '../city-project.mjs';
 const OWNER='realidad90fc-svg';
 const REPO='a-pulso-cofrade-desarrollo';
 const BASE='https://api.github.com';
 const KEYS=new Set(['SalidaPureza','AltozanoPuente','CaminoCentro','CarreraOficial',
  'CatedralPostigo','RegresoArenal','AlemanesPlacentinesFrancos',
  ...Array.from({length:10},(_,i)=>'native-'+(i+1))]);
-const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban'];
+const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 const MAX_BODY=3_600_000;
 function fail(message,status=400){const e=new Error(message);e.status=status;throw e}
 function point(v){return Array.isArray(v)&&v.length>=2&&v.slice(0,2).every(n=>Number.isFinite(n)&&Math.abs(n)<=10000)?v.slice(0,2):fail('Hay coordenadas fuera de rango.')}
@@ -33,6 +36,8 @@ function item(v,kind){
  if(!v||typeof v!=='object'||Array.isArray(v))fail('Elemento de mapa inválido.');
  if(['roads','sidewalks','houses'].includes(kind)){
   const result={poly:poly(v.poly)};
+  if(v.holes!==undefined){if(!Array.isArray(v.holes)||v.holes.length>200)fail('Patios no válidos.');result.holes=v.holes.map(poly);if(!validSurface(result))fail('El contorno de un patio no es válido.');}
+  if(v.texture!==undefined){try{result.texture=validateTextureSettings(v.texture)}catch(error){fail(error.message)}}
   if(v.material!==undefined)result.material=string(v.material,80);
    if(kind==='houses'&&v.roofInset!==undefined)result.roofInset=number(v.roofInset,.05,.025,.3);
    if(kind==='houses'&&v.roofSimplify!==undefined)result.roofSimplify=Boolean(v.roofSimplify);
@@ -59,6 +64,7 @@ function item(v,kind){
   if(v.angle!==undefined)result.angle=number(v.angle,0,-360,360);
   return result;
  }
+ if(kind==='customObjects'){try{return validateCustomObject(v)}catch(error){fail(error.message)}}
  if(kind==='trees'){
   const result={point:point(v.point),radius:number(v.radius,.35,.05,2)};
   if(v.variant!==undefined)result.variant=string(v.variant,50);
@@ -79,7 +85,7 @@ function item(v,kind){
  if(kind==='checkpoints'){
   return{position:point(v.position),id:string(v.id||'custom',100),
    name:string(v.name||v.id||'Checkpoint',150),
-   angle:number(v.angle,0,-360,360),radius:number(v.radius,.65,.2,3)};
+   angle:number(v.angle,0,-360,360),radius:number(v.radius,.65,.2,3),...(v.mandatory!==undefined?{mandatory:!!v.mandatory}:{}),...(v.finish!==undefined?{finish:!!v.finish}:{})};
  }
  if(kind==='fences'||kind==='chairs'){
   return{point:point(v.point),angle:number(v.angle,0,-360,360),
@@ -98,7 +104,9 @@ function sanitize(body){
  const key=body?.mapKey;
  if(!KEYS.has(key)||!v||v.schema!=='apulso-game-draft-v1'||v.mapKey!==key)fail('Mapa o formato de publicación no válido.',422);
  const layers={};
- for(const kind of KINDS)layers[kind]=cleanArray((kind==='labels'||kind==='urban')?(v.layers?.[kind]||[]):v.layers?.[kind],kind);
+ for(const kind of KINDS)layers[kind]=cleanArray((kind==='labels'||kind==='urban'||kind==='customObjects')?(v.layers?.[kind]||[]):v.layers?.[kind],kind);
+ let resources;try{resources=validateResourceManifest(v.resources||[])}catch(error){fail(error.message)}
+ if(resources.some(a=>!a.image))fail('La publicación debe incluir las imágenes de los recursos propios.');
  const modified=KINDS.reduce((n,k)=>n+layers[k].length,0);
  const labelScene=v.labelScene===undefined||v.labelScene===null?null:cleanArray(v.labelScene,'labels');
  const hasStart=Object.hasOwn(v,'startPose');
@@ -115,9 +123,19 @@ function sanitize(body){
    if(Object.hasOwn(v.arenalScene,kind))scene[kind]=cleanArray(v.arenalScene[kind],kind);
  }
  const removals=labelScene!==null||Object.keys(scene).length?number(v.total,modified,0,20000)-modified:0;
- if(!modified&&removals<=0&&!hasStart)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
+ if(!modified&&removals<=0&&!hasStart&&!v.authoringScene)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
  const draft={schema:'apulso-game-draft-v1',mapKey:key,createdAt:new Date().toISOString(),
-  layers,total:Math.max(1,modified+Math.max(0,removals)+(hasStart?1:0)),arenalScene:key==='RegresoArenal'?scene:null,labelScene,...(hasStart?{startPose}:{})};
+  layers,resources,total:Math.max(1,modified+Math.max(0,removals)+(hasStart?1:0)),arenalScene:key==='RegresoArenal'?scene:null,labelScene,...(hasStart?{startPose}:{})};
+ if(v.authoringScene!==undefined){
+  if(!/^native-\d+$/.test(key)||!v.authoringScene||typeof v.authoringScene!=='object')fail('Escena completa no válida.');
+  const input=v.authoringScene,authored={schema:'apulso-universal-editor-v2',metadata:{mapKey:key,map:string(input.metadata?.map||key,100),sourceType:'native',inheritNativeLimits:true,precisionGeometry:true},resources:resources.map(({image,...a})=>a)};
+  for(const kind of KINDS)authored[kind]=cleanArray(input[kind]||[],kind);
+  if(!authored.checkpoints.some(cp=>cp.finish))fail('Marca un checkpoint como llegada antes de publicar este mapa.');
+  const pose=input.startPose||input.paso;if(!pose)fail('Falta la salida de la escena completa.');authored.paso={x:number(pose.x,0,-2000,2000),y:number(pose.y,0,-2000,2000),angle:number(pose.angle,0,-360000,360000)};
+  if(input.bounds!==undefined)authored.bounds=input.bounds;
+  try{validateMapDocument(authored)}catch(error){fail(error.message)}draft.authoringScene=authored;
+ }
+ const available=new Set(resources.map(a=>a.id));for(const group of [layers,scene])for(const kind of KINDS)for(const o of group[kind]||[]){const id=o.assetId||(o.material?.startsWith('asset-')?o.material:null);if(id&&!available.has(id))fail('Falta una imagen utilizada en el mapa.');}
  if(Buffer.byteLength(JSON.stringify(draft))>MAX_BODY)fail('El mapa supera el tamaño máximo de publicación.',413);
  return draft;
 }

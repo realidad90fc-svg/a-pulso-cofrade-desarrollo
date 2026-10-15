@@ -94,12 +94,14 @@ async function startGame(scene=2,snapshot=null){
   }
   await loadSevilleTextures();
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
-  const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':cityPreview?'practice':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
+  let next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':cityPreview?'practice':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
   const publishedOrLocal=cityPreview?.isolated?null:cityPreview?.draft||await resolveEditorDraft(next);
   if(run!==loading)return;
-  const editorDraft=attachEditorDraft(next,cityPreview&&!cityPreview.isolated?withEditorStreetPoints(publishedOrLocal,cityPreview.document):publishedOrLocal);
+  const authoredNative=!!publishedOrLocal?.authoringScene;
+  if(authoredNative){map={...map,variant:{kind:'city',key:publishedOrLocal.mapKey,document:{...publishedOrLocal.authoringScene,resources:publishedOrLocal.resources||[]}}};next=new OriginalSimulation(map,step,resources,cityPreview?'practice':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot)}
+  const editorDraft=authoredNative?null:attachEditorDraft(next,cityPreview&&!cityPreview.isolated?withEditorStreetPoints(publishedOrLocal,cityPreview.document):publishedOrLocal);
   const spawnResult=editorDraft&&!snapshot&&editorDraft.startPose?applyEditorStart(next,editorDraft.startPose):null;
-  if(cityPreview&&!snapshot){
+  if((cityPreview||authoredNative)&&!snapshot){
    const inspection=spawnResult&&!spawnResult.ok?spawnResult:inspectEditorSpawn(next);
    if(!inspection.ok)throw Error('La salida marcada no es transitable: '+inspection.reason+'. Recoloca el inicio sobre la calzada o la acera en el editor.');
   }

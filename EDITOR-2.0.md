@@ -1,5 +1,25 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.1.0: recursos propios y dibujo preciso
+
+**Mis recursos** abre el importador de PNG, WebP o JPEG. Define nombre, categoría, ancho y fondo en metros, giro y colisión: ninguna, rectángulo o círculo para un tronco/poste. El visor muestra la imagen y la huella de colisión. Puedes conservar la proporción de la imagen, guardar el recurso y colocarlo individualmente o en filas con la separación de Vallas y sillas. Los pavimentos y cubiertas se eligen como materiales de sus superficies; si ya hay una superficie de esa categoría seleccionada, se aplica el material. La colisión de un edificio sigue su contorno y sus patios.
+
+Los recursos guardados aparecen automáticamente en **Visor de todos los elementos → Mis recursos**, con la misma imagen y escala que se usan en la partida. Las imágenes se adaptan a un máximo de 1024 píxeles conservando transparencia. Se guardan una sola vez en IndexedDB; los guardados automáticos contienen únicamente sus referencias. **Exportar mapa**, **Exportar ciudad completa** y la publicación incluyen las imágenes utilizadas. **Exportar catálogo de imágenes** permite trasladar también los recursos aún no colocados. Una importación con una imagen dañada no reemplaza parcialmente los recursos existentes. Las fotografías guía siguen en su almacén privado.
+
+**Dibujo preciso** reúne estas operaciones:
+
+- Medir distancia o anchura entre dos puntos, en metros y sin depender del zoom.
+- Ajustar a cuadrícula con paso configurable, a vértices o a bordes cercanos; Alt omite el ajuste temporalmente.
+- Introducir coordenadas X/Y exactas para un punto nuevo o un vértice seleccionado.
+- Añadir un vértice sobre un borde o eliminar una esquina, incluidos los contornos de patios.
+- Unir superficies de una misma capa, conservando el material de la primera; dividir una superficie marcando dos puntos de una recta.
+- Recortar patios y huecos dibujando su contorno y cerrándolo con Enter o el botón de terminar. Son huecos reales en el dibujo y en la colisión, con deshacer y rehacer.
+- Ajustar ancho/fondo de una repetición de textura, giro y distribución: repetir a tamaño real o ajustar una imagen a la superficie. Las medidas corresponden a la imagen completa, que puede contener varias baldosas o tejas.
+
+Las superficies, huecos, imágenes propias y colisiones se conservan al guardar, exportar, reabrir, probar y enlazar zonas. La prueba rechaza una salida sobre un hueco o dentro de un objeto con colisión. Los mapas clásicos con contornos de precisión se prueban usando su escena completa; para publicarlos, debe existir un checkpoint marcado como **Llegada del mapa**. Se mantienen los controles, modelos y límites de tiempo de los pasos originales. Los mapas clásicos sin cambios de contorno conservan su funcionamiento anterior.
+
+El recorte y las operaciones de polígonos usan polygon-clipping 0.15.7, incluido localmente con su licencia MIT en `assets/vendor/polygon-clipping-LICENSE.md`. Todas las nuevas herramientas y sus dependencias están incluidas en el instalador de Windows para funcionar sin conexión.
+
 ## Actualización 2.0.6: sillas de madera de Carrera Oficial
 
 La silla utiliza una textura cenital de madera barnizada color miel, con asiento de listones, respaldo abierto y herrajes discretos, basada en la construcción de la fotografía de referencia. La misma textura aparece en las miniaturas, el visor ampliado, las filas, el mapa y la partida. También se incluye sin conexión en Windows. Si la imagen no carga, se dibuja una silla de madera con listones separados.

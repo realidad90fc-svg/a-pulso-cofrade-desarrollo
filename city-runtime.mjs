@@ -6,6 +6,9 @@ import {paintCityScene} from './city-scene.mjs';
 import {inverse,multiply} from './original-scene.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {makeArenalPreviewDraft} from './editor-game-draft.mjs';
+import {shapeOnSurfaces} from './map-geometry.mjs';
+import {MAP_KINDS} from './editor-game-draft.mjs';
+import {registerCustomAssets} from './custom-assets.mjs';
 
 export function readCityPreview(search,storage){
  const params=new URLSearchParams(search),key=params.get('cityMap');if(!key)return null;
@@ -25,7 +28,7 @@ export function readCityPreview(search,storage){
  }
  return{key,name:document.metadata.zoneName||document.metadata.map||meta?.name||key,document,
   draft:makeArenalPreviewDraft(document),
-  isolated:meta?.type==='user'||!!zoneId||!!saved.zoneRefs?.length,
+  isolated:meta?.type==='user'||!!zoneId||!!saved.zoneRefs?.length||(meta?.type==='native'&&!!saved.metadata?.precisionGeometry),
   nativeId:meta?.nativeId||meta?.route?.mapId||CAMPAIGN_DATA.routes.find(r=>r.mapKey===key)?.mapId||1};
 }
 function samples(shape){
@@ -34,18 +37,18 @@ function samples(shape){
 }
 export class CityRoute{
  constructor(sim){
-  this.sim=sim;this.document=sim.map.variant.document;this.walkable=[...this.document.roads,...this.document.sidewalks].filter(o=>o.walkable!==false).map(o=>o.poly);
+  this.sim=sim;this.document=sim.map.variant.document;registerCustomAssets(this.document.resources||[]);this.surfaces=[...this.document.roads,...this.document.sidewalks].filter(o=>o.walkable!==false);this.walkable=this.surfaces.map(o=>o.poly);
   if(!this.walkable.length)throw Error('Dibuja al menos una calle o acera antes de probar este mapa.');
   this.checkpoints=(this.document.checkpoints||[]).map((cp,i)=>({...cp,id:cp.id||'city-control-'+i,radius:cp.radius||.65}));
   this.checkpointIds=[];this.finished=false;this.checkpointReached=false;
-  this.contacts=new RuntimeEditorDraft({mapKey:sim.map.variant.key,layers:{...Object.fromEntries(['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban'].map(k=>[k,this.document[k]||[]])),checkpoints:[]},total:1});
+  this.contacts=new RuntimeEditorDraft({mapKey:sim.map.variant.key,resources:this.document.resources||[],layers:{...Object.fromEntries(MAP_KINDS.map(k=>[k,this.document[k]||[]])),checkpoints:[]},total:1});
   sim.renderGraphs=sim.graphs.filter(g=>g!==sim.mapGraph);
   const start=this.document.startPose||this.document.paso;
   sim.setPosition(sim.stepEntity.transform,[start.x,start.y,0]);sim.setAngle(sim.stepEntity.transform,start.angle);
-  sim.controller.limiteActual=3600;sim.controller.limiteActual2=7200;
+  if(!this.document.metadata.inheritNativeLimits){sim.controller.limiteActual=3600;sim.controller.limiteActual2=7200;}
   this.follow();sim.vm.invoke('cameraController.LateUpdate',sim.cameraController);
  }
- validShape(shape){return samples(shape).every(p=>this.walkable.some(poly=>pointInPolygon(p,poly)))}
+ validShape(shape){return shapeOnSurfaces(samples(shape),this.surfaces)}
  follow(){const s=this.sim,p=s.position(s.stepEntity.transform),a=s.angle(s.stepEntity.transform)*Math.PI/180;
   for(const [e,d,turn]of [[s.capatazEntity,1.15,-90],[s.contraEntity,-1.3,90],...(s.cortejos||[]).map((e,i)=>[e,[3,-3,-4.5][i],0])])if(e){s.setPosition(e.transform,[p.x-Math.sin(a)*d,p.y+Math.cos(a)*d,0]);s.setAngle(e.transform,a*180/Math.PI+turn)}
  }

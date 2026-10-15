@@ -1,5 +1,6 @@
 import {textureImage,textureRevision} from './seville-textures.mjs';
 import {paintSevilleSurface} from './editor-seville-surfaces.mjs';
+import {traceSurface} from './map-geometry.mjs';
 
 // One material bitmap, measured in metres, used by editor, tile cache and
 // rotated gameplay cameras. No screen-pixel minimums in a world-space call.
@@ -14,6 +15,11 @@ function canvasFor(ctx){
 function materialTile(ctx,m){
  const key=m.id+':'+textureRevision();if(cache.has(key))return cache.get(key);
  const canvas=canvasFor(ctx),c=canvas?.getContext('2d');if(!c)return null;
+ if(m.assetId){
+  const image=textureImage(m.assetId);if(image)c.drawImage(image,0,0,SIZE,SIZE);
+  const result={canvas,metres:m.width,width:m.width,depth:m.depth,custom:true};
+  if(cache.size>=LIMIT)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
+ }
  const style=m.pattern||'slabs';
  const coarse=/slab|band|stone/.test(style),paving=/asphalt|concrete|albero/.test(style);
  const metres=style==='art-caliza'?1.8:style==='art-granite'?1.84:coarse?2.72:paving?2:1.84;
@@ -58,22 +64,34 @@ function materialTile(ctx,m){
  const result={canvas,metres};if(cache.size>=LIMIT)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
 }
 export function surfaceCacheSize(){return cache.size}
-export function paintWorldSurface(ctx,poly,m,pixel,visible=null){
+export function surfaceTextureDefaults(m){
+ const style=m?.pattern||'slabs',coarse=/slab|band|stone/.test(style),paving=/asphalt|concrete|albero/.test(style);
+ const width=m?.width||(style==='art-caliza'?1.8:style==='art-granite'?1.84:coarse?2.72:paving?2:1.84);
+ return{width,depth:m?.depth||width,angle:m?.angle||0,mode:'repeat'};
+}
+export function paintWorldSurface(ctx,poly,m,pixel,visible=null,options={}){
  if(!Array.isArray(poly)||poly.length<3||poly.some(p=>!Array.isArray(p)||!p.slice(0,2).every(Number.isFinite)))return false;
  const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);
  let area=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+ const fullArea=[...area];
  if(visible)area=[Math.max(area[0],visible[0]),Math.max(area[1],visible[1]),Math.min(area[2],visible[2]),Math.min(area[3],visible[3])];
  if(!(area[2]>area[0]&&area[3]>area[1]))return false;
- ctx.save();ctx.beginPath();poly.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();
- ctx.fillStyle=m.base;ctx.fill();ctx.clip();
+ ctx.save();traceSurface(ctx,{poly,holes:options.holes||[]},pixel);
+ ctx.fillStyle=m.base;ctx.fill('evenodd');ctx.clip('evenodd');
  const tile=materialTile(ctx,m),o=pixel(0,0),x=pixel(1,0),y=pixel(0,1);
  if(tile){
-  const pattern=ctx.createPattern(tile.canvas,'repeat');
+  const settings={...surfaceTextureDefaults(m),...options.texture},stretch=settings.mode==='stretch';
+  const pattern=ctx.createPattern(tile.canvas,stretch?'no-repeat':'repeat');
   if(pattern){
-   const units=SIZE/tile.metres;
-   ctx.transform((x[0]-o[0])/units,(x[1]-o[1])/units,(y[0]-o[0])/units,(y[1]-o[1])/units,o[0],o[1]);
+   const width=stretch?fullArea[2]-fullArea[0]:Math.max(.02,settings.width),depth=stretch?fullArea[3]-fullArea[1]:Math.max(.02,settings.depth);
+   const rad=settings.angle*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad),sign=tile.custom?-1:1;
+   const origin=stretch?[fullArea[0],tile.custom?fullArea[3]:fullArea[1]]:[0,0],anchor=pixel(...origin);
+   const xx=x[0]-o[0],xy=x[1]-o[1],yx=y[0]-o[0],yy=y[1]-o[1];
+   ctx.transform((xx*c+yx*s)*width/SIZE,(xy*c+yy*s)*width/SIZE,(-xx*s+yx*c)*depth/SIZE*sign,(-xy*s+yy*c)*depth/SIZE*sign,...anchor);
    ctx.fillStyle=pattern;ctx.imageSmoothingEnabled=true;
-   ctx.fillRect(area[0]*units,area[1]*units,(area[2]-area[0])*units,(area[3]-area[1])*units);
+   const corners=[[area[0],area[1]],[area[2],area[1]],[area[2],area[3]],[area[0],area[3]]].map(([px,py])=>{const dx=px-origin[0],dy=py-origin[1];return[(dx*c+dy*s)*SIZE/width,(-dx*s+dy*c)*SIZE/depth*sign]});
+   const xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),left=Math.min(...xs),bottom=Math.min(...ys);
+   ctx.fillRect(left,bottom,Math.max(...xs)-left,Math.max(...ys)-bottom);
   }
  }
  ctx.restore();return true;

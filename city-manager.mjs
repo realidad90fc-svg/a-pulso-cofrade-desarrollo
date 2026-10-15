@@ -1,6 +1,7 @@
 import {BROTHERHOODS} from './content-catalogue.mjs';
 import {CITY_KEY,CITY_SCHEMA,MAP_STORAGE_PREFIX,KINDS,readCityProject,persistCityProject,addCityMap,addCityZone,indexMapStreets,searchCityStreets,assignCityZone,affectedBrotherhoods,selectCityZone,resolveCityMap,transformMapDocument,polygonBounds,exportCityBundle,validateCityBundle,validateMapDocument,normalizeStreet} from './city-project.mjs';
 import {paintCityScene} from './city-scene.mjs';
+import {lightweightDocument,loadDocumentAssets} from './custom-assets.mjs';
 
 const el=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n};
 function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
@@ -24,7 +25,7 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   if(trail.has(key))throw Error('Enlace circular entre mapas.');
   const next=new Set(trail).add(key),doc=getDoc(key);
   for(const ref of doc.zoneRefs||[]){const zone=project.zones.find(z=>z.id===ref.zoneId);if(zone)saveCanonical(zone.mapKey,next)}
-  localStorage.setItem(MAP_STORAGE_PREFIX+key,JSON.stringify(doc));
+  localStorage.setItem(MAP_STORAGE_PREFIX+key,JSON.stringify(lightweightDocument(doc)));
  }
  const ensureIndex=()=>{for(const m of project.maps)indexMapStreets(project,getDoc(m.key))};
  const open=(which=tab)=>{saveLocal();ensureIndex();persist();tab=which;render();if(!modal.open)modal.showModal()};
@@ -59,7 +60,8 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   importFile.onchange=guard(async()=>{const f=importFile.files?.[0];if(!f)return;if(f.size>24000000)throw Error('El archivo es demasiado grande.');const doc=JSON.parse(await f.text());validateMapDocument(doc);
    const existing=project.maps.find(m=>m.key===doc.metadata.mapKey);
    if(existing){notice('Ese mapa ya existe: abierto para que puedas importar sus cambios desde el editor.');modal.close();openMap(existing.key);return}
-   const result=transaction(()=>{const x=addCityMap(project,{name:doc.metadata.map||f.name.replace(/\.json$/,''),barrio:doc.metadata.barrio},doc);localStorage.setItem(MAP_STORAGE_PREFIX+x.meta.key,JSON.stringify(x.document));return x});onRegisterMap(result.meta);modal.close();onNewDocument(result.meta.key,result.document);
+   await loadDocumentAssets(doc,{persist:true});
+   const result=transaction(()=>{const x=addCityMap(project,{name:doc.metadata.map||f.name.replace(/\.json$/,''),barrio:doc.metadata.barrio},doc);localStorage.setItem(MAP_STORAGE_PREFIX+x.meta.key,JSON.stringify(lightweightDocument(x.document)));return x});onRegisterMap(result.meta);modal.close();onNewDocument(result.meta.key,result.document);
   });
   $('city-form').append(form,importLabel,button('Registrar zona del mapa abierto',()=>openZoneForm()));
   function paint(query=''){
@@ -150,7 +152,8 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   const bundle=validateCityBundle(JSON.parse(await file.text()));
   if(!confirm('¿Restaurar esta ciudad? Los mapas con el mismo identificador se actualizarán. Exporta antes tu ciudad si quieres conservar la versión actual.'))return;
   const before=new Map();try{
-   for(const [key,doc]of Object.entries(bundle.documents)){const k=MAP_STORAGE_PREFIX+key;before.set(k,localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(doc))}
+   for(const doc of Object.values(bundle.documents))await loadDocumentAssets(doc,{persist:true});
+   for(const [key,doc]of Object.entries(bundle.documents)){const k=MAP_STORAGE_PREFIX+key;before.set(k,localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(lightweightDocument(doc)))}
    before.set(CITY_KEY,localStorage.getItem(CITY_KEY));localStorage.setItem(CITY_KEY,JSON.stringify(bundle.project));
   }catch(error){for(const [key,value]of [...before].reverse())value===null?localStorage.removeItem(key):localStorage.setItem(key,value);throw Error('No se ha restaurado la ciudad. Falta espacio; tus datos anteriores se han conservado.');}
   project=bundle.project;for(const map of project.maps)if(!catalog.some(m=>m.key===map.key))onRegisterMap(map);

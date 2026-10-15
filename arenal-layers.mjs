@@ -296,7 +296,7 @@ export function paintArenalScene(route,ctx,images,r){
   // user-defined road material. Do not paint raw grey rectangles.
   // Crucial: respect all editor-chosen materials on the same road polygon.
   drawSurface(ctx,road,'roads',selected?.material||'road-art-granite',
-   (x,y)=>[px(x),py(y)],p,floor,r);
+   (x,y)=>[px(x),py(y)],p,floor,r,selected||{});
  }
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
  for(const sw of route.sidewalks){
@@ -305,7 +305,7 @@ export function paintArenalScene(route,ctx,images,r){
   // unstyled Arenal pavement was a barely visible grey 0.22 m grid.
   // Explicit editor choices take absolute priority over this default.
   drawSurface(ctx,sw.poly,'sidewalks',
-   sw.material||'sidewalk-art-caliza',(x,y)=>[px(x),py(y)],p,floor,r);
+   sw.material||'sidewalk-art-caliza',(x,y)=>[px(x),py(y)],p,floor,r,sw);
  }
  // Nivel superior: los tejados se dibujan sobre cualquier acera superpuesta.
  // Los edificios quedan matemáticamente recortados fuera de la calle,
@@ -318,7 +318,7 @@ export function paintArenalScene(route,ctx,images,r){
   // building had no explicit material. Render residential roofs using the
   // same proper top-down renderer as the editor instead. The native parcel
   // shape, tile painter, road layer and ALL physics remain unchanged.
-  const assigned=typeof lot.material==='string'&&/^(realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material);
+  const assigned=typeof lot.material==='string'&&/^(asset-|realista-|sevilla-|roof-|landmark-|temple-)/.test(lot.material);
   const isMaestranza=lot.kind==='maestranza';
   if(assigned||lot.kind==='historic'||isMaestranza){
    const spriteId=Number(String(lot.key||'').split(':').at(-1));

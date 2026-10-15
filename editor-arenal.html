@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de Sevilla 2.0.6 · A Pulso Cofrade</title>
+<title>Taller de Sevilla 2.1.0 · A Pulso Cofrade</title>
+<link rel="stylesheet" href="./editor-tools.css">
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -59,7 +60,7 @@
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de Sevilla · A Pulso 2.0.6</strong><span>Mapas, calles compartidas y hermandades</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 2.1.0</strong><span>Recursos propios, dibujo preciso y ciudad compartida</span></div>
  </div>
  <div class="title-actions">
   <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
@@ -91,6 +92,8 @@
  <button data-tool="erase">◌ Borrar</button>
  <button data-tool="paso">✦ Probar paso</button>
  <button data-tool="reference">▧ Ajustar foto</button>
+ <button id="open-custom-resources" type="button">＋ Mis recursos</button>
+ <button id="open-precision-tools" type="button">📐 Precisión</button>
  <span class="toolbar-separator"></span>
  <button id="undo">↶ Deshacer</button>
  <button id="redo">↷ Rehacer</button>
@@ -172,6 +175,7 @@
     <label class="flag"><input id="fences-on" type="checkbox" checked> Vallas rojas</label>
     <label class="flag"><input id="chairs-on" type="checkbox" checked> Sillas</label>
     <label class="flag"><input id="checkpoints-on" type="checkbox" checked> Checkpoints</label>
+    <label class="flag"><input id="custom-on" type="checkbox" checked> Objetos importados</label>
     <p class="muted">Desactiva una capa para dibujar exactamente debajo de ella.</p>
    </div>
   </details>
@@ -483,7 +487,7 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=sillas-madera-carrera-2.0.6"></script>
+<script type="module" src="./editor-arenal.mjs?rev=recursos-precision-2.1.0"></script>
 <script type="module" src="./editor-mobile-ui.mjs"></script>
 </body>
 </html>

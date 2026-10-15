@@ -23,6 +23,11 @@ import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
 import {paintArenalGround} from './editor-arenal-ground.mjs';
 import {streetTriggerRadius,drawStreetTriggerGuide} from './street-identifiers.mjs';
+import {initializeCustomAssets,registerCustomAssets,loadDocumentAssets,resourceManifest,lightweightDocument,embedDocumentAssets,assetById,isAssetId,newCustomObject,drawCustomObject,customObjectContains} from './custom-assets.mjs';
+import {setupCustomAssetUI} from './editor-custom-assets-ui.mjs';
+import {setupPrecisionTools} from './editor-precision.mjs';
+import {inSurface,surfaceRings,traceSurface,validSurface,shapeOnSurfaces} from './map-geometry.mjs';
+let customAssetUI,precisionTools;
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -62,7 +67,7 @@ function setSelection(items){
   $('roof-inset-value').textContent=inset.toFixed(3).replace('.',',')+' m';
   previewRoofDetail();
  }
- updateCounts();visualPanels?.refreshSelected();cityManager?.refreshSelected();requestDraw();
+ updateCounts();visualPanels?.refreshSelected();cityManager?.refreshSelected();precisionTools?.refresh();requestDraw();
 }
 function clearSelection(){setSelection([])}
 function savedStart(){return data?.startPose||data?.paso}
@@ -87,13 +92,24 @@ function deleteSelected(){
 function updateCounts(){
  if(!data)return;
  $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas · '+count('labels')+' nombres · '+count('urban')+' urbanos';
- $('tool-name').textContent=({pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',urban:'Urbanismo sevillano',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
+ $('tool-name').textContent=({custom:'Colocar recurso propio','custom-row':'Fila de recursos propios',measure:'Medir distancia o anchura',split:'Dividir superficie',hole:'Recortar patio','vertex-add':'Añadir vértice','vertex-remove':'Eliminar vértice',pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',urban:'Urbanismo sevillano',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
  const chosen=state.selectedItems.length;
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
 }
 function nameOf(type){return{roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle',urban:'Elemento urbano'}[type]||type}
+function chooseCustomAsset(asset,row=false){
+ state.customAssetId=asset.id;delete state.pendingTexture;
+ if(['roads','sidewalks','houses'].includes(asset.category)){
+  const field={roads:'roadMaterial',sidewalks:'sidewalkMaterial',houses:'material'}[asset.category];state[field]=asset.id;
+  const selected=state.selectedItems.filter(s=>s.type===asset.category);
+  if(selected.length){snapshot();for(const s of selected){data[s.type][s.index].material=asset.id;delete data[s.type][s.index].texture}changed()}
+  configureTool({roads:'road',sidewalks:'sidewalk',houses:'house'}[asset.category]);precisionTools?.refresh();
+ }else configureTool(row?'custom-row':'custom');
+ void customAssetUI?.selectById(asset.id);
+ placementPreviews?.showCustom();requestDraw();
+}
 function snapshot(){
  if(!data)return;
  state.history.push(JSON.stringify(data));
@@ -101,12 +117,13 @@ function snapshot(){
  state.future.length=0;
 }
 function changed(){
+ if(data)data.resources=resourceManifest(data,false);
  state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();vegetationPreview?.sync();
  clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);
 }
 function saveLocal(){
  if(!data)return;
- try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(data,baseline)));state.unsaved=false;cityManager?.saveIndex();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
+ try{const stored=lightweightDocument(data);localStorage.setItem(storageFor(activeMap),JSON.stringify(stored));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(stored,baseline)));state.unsaved=false;cityManager?.saveIndex();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
@@ -137,8 +154,8 @@ function inPolygon(point,poly){
 // Preview and validation share the same ground rules as the live game.
 // Pavements are traversable, never impassable edges of the carriageway.
 function onTraversableSurface(p){
- return (data?.roads||[]).some(o=>o.poly&&inPolygon(p,o.poly))
-  ||(data?.sidewalks||[]).some(o=>o.poly&&inPolygon(p,o.poly));
+ return (data?.roads||[]).some(o=>o.poly&&inSurface(p,o))
+  ||(data?.sidewalks||[]).some(o=>o.poly&&inSurface(p,o));
 }
 function polygon(poly){
  ctx.beginPath();
@@ -173,9 +190,9 @@ const material=typeof key==='string'&&key!==''
  ?base.id:'roof-'+baseIndex+'-'+variant%4;
  drawRoof(ctx,poly,material,pixel,getImage,view.zoom,roofOptions);
 }
-function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id){
+function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id,options={}){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
- drawSurface(ctx,poly,kind,material,pixel,view.zoom,getImage(FLOOR_KEY),visualBounds());
+ drawSurface(ctx,poly,kind,material,pixel,view.zoom,getImage(FLOOR_KEY),visualBounds(),options);
 }
 function drawPeople(){
  const v=visualBounds();
@@ -193,7 +210,8 @@ function drawPeople(){
 }
 function drawGrid(){
  if(!$('grid-on').checked)return;
- const v=visualBounds(),step=view.zoom>36?1:2;
+ const v=visualBounds(),requested=$('precision-grid')?.checked?Math.max(.01,Number($('precision-step').value)||.1):view.zoom>36?1:2;
+ const step=requested*Math.max(1,Math.ceil(5/(requested*view.zoom)));
  ctx.strokeStyle='rgba(255,255,255,.09)';ctx.lineWidth=1;
  for(let x=Math.floor(v[0]/step)*step;x<v[2];x+=step){
   const p=pixel(x,0)[0];ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,view.h);ctx.stroke();
@@ -227,12 +245,12 @@ function renderStaticScene(){
  const curbDefault=isArenal?'sidewalk-art-caliza':'sidewalk-art-caliza';
  if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){
   const o=data.roads[i];
-  drawFloor(o.poly,'roads',o.material||roadDefault||ROAD_MATERIALS[i%12].id);
+  drawFloor(o.poly,'roads',o.material||roadDefault||ROAD_MATERIALS[i%12].id,o);
  }
  if($('sidewalks-on').checked){
   for(let i=0;i<data.sidewalks.length;i++){
    const o=data.sidewalks[i];
-   drawFloor(o.poly,'sidewalks',o.material||curbDefault||SIDEWALK_MATERIALS[i%12].id);
+   drawFloor(o.poly,'sidewalks',o.material||curbDefault||SIDEWALK_MATERIALS[i%12].id,o);
   }
  }
  if($('houses-on').checked){
@@ -251,6 +269,7 @@ function renderStaticScene(){
  if($('chairs-on').checked)for(const c of data.chairs||[])drawFurniture(ctx,c,'chair',pixel,view.zoom);
  if($('signs-on').checked)for(const t of data.signs||[])drawTrafficSign(ctx,t,pixel,view.zoom);
  if($('urban-on').checked)for(const o of data.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
+ if($('custom-on')?.checked!==false)for(const o of data.customObjects||[])drawCustomObject(ctx,o,pixel,view.zoom);
  drawGrid();
  if(!showMaterialsAbovePhotos)photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[])drawCheckpointGuide(ctx,cp,pixel,view.zoom);
@@ -295,8 +314,9 @@ function draw(){
   for(let i=0;i<count;i++){const t=count<=1?0:i/(count-1),world=[a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t];if(personBlockedByTrees(world,data.trees))continue;const pos=pixel(...world);ctx.beginPath();ctx.arc(...pos,3,0,Math.PI*2);ctx.fillStyle='#ffdfa6';ctx.fill()}
   ctx.restore();
  }
- if(state.drag?.action==='furniture-row'){
+ if(state.drag?.action==='furniture-row'||state.drag?.action==='custom-row'){
   const a=state.drag,q=pixel(...a.start),p=pixel(...a.end);ctx.strokeStyle='#ef7264';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(...q);ctx.lineTo(...p);ctx.stroke();
+  if(a.action==='custom-row'&&a.asset){const span=dist(a.start,a.end),n=Math.min(120,Math.floor(span/(+$('furniture-spacing').value||.7))+1),angle=Math.atan2(a.end[1]-a.start[1],a.end[0]-a.start[0])*180/Math.PI;for(let i=0;i<n;i++){const t=n<=1?0:i/(n-1),o=newCustomObject(a.asset,[a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t]);o.angle+=angle;drawCustomObject(ctx,o,pixel,view.zoom)}}
  }
  if(state.working.length){
   const line=state.working.map(p=>pixel(...p));
@@ -311,11 +331,12 @@ function draw(){
   if(selection.type==='labels'&&Array.isArray(item)){
    const p=pixel(...item[1]);ctx.save();ctx.font='600 12px system-ui';const w=Math.max(22,ctx.measureText(item[0]).width);ctx.strokeRect(p[0]+3,p[1]-14,w+8,19);ctx.restore();
   }else if(item.poly){
-   polygon(item.poly);ctx.stroke();
-   if(state.selectedItems.length===1)for(const q of item.poly){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-4,p[1]-4,8,8)}
+   traceSurface(ctx,item,pixel);ctx.stroke();
+   if(state.selectedItems.length===1)for(const ring of surfaceRings(item))for(const q of ring){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-4,p[1]-4,8,8)}
   }else if(item.point||item.position){
    if(selection.type==='fences'||selection.type==='chairs')drawFurniture(ctx,item,selection.type==='fences'?'fence':'chair',pixel,view.zoom,true);
     else if(selection.type==='urban')drawUrbanElement(ctx,item,pixel,view.zoom,true);
+    else if(selection.type==='customObjects')drawCustomObject(ctx,item,pixel,view.zoom,true);
    else {const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],7,0,Math.PI*2);ctx.stroke()}
   }
  }
@@ -375,11 +396,11 @@ function drawPaso(){
   ctx.strokeStyle='#ffdc83';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(...tip);ctx.lineTo(...handle);ctx.stroke();
   ctx.fillStyle='#142b36';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.fillText('↻',...handle);
-  const okay=corners.every(onTraversableSurface);
+  const okay=shapeOnSurfaces(corners,[...data.roads,...data.sidewalks]);
   $('paso-test').textContent=!(data.roads.length+data.sidewalks.length)?'Dibuja calzada o acera bajo el paso':okay?'Paso sobre superficie transitable (calzada o acera)':'Paso fuera de la calzada y las aceras';
   $('paso-test').dataset.ok=okay?'yes':'no';
  }
- ctx.restore();
+ ctx.restore();precisionTools?.overlay(ctx);
 }
 function requestDraw(overlayOnly=false){
  placementPreviews?.sync();
@@ -414,8 +435,9 @@ $('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 function configureTool(name){
  state.tool=name;state.working=[];state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
- $('finish-shape').disabled=!['road','house','sidewalk'].includes(name);
+ $('finish-shape').disabled=!['road','house','sidewalk','hole'].includes(name);
  updateCounts();requestDraw();
+ document.dispatchEvent(new Event('editor-tool-selected'));
 }
 function zoomAt(factor,loc=[view.w/2,view.h/2]){
  const before=world(...loc);
@@ -430,6 +452,7 @@ function focusAt(x,y,zoom){
  requestDraw();
 }
 function selectAt(p,px){
+ if($('custom-on')?.checked!==false)for(let i=(data.customObjects||[]).length-1;i>=0;i--)if(customObjectContains(data.customObjects[i],p,5/view.zoom))return{type:'customObjects',index:i,vertex:-1};
  if($('labels-on').checked){
   const c=pixel(...p);ctx.save();ctx.font='600 12px system-ui';
   for(let i=data.labels.length-1;i>=0;i--){
@@ -464,8 +487,8 @@ function selectAt(p,px){
   const arr=data[type];
   for(let i=arr.length-1;i>=0;i--){
    const item=arr[i];
-   for(let n=0;n<item.poly.length;n++)if(dist(item.poly[n],p)<11/view.zoom)return{type,index:i,vertex:n};
-   if(inPolygon(p,item.poly))return{type,index:i,vertex:-1};
+   for(const [ringIndex,ring]of surfaceRings(item).entries())for(let n=0;n<ring.length;n++)if(dist(ring[n],p)<11/view.zoom)return{type,index:i,vertex:n,ring:ringIndex};
+   if(inSurface(p,item))return{type,index:i,vertex:-1};
   }
  }
  return null;
@@ -498,6 +521,7 @@ function appendPerson(q){
  return true;
 }
 function selectionVisibility(type){
+ if(type==='customObjects')return $('custom-on')?.checked!==false;
  return $( {roads:'roads-on',sidewalks:'sidewalks-on',houses:'houses-on',
   people:'public-on',trees:'trees-on',fences:'fences-on',chairs:'chairs-on',
   signs:'signs-on',checkpoints:'checkpoints-on',labels:'labels-on',urban:'urban-on'}[type]).checked;
@@ -532,15 +556,19 @@ function eraseAt(p){
  if(chosen){data[chosen.type].splice(chosen.index,1);clearSelection();changed()}
 }
 function finishPolygon(){
+ if(precisionTools?.finish())return;
  if(state.working.length<3){show('Marca al menos 3 puntos para cerrar el polígono.','error');return}
  const kind={road:'roads',sidewalk:'sidewalks',house:'houses'}[state.tool];
  if(!kind)return;
  const poly=state.working.map(a=>a.map(x=>Math.round(x*100)/100));
+ if(!validSurface({poly})){show('El contorno tiene cruces o vértices duplicados. Corrígelo antes de cerrar.','error');return}
  const a=Math.abs(poly.reduce((v,p,i)=>{const q=poly[(i+1)%poly.length];return v+p[0]*q[1]-p[1]*q[0]},0))/2;
  if(a<.015){show('Polígono demasiado estrecho o cruzado. Corrige sus puntos.','error');return}
  snapshot();
  const roof=roofById(state.material);
+ data.metadata.precisionGeometry=true;
  data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value,roofBorder:$('roof-border').value,roofSimplify:$('roof-simplify').checked,roofSeed:residentialSeed(poly,data.houses.length)}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
+ if(state.pendingTexture)data[kind].at(-1).texture={...state.pendingTexture};
  state.working=[];changed();
  if(kind==='houses'){
   advanceRoof();
@@ -572,7 +600,13 @@ function pointerDown(e){
   state.pinch={gap:dist(arr[0],arr[1]),mid:[(arr[0][0]+arr[1][0])/2,(arr[0][1]+arr[1][1])/2],zoom:view.zoom};
   state.drag=null;return;
  }
- const q=world(...pos);state.mouseWorld=q;
+ const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;
+ if(precisionTools?.down(q))return;
+ if(state.tool==='custom'){
+  const asset=assetById(state.customAssetId);if(!asset){show('Importa y guarda un recurso antes de colocarlo.','error');return}
+  snapshot();data.customObjects.push(newCustomObject(asset,q));changed();return;
+ }
+ if(state.tool==='custom-row'){state.drag={action:'custom-row',start:q,end:q,asset:assetById(state.customAssetId)};return}
  if(state.tool==='pan'){state.drag={action:'pan',pos};return}
  if(state.tool==='reference'){photoGuides?.pointerDown(pos);return}
  if(state.tool==='paso'){
@@ -653,9 +687,9 @@ function pointerMove(e){
   zoomAt(gap/state.pinch.gap,[(pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2]);
   state.pinch.gap=gap;return;
  }
- const q=world(...pos);state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
+ const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
  if(state.tool==='reference'){photoGuides?.pointerMove(pos);return}
- if(!state.drag||!known){if(state.tool==='people'||state.working.length)requestDraw(true);return}
+ if(!state.drag||!known){if(state.tool==='people'||state.working.length||precisionTools?.uses(state.tool))requestDraw(true);return}
  const a=state.drag,dx=(pos[0]-(a.pos?.[0]??pos[0]))/view.zoom,
   dy=-(pos[1]-(a.pos?.[1]??pos[1]))/view.zoom;
  if(a.action==='pan'){view.cx-=dx;view.cy-=dy;a.pos=pos;requestDraw();return}
@@ -668,7 +702,7 @@ function pointerMove(e){
   return;
  }
  if(a.action==='erase'){eraseAt(q);return}
- if(a.action==='furniture-row'||a.action==='people-row'||a.action==='urban-mark'){a.end=q;requestDraw();return}
+ if(a.action==='furniture-row'||a.action==='people-row'||a.action==='urban-mark'||a.action==='custom-row'){a.end=q;requestDraw(true);return}
  if(a.action==='paso'){state.paso.x=q[0];state.paso.y=q[1];changed();return}
  if(a.action==='rotate-paso'){
   const p=state.paso||data.paso,angle=mouseAngle([p.x,p.y],q),step=angleDelta(a.angle,angle);
@@ -691,13 +725,20 @@ function pointerMove(e){
   if(!a.moved){snapshot();a.moved=true}
   if(a.items.length===1&&a.selection.vertex>=0){
    const obj=data[a.selection.type]?.[a.selection.index];
-   if(obj?.poly?.[a.selection.vertex])obj.poly[a.selection.vertex]=q.map(x=>+x.toFixed(3));
+   if(obj?.poly){
+    const candidate=structuredClone(obj),ring=surfaceRings(candidate)[a.selection.ring||0];
+    if(ring?.[a.selection.vertex]){ring[a.selection.vertex]=q.map(x=>+x.toFixed(4));if(validSurface(candidate)){data[a.selection.type][a.selection.index]=candidate;data.metadata.precisionGeometry=true}else show('Ese movimiento cruzaría bordes o dejaría el patio fuera.','error')}
+   }
   }else translateSelections(data,a.items,dx,dy);
   a.pos=pos;changed();
  }
 }
 function pointerUp(e){
  const a=state.drag,ending=e.type!=='pointercancel';
+ if(ending&&a?.action==='custom-row'&&a.asset){
+  snapshot();const len=dist(a.start,a.end),spacing=Math.max(.05,Number($('furniture-spacing').value)||.7),n=Math.min(500,Math.floor(len/spacing)+1),angle=Math.atan2(a.end[1]-a.start[1],a.end[0]-a.start[0])*180/Math.PI;
+  for(let i=0;i<n;i++){const t=n<=1?0:i/(n-1),item=newCustomObject(a.asset,[a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t]);item.angle=(item.angle+angle)%360;data.customObjects.push(item)}changed();
+ }
  if(ending&&a?.action==='urban-mark'){
   snapshot();data.urban.push(crosswalkFromDrag(a.type,a.start,a.end,Number($('urban-depth').value)));
   changed();show(urbanName(a.type)+' colocado. Puedes girarlo o deshacerlo con Ctrl+Z.','good');
@@ -733,7 +774,7 @@ function pointerUp(e){
  requestDraw();
 }
 function downloadJSON(){
- const output={...data,metadata:{...data.metadata,exportedAt:new Date().toISOString()}};
+ const output=embedDocumentAssets({...data,metadata:{...data.metadata,exportedAt:new Date().toISOString()}});
  const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='apulso-'+activeMap.toLowerCase().replace(/[^a-z0-9-]/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
@@ -745,7 +786,10 @@ function setData(loaded){
  for(const type of ['roads','houses','sidewalks'])
   if(loaded[type].some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.some(x=>!Array.isArray(x)||!Number.isFinite(x[0])||!Number.isFinite(x[1]))))throw new Error('Hay polígonos inválidos en '+type);
  validateMapDocument(loaded);
+ registerCustomAssets(loaded.resources||[]);
  data=loaded;clearSelection();state.history=[];state.future=[];
+ data.customObjects??=[];
+ void loadDocumentAssets(data,{persist:true}).then(()=>{customAssetUI?.refresh();requestDraw()}).catch(error=>show(error.message,'error'));
  if(!data.paso)data.paso={...baseline.paso};
  if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
  if(!data.labels)data.labels=[];
@@ -794,6 +838,7 @@ function roofsInCategory(group=$('roof-category').value){
   group==='landmark'?LANDMARK_ROOF_MATERIALS:ROOF_MATERIALS.filter(item=>group==='extra'?item.family!==0:item.family===0);
 }
 function advanceRoof(){
+ if(isAssetId(state.material))return;
  state.material=nextRoofId(roofsInCategory(),state.material,$('roof-mode').value);
  palette();
 }
@@ -999,7 +1044,7 @@ function bind(){
  $('map-select').onchange=()=>switchMap($('map-select').value);
  $('import').onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
-  try{let obj=JSON.parse(await file.text());if(activeMap===DEFAULT_MAP&&obj?.schema==='apulso-arenal-manual-v1')obj={...obj,schema:SCHEMA,metadata:{...baseline.metadata},trees:obj.trees||baseline.trees,signs:obj.signs||baseline.signs,checkpoints:obj.checkpoints||baseline.checkpoints,bounds:obj.bounds||baseline.bounds};setData(obj);show('Mapa importado. No altera el juego publicado.','good')}
+  try{let obj=JSON.parse(await file.text());if(activeMap===DEFAULT_MAP&&obj?.schema==='apulso-arenal-manual-v1')obj={...obj,schema:SCHEMA,metadata:{...baseline.metadata},trees:obj.trees||baseline.trees,signs:obj.signs||baseline.signs,checkpoints:obj.checkpoints||baseline.checkpoints,bounds:obj.bounds||baseline.bounds};validateMapDocument(obj);await loadDocumentAssets(obj,{persist:true});setData(obj);show('Mapa importado con sus recursos propios. No altera el juego publicado.','good')}
   catch(err){show('No se pudo importar: '+err.message,'error')}
   e.target.value='';
  };
@@ -1033,13 +1078,13 @@ function bind(){
  canvas.addEventListener('pointerdown',pointerDown);
  canvas.addEventListener('pointermove',pointerMove);
  canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',pointerUp);
- canvas.addEventListener('dblclick',e=>{if(['road','house','sidewalk'].includes(state.tool)){e.preventDefault();finishPolygon()}});
+ canvas.addEventListener('dblclick',e=>{if(['road','house','sidewalk','hole'].includes(state.tool)){e.preventDefault();finishPolygon()}});
  canvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY>0?.85:1.15,pointEvent(e))},{passive:false});
  window.addEventListener('keydown',e=>{
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){state.working=[];photoGuides?.cancelCalibration();clearSelection();requestDraw()}
+  if(e.key==='Escape'){state.working=[];precisionTools?.cancel();photoGuides?.cancelCalibration();clearSelection();requestDraw()}
   if(e.key==='Delete'||e.key==='Backspace')deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);
@@ -1048,8 +1093,8 @@ function bind(){
 }
 function validate(){
  const warnings=[];
- const inRoad=p=>data.roads.some(x=>inPolygon(p,x.poly));
- const inHouse=p=>data.houses.some(x=>inPolygon(p,x.poly));
+ const inRoad=p=>data.roads.some(x=>inSurface(p,x));
+ const inHouse=p=>data.houses.some(x=>inSurface(p,x));
  let pedestrianHouse=0,pedestrianRoad=0;
  for(const person of data.people){if(inHouse(person.point))pedestrianHouse++;if(inRoad(person.point))pedestrianRoad++}
  let roofsOnRoad=0;
@@ -1060,7 +1105,7 @@ function validate(){
  if(roofsOnRoad)warnings.push(roofsOnRoad+' edificios invaden o tocan el camino');
  if(pedestrianHouse)warnings.push(pedestrianHouse+' personas aparecen dentro de edificios');
  const paso=state.paso||data.paso,footprint=pasoFootprint(paso);
- if(!footprint.every(onTraversableSurface))warnings.push('El paso de prueba queda fuera de la calzada y las aceras');
+ if(!shapeOnSurfaces(footprint,[...data.roads,...data.sidewalks]))warnings.push('El paso de prueba queda fuera de la calzada y las aceras o cubre un hueco');
  const result=$('validation');result.innerHTML='';
  const heading=document.createElement('strong');heading.textContent=warnings.length?'Revisión: '+warnings.length+' advertencias':'Comprobaciones básicas superadas';
  result.appendChild(heading);
@@ -1130,6 +1175,7 @@ async function init(){
   const values=await Promise.all(responses.map(response=>response.json()));
   animationData=values[0];nativeMaps=values[1].maps||[];sprites=animationData.sprites;
   await loadSevilleTextures();
+  await initializeCustomAssets();
   for(const key of [...HOUSE_KEYS,FLOOR_KEY,'sharedassets2.assets:379','sharedassets2.assets:563'])spriteFor(key);
   const selector=$('map-select');
   for(const groupName of ['Recorridos de A Pulso','Mapas clásicos del APK']){
@@ -1149,6 +1195,12 @@ async function init(){
      requestDraw();
     }});
   palette();setupUrbanPalette();bind();
+  precisionTools=setupPrecisionTools({state,getData:()=>data,snapshot,changed,requestDraw,show,setSelection,configureTool,pixel,getZoom:()=>view.zoom});
+  customAssetUI=setupCustomAssetUI({choose:chooseCustomAsset,changed,show,refresh:()=>placementPreviews?.redraw()});
+  document.addEventListener('editor-custom-choose',event=>{const a=assetById(event.assetId);if(a)chooseCustomAsset(a)});
+  $('custom-on').onchange=requestDraw;
+  const openPanel=id=>{const p=$(id);p.open=true;document.dispatchEvent(Object.assign(new Event('editor-open-panel'),{panelId:id}));p.scrollIntoView?.({block:'start',behavior:'smooth'})};
+  $('open-custom-resources').onclick=()=>openPanel('custom-assets-panel');$('open-precision-tools').onclick=()=>openPanel('precision-panel');
   visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,
    getFloorImage:()=>getImage(FLOOR_KEY),applySurface:applySurfaceToSelection});
   vegetationPreview=setupVegetationPreviews({state,getImage});
@@ -1157,7 +1209,7 @@ async function init(){
    getPaso:()=>state.paso||data?.paso,getFacade:()=>visualPanels.readInputs(),
    getPhotos:()=>photoGuides?.previewItems()||[],selectPhoto:id=>photoGuides?.selectPreview(id)});
   const treeImage=spriteFor('sharedassets2.assets:563');
-  onTextureReady(key=>{if(key.startsWith('tree-')||key==='chair-carrera')requestDraw()});
+  onTextureReady(key=>{if(key.startsWith('tree-')||key==='chair-carrera'||isAssetId(key))requestDraw()});
   if(treeImage&&!treeImage.complete)treeImage.addEventListener('load',()=>vegetationPreview?.redraw(),{once:true});
   // The native asphalt grain sprite may arrive after the editor UI: update
   // the thumbnails once, so the gallery matches the finished map texture.

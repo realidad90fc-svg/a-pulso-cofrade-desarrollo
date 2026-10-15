@@ -3,6 +3,7 @@ import {URBAN_ITEMS} from './editor-urban-elements.mjs';
 import {getFacadePreset} from './editor-facades.mjs';
 import {textureRevision} from './seville-textures.mjs';
 import {paintPlacementPreview} from './editor-placement-preview-render.mjs';
+import {listCustomAssets} from './custom-assets.mjs';
 
 // Reuses existing tool/options actions, including applying a material to an
 // already selected surface. No objects or photo transforms are created here.
@@ -36,6 +37,7 @@ export function setupPlacementPreviews({state,getImage,spriteDims,getRoofs,choos
   {id:'facade-details',name:'Macetas y colgaduras',tools:['select'],tool:'select',adjust:'facade-flowers',items:()=>[{id:'none',name:'Sin macetas ni colgaduras'},{id:'flowers',name:'Macetas con flores'},{id:'hangings',name:'Colgaduras de Semana Santa'},{id:'both',name:'Macetas y colgaduras'}],selected:()=>$('facade-flowers').checked?$('facade-hangings').checked?'both':'flowers':$('facade-hangings').checked?'hangings':'none',spec:item=>({...facade(),facade:{...facade().facade,balcony:facade().facade.balcony==='none'?'individual':facade().facade.balcony,flowers:['flowers','both'].includes(item.id),hangings:['hangings','both'].includes(item.id)}}),choose:item=>{if(value('facade-balcony')==='none')pick('facade-balcony','individual');for(const [id,enabled]of [['facade-flowers',['flowers','both'].includes(item.id)],['facade-hangings',['hangings','both'].includes(item.id)]]){$(id).checked=enabled;$(id).dispatchEvent(new Event('input',{bubbles:true}))}}},
   {id:'reference',name:'Fotografías guía',tools:['reference'],tool:'reference',adjust:'reference-file',items:()=>{const photos=getPhotos();return photos.length?photos:[{id:'empty',name:'Añade una fotografía guía'}]},selected:()=>getPhotos().find(p=>p.selected)?.id||'empty',spec:item=>({kind:'reference',id:item.id,image:item.image,angle:item.rotation||0,opacity:item.opacity}),choose:item=>{if(item.id!=='empty')selectPhoto(item.id)},note:'Vista de la foto privada seleccionada. Elegir una miniatura no cambia su tamaño ni su posición en el plano.'}
  ];
+ groups.push({id:'custom-assets',name:'Mis recursos importados',tools:['custom','custom-row','road','sidewalk','house'],tool:'custom',adjust:'custom-assets-panel',items:()=>listCustomAssets().length?listCustomAssets():[{id:'empty',name:'Importa tu primer recurso'}],selected:()=>state.customAssetId||'empty',spec:item=>({kind:'custom',id:item.id,spacing:number('furniture-spacing',.7)}),choose:item=>{if(item.id==='empty'){$('custom-assets-panel').open=true;return}document.dispatchEvent(Object.assign(new Event('editor-custom-choose'),{assetId:item.id}))},note:'Imágenes propias guardadas en tu catálogo. Se incluyen con los mapas al exportarlos y se dibujan igual en el juego.'});
  for(const group of groups)if(['road','sidewalk'].includes(group.id))group.note='Si hay superficies de esta capa seleccionadas, elegir una miniatura aplica el material. Sin selección, prepara el siguiente trazado. Puedes deshacer el cambio.';
  const primary={house:'roof',road:'road',sidewalk:'sidewalk',tree:'tree',people:'people','people-row':'people',fence:'furniture',chair:'furniture','fence-row':'furniture','chair-row':'furniture',urban:'urban',sign:'sign',checkpoint:'checkpoint','street-name':'street-name',paso:'paso',reference:'reference'};
  for(const group of groups){const option=document.createElement('option');option.value=group.id;option.textContent=group.name;select.append(option)}
@@ -58,7 +60,7 @@ export function setupPlacementPreviews({state,getImage,spriteDims,getRoofs,choos
    });
   }
   for(const card of cards){const entry=items[card.index],active=entry.id===item.id;card.button.querySelector('span').textContent=entry.name;card.button.classList.toggle('chosen',active);card.button.setAttribute('aria-pressed',String(active));paintPlacementPreview(card.canvas,specs[card.index],getImage)}
-  const spec=group.spec(item);if(groupId==='furniture')spec.row=state.tool.endsWith('-row');
+  const spec=group.spec(item);if(groupId==='furniture'||groupId==='custom-assets')spec.row=state.tool.endsWith('-row');
   paintPlacementPreview($('placement-preview'),spec,getImage);
   $('placement-preview').setAttribute('aria-label','Vista previa de '+item.name);
   $('placement-preview-name').textContent=(groupId==='tree'&&$('tree-cycle').checked||groupId==='people'&&value('public-mode')!=='fixed'?'Siguiente modelo · ':'Elegido · ')+item.name;
@@ -68,5 +70,5 @@ export function setupPlacementPreviews({state,getImage,spriteDims,getRoofs,choos
  select.addEventListener('change',()=>{groupId=select.value;fingerprint='';const group=groups.find(g=>g.id===groupId);if(!group.tools.includes(state.tool))configureTool(group.tool);sync(true)});
  $('placement-adjust').onclick=()=>{const group=groups.find(g=>g.id===groupId),target=$(group.adjust);if(!target)return;const section=target.closest('details');if(section)section.open=true;target.scrollIntoView?.({block:'center',behavior:'smooth'});target.focus?.({preventScroll:true})};
  $('mobile-settings-panel').addEventListener('input',()=>sync());$('mobile-settings-panel').addEventListener('change',()=>sync());
- root.dataset.previewCount=String(groups.length);sync();return{sync,redraw:()=>sync(true)};
+ root.dataset.previewCount=String(groups.length);sync();return{sync,redraw:()=>sync(true),showCustom(){groupId='custom-assets';fingerprint='';sync(true)}};
 }
