@@ -69,6 +69,6 @@ export function setupPlacementPreviews({state,getImage,spriteDims,getRoofs,choos
  }
  select.addEventListener('change',()=>{groupId=select.value;fingerprint='';const group=groups.find(g=>g.id===groupId);if(!group.tools.includes(state.tool))configureTool(group.tool);sync(true)});
  $('placement-adjust').onclick=()=>{const group=groups.find(g=>g.id===groupId),target=$(group.adjust);if(!target)return;const section=target.closest('details');if(section)section.open=true;target.scrollIntoView?.({block:'center',behavior:'smooth'});target.focus?.({preventScroll:true})};
- $('mobile-settings-panel').addEventListener('input',()=>sync());$('mobile-settings-panel').addEventListener('change',()=>sync());
+ document.addEventListener('input',()=>sync());document.addEventListener('change',()=>sync());
  root.dataset.previewCount=String(groups.length);sync();return{sync,redraw:()=>sync(true),showCustom(){groupId='custom-assets';fingerprint='';sync(true)}};
 }

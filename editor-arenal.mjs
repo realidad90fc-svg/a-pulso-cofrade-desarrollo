@@ -1,3 +1,5 @@
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs';
+import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
 import {setupGameplayEditor} from './editor-gameplay-ui.mjs';
@@ -34,7 +36,7 @@ import {setupSelectionEditor} from './editor-selection-ui.mjs';
 import {setupTemplatesUI} from './editor-templates-ui.mjs';
 import {expandGroups,selectionLocked,itemEdit} from './editor-item-state.mjs';
 import {elementCorners} from './editor-element-geometry.mjs';
-let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI,projectUI,reviewUI;
+let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI,projectUI,reviewUI,workbenchUI;
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -106,6 +108,7 @@ function updateCounts(){
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
+ workbenchUI?.refresh();
 }
 function nameOf(type){return{customObjects:'Recurso propio',roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle',urban:'Elemento urbano'}[type]||type}
 function chooseCustomAsset(asset,row=false){
@@ -134,7 +137,7 @@ function changed(){
 function saveLocal(){
  if(!data)return false;
  if(projectUI&&!projectUI.canWrite()){if(!projectUI.isApplying())show('Se ha cambiado el proyecto en otra ventana. Recarga este editor antes de guardar.','error');return false}
- try{const stored=lightweightDocument(data);localStorage.setItem(storageFor(activeMap),JSON.stringify(stored));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(stored,baseline)));state.unsaved=false;cityManager?.saveIndex();projectUI?.notifyChange();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');return true;}
+ try{const stored=lightweightDocument(data);localStorage.setItem(storageFor(activeMap),JSON.stringify(stored));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(stored,baseline)));state.unsaved=false;cityManager?.saveIndex();projectUI?.notifyChange();updatePlayLink();show('Diseño guardado en este dispositivo.','good');workbenchUI?.refresh();return true;}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
@@ -248,7 +251,7 @@ function renderStaticScene(){
  // default in editor and playable map, never an index-dependent legacy
  // material that can randomly display flat asphalt or wrong paving.
  if(data.zoneRefs?.length&&cityManager){
-  try{paintCityScene(ctx,cityManager.linkedScene(),pixel,view.zoom,getImage,visualBounds(),{labels:$('labels-on').checked})}
+  try{const linked=cityManager.linkedScene();for(const kind of KINDS)if(!selectionVisibility(kind))linked[kind]=[];paintCityScene(ctx,linked,pixel,view.zoom,getImage,visualBounds(),{labels:$('labels-on').checked})}
   catch(error){show(error.message,'error')}
  }
  const isArenal=data.metadata?.mapKey==='RegresoArenal';
@@ -1252,6 +1255,8 @@ async function init(){
   $('open-city').onclick=()=>cityManager.open();
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
+  captureWorkbenchControls();
+  workbenchUI=setupWorkbench({state,getData:()=>data,getMapKey:()=>activeMap,getProjectName:()=>projectUI.controller.meta().name,configureTool,syncPreviews:()=>placementPreviews.sync(),saveLocal,requestDraw,show,openCity:tab=>cityManager.open(tab),lockLayer:(kind,locked)=>{if(!projectUI.canWrite())return;const items=(data[kind]||[]).map((_,index)=>({type:kind,index}));if(!items.length)return;snapshot();lockSelection(data,items,locked);changed();show(locked?'Elementos y grupos de la capa bloqueados.':'Elementos y grupos de la capa desbloqueados.','good');}});
   $('loading').hidden=true;
  }catch(err){show('Error preparando el editor: '+err.message,'error');$('loading').textContent='No se ha podido cargar el editor. '+err.message;console.error(err)}
 }

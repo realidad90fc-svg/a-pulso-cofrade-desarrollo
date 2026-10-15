@@ -188,7 +188,7 @@ function menu(){
    {label:'Página del editor en Internet',click:()=>shell.openExternal(BASE_URL+'/editor-arenal.html')},
    {label:'Cómo guardar trabajos anteriores',click:()=>dialog.showMessageBox(mainWindow,{
     type:'info',message:'Importar tus mapas del navegador',
-    detail:'Los datos de Chrome/Edge no se transfieren automáticamente. En el editor web, abre Ciudad y pulsa «Exportar ciudad completa». En Windows utiliza Ciudad → Restaurar ciudad. También puedes importar mapas JSON individualmente. Las fotografías deben añadirse desde tus imágenes originales. Una vez dentro de esta aplicación, quedan protegidas por copias de seguridad en Documentos.'
+    detail:'Para trasladar tu trabajo, abre Proyecto en el editor web y exporta el proyecto completo (.apulso). Marca la opción de incluir fotografías privadas si también quieres llevarlas. En Windows abre Proyecto y selecciona ese archivo para revisarlo y restaurarlo. Se mantienen la importación de mapas JSON, el historial local y las copias de seguridad en Documentos.'
    })}
   ]}
  ];
@@ -197,7 +197,7 @@ function menu(){
 function createWindow(){
  mainWindow=new BrowserWindow({
   width:1500,height:950,minWidth:900,minHeight:640,
-  title:'A Pulso Cofrade · Taller de Sevilla 2.0',backgroundColor:'#15202a',
+  title:'A Pulso Cofrade · Estudio de Sevilla 3.0',backgroundColor:'#15202a',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}
  });
  mainWindow.webContents.setWindowOpenHandler(({url})=>{
