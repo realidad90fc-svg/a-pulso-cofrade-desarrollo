@@ -35,6 +35,7 @@ export class Renderer {
    // Keep the original body animator and contacts; replace only its visible art.
    if(sim.step.variant&&graph===sim.stepEntity.graph&&node.path.startsWith(graph.root.path+'/body/'))continue;
    if(!sim.tutorial&&!sim.routeAdapter&&(node.path.includes('/zonaInter')||node.path.includes('/zonaParada')))continue;
+   if(sim.gameplay?.ownsEvents&&(node.path.includes('/zonaInter')||node.path.includes('/zonaParada')||/checkpoint-marker|finish-marker/.test(node.name||'')))continue;
    if(!node.sprite?.enabled||!graph._active(node))continue;
    const sprite=graph.data.sprites[node.sprite.key];
    if(!sprite)continue;
@@ -60,7 +61,7 @@ export class Renderer {
   for(const {graph,node,sprite,im}of drawable){
    if(!editorDrawn&&node.sprite.order>=3){sim.editorDraft?.draw(ctx,project,images,this.canvas);editorDrawn=true;}
    if(!floor&&node.sprite.order>=0){sim.routeAdapter?.drawFloor(ctx,project,images,this.canvas);floor=true;}
-   if(!markers&&node.sprite.order>=2){if(sim.routeAdapter)sim.routeAdapter.drawMarkers(ctx,project);else if(!sim.tutorial)drawRouteMarkers(ctx,project,!sim.mapController.zonaInterPasada?sim.mapColliders.find(c=>c.entity.tag==='zonaInter')?.world().points:null,sim.mapColliders.find(c=>c.entity.tag==='zonaParada')?.world().points);markers=true;}
+   if(!markers&&node.sprite.order>=2){if(sim.gameplay?.ownsEvents)sim.gameplay.drawMarkers(ctx,project);else if(sim.routeAdapter)sim.routeAdapter.drawMarkers(ctx,project);else if(!sim.tutorial)drawRouteMarkers(ctx,project,!sim.mapController.zonaInterPasada?sim.mapColliders.find(c=>c.entity.tag==='zonaInter')?.world().points:null,sim.mapColliders.find(c=>c.entity.tag==='zonaParada')?.world().points);markers=true;}
    const ppu=sprite.pixelsToUnits,[sw,sh]=sprite.rectSize;
    let m=multiply(project,graph.worldMatrix(node.id));
    if(sprite.rotation===180)m=multiply(m,[-1,0,0,-1,0,0]);
@@ -80,7 +81,7 @@ export class Renderer {
    const identifiers=sim.editorDraft||sim.routeAdapter?.contacts;
    // An edited map owns its announcements, including having no active one.
    // Never substitute a hardcoded route name before its first trigger.
-   drawStreetNotice(ctx,w,h,d,sim,identifiers?identifiers.streetNoticeFor(sim):sim.routeAdapter?.streetNotice);
+   drawStreetNotice(ctx,w,h,d,sim,sim.gameplay?.ownsEvents?sim.gameplay.streetNoticeFor(sim):identifiers?identifiers.streetNoticeFor(sim):sim.routeAdapter?.streetNotice);
    sim.routeAdapter?.drawOverlay?.(ctx,w,h,d);
   }
  }

@@ -68,11 +68,12 @@ export class ModularRoute{
  fail(reason){const s=this.sim;if(s.state.status!=='playing')return;s.prefs.motivoGameOver=reason;s.send(s.stepEntity,'gameOverMet');}
  tick(){const s=this.sim,pos=s.position(s.stepEntity.transform);if(pos.x<.3)this.exited=true;this.follow();
   const nearbyObstacles=this.obstacles.filter(o=>o.kind==='building'||o.polygon.some(p=>Math.hypot(p[0]-pos.x,p[1]-pos.y)<2));const nearbyPeople=this.people.filter(p=>Math.hypot(p.point[0]-pos.x,p.point[1]-pos.y)<1.5);
-  for(const c of s.stepColliders){if(!c.enabled||c.entity===s.contraEntity)continue;const w=c.world(),reason=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:['romano','señor'].includes(c.entity.name)?6:2;
+  if(!s.gameplay?.replacesCollisions)for(const c of s.stepColliders){if(!c.enabled||c.entity===s.contraEntity)continue;const w=c.world(),reason=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:['romano','señor'].includes(c.entity.name)?6:2;
    if(!this.validShape(w)){this.fail(reason);return;}
    if(nearbyObstacles.some(o=>polyHit(w,o.polygon))){this.fail(reason);return;}
    if(nearbyPeople.some(p=>polyHit(w,p.polygon))){this.fail(13);return;}
   }
+  if(s.gameplay?.ownsEvents)return;
   const cp=this.scene.checkpoint;if(cp&&!this.checkpointReached&&s.state.lifted&&Math.hypot(pos.x-cp.position[0],pos.y-cp.position[1])<=cp.radius){this.checkpointReached=true;s.emit('checkpoint');}
   const f=this.scene.finish,angle=s.angle(s.stepEntity.transform),delta=Math.abs(((angle-f.heading+540)%360)-180);
   if(this.exited&&s.controller.animator.state==='pasoBajado'&&delta<=f.tolerance&&s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity).every(c=>{const w=c.world();return(w.points||[w.center]).every(p=>pointInPolygon(p,f.polygon));})){

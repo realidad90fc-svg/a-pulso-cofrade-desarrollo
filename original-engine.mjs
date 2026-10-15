@@ -325,7 +325,7 @@ export class OriginalSimulation {
       case 'AudioSource.set_volume':o.volume=a[0];return;
       case 'AudioSource.Play':o.playing=true;o.time=0;if(o.clip)this.emit('audio',{channel:o.channel,clip:o.clip,loop:o.loop,volume:o.volume,mute:o.mute});return;
       case 'AudioSource.Stop':o.playing=false;this.emit('audioStop',{channel:o.channel});return;
-      case 'Collider2D.IsTouching':return touching(o,a[0]);
+      case 'Collider2D.IsTouching':{const pair=[o,a[0]];if(this.gameplay?.replacesCollisions&&pair.some(c=>this.mapColliders.includes(c))&&pair.every(c=>!['zonaInter','zonaParada'].includes(c?.entity?.tag)))return false;if(this.gameplay?.ownsEvents&&pair.some(c=>['zonaInter','zonaParada'].includes(c?.entity?.tag)))return false;return touching(o,a[0]);}
       case 'SceneManager.LoadScene':this.emit('scene',{index:a[0]});return;
       default:throw new Error('Unsupported Unity call: '+n);
     }
@@ -349,19 +349,21 @@ export class OriginalSimulation {
     for(const task of [...this.coroutines]){task.remaining-=task.realtime?unscaled:this.dt;if(task.remaining<=0&&!task.done)this.resumeCoroutine(task);}
     this.coroutines=this.coroutines.filter(c=>!c.done);
     // Same passing checkpoint rule for every original map, without arriado.
-    if(!this.tutorial&&!this.routeAdapter&&!this.mapController.zonaInterPasada&&!this.controller.martillo&&!['prelevanta','pasoBajado'].includes(this.controller.animator.state)){
+    if(!this.gameplay?.ownsEvents&&!this.tutorial&&!this.routeAdapter&&!this.mapController.zonaInterPasada&&!this.controller.martillo&&!['prelevanta','pasoBajado'].includes(this.controller.animator.state)){
       const zone=this.mapColliders.find(c=>c.entity.tag==='zonaInter'),p=this.position(this.stepEntity.transform);
       if(zone&&pointInPolygon([p.x,p.y],zone.world().points)){this.mapController.zonaInterPasada=true;this.controller.checkpointInt=1;this.prefs.checkpoint=1;this.prefs.checkpointGuardado=1;}
     }
     this.vm.invoke(this.className+'.Update',this.controller);
-    if(!this.routeAdapter)this.vm.invoke(this.mapClass+'.Update',this.mapController);
+    if(!this.routeAdapter&&!this.gameplay?.ownsEvents)this.vm.invoke(this.mapClass+'.Update',this.mapController);
     this.vm.invoke('cameraController.Update',this.cameraController);
     for(const g of this.graphs)g.advance(this.dt);
     this.vm.invoke(this.className+'.LateUpdate',this.controller);
     (this.editorDraft||this.routeAdapter?.contacts)?.streetNoticeFor?.(this);
-    if(this.routeAdapter)this.routeAdapter.tick();
+    this.gameplay?.collision(this);
+    if(this.state.status==='playing'&&this.routeAdapter)this.routeAdapter.tick();
     this.vm.invoke('cameraController.LateUpdate',this.cameraController);
     this.sync();
+    this.gameplay?.tick(this);
     if(!this.tutorial&&this.names.get('checkpoint')?.components.Text)this.names.get('checkpoint').components.Text.enabled=false;
     this.inputClick=false;
     if(this.state.status==='playing'&&this.prefs.checkpointGuardado&&!this.checkpointState){this.checkpointState=this.snapshot();this.emit('checkpoint');}
@@ -374,7 +376,7 @@ export class OriginalSimulation {
   snapshot(){
     const serialize=s=>Object.fromEntries(Object.entries(s).filter(([k,v])=>!k.startsWith('__')&&(['number','boolean','string'].includes(typeof v))));
     const editor=this.editorDraft||this.routeAdapter?.contacts;editor?.streetNoticeFor?.(this);
-    return {route:this.routeAdapter?.snapshot(),editorStreet:editor?.streetIdentifiers?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
+    return {mapContext:this.mapContext,gameplay:this.gameplay?.snapshot(),route:this.routeAdapter?.snapshot(),editorStreet:editor?.streetIdentifiers?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
   }
   restore(snapshot){
     if(!snapshot.controller)return;
@@ -390,6 +392,7 @@ export class OriginalSimulation {
     this.controller.musicaPaso.clip=this.controller.murmullo;this.native({name:'AudioSource.Play'},this.controller.musicaPaso,[]);
     this.state.status='playing';
     this.routeAdapter?.restore(snapshot.route);
+    if(this.gameplay)this.gameplay.restore(snapshot.gameplay);else this._gameplayState=snapshot.gameplay;
     const editor=this.editorDraft||this.routeAdapter?.contacts;
     if(editor?.streetIdentifiers)editor.streetIdentifiers.restore(snapshot.editorStreet);
     else this._editorStreetState=snapshot.editorStreet||null;

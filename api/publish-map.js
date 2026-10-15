@@ -1,3 +1,4 @@
+import {cleanGameplay} from '../map-gameplay.mjs';
 // Vercel Serverless Function: publish approved map data to the GitHub-connected
 // repository. Requires a fine-grained GitHub token provided by the repository
 // owner for this one request. No token is persisted or logged.
@@ -23,7 +24,7 @@ function poly(v){
  return v.map(point);
 }
 function item(v,kind){
- const result=cleanItem(v,kind);try{validateItemEdit(v)}catch(e){fail(e.message)}
+ const result=cleanItem(v,kind);if(v.collision!==undefined){if(typeof v.collision!=='boolean')fail('Estado de colisión no válido.');result.collision=v.collision;}if(['roads','sidewalks'].includes(kind)&&v.walkable!==undefined){if(typeof v.walkable!=='boolean')fail('Estado del suelo no válido.');result.walkable=v.walkable;}try{validateItemEdit(v)}catch(e){fail(e.message)}
  const meta=itemEdit(v),keys=['groupId','groupName','groupAngle','angle','locked','resized'];
  if(keys.some(k=>meta[k]!==undefined))Object.assign(itemEdit(result,true),Object.fromEntries(keys.filter(k=>meta[k]!==undefined).map(k=>[k,meta[k]])));
  if(v.size!==undefined&&!Array.isArray(v)&&kind!=='customObjects'){if(!Array.isArray(v.size)||v.size.length!==2||!v.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100))fail('Medidas del objeto no válidas.');result.size=[...v.size]}
@@ -131,14 +132,22 @@ function sanitize(body){
    if(Object.hasOwn(v.arenalScene,kind))scene[kind]=cleanArray(v.arenalScene[kind],kind);
  }
  const removals=labelScene!==null||Object.keys(scene).length?number(v.total,modified,0,20000)-modified:0;
- if(!modified&&removals<=0&&!hasStart&&!v.authoringScene)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
+ if(!modified&&removals<=0&&!hasStart&&!v.authoringScene&&!v.gameplayScene)fail('No hay cambios para publicar. Edita un elemento o elimina alguno.',422);
  const draft={schema:'apulso-game-draft-v1',mapKey:key,createdAt:new Date().toISOString(),
   layers,resources,total:Math.max(1,modified+Math.max(0,removals)+(hasStart?1:0)),arenalScene:key==='RegresoArenal'?scene:null,labelScene,...(hasStart?{startPose}:{})};
+ if(v.gameplayScene!==undefined&&v.gameplayScene!==null){
+  const input=v.gameplayScene,scene={schema:'apulso-universal-editor-v2',metadata:{mapKey:key,map:string(input.metadata?.map||key,100),sourceType:string(input.metadata?.sourceType||'native',30)},resources:resources.map(({image,...a})=>a)};
+  for(const kind of KINDS)scene[kind]=cleanArray(input[kind]||[],kind);
+  const pose=input.startPose||input.paso;if(!pose)fail('Falta la salida del mapa.');scene.paso={x:number(pose.x,0,-2000,2000),y:number(pose.y,0,-2000,2000),angle:number(pose.angle,0,-360000,360000)};
+  if(input.startPose)scene.startPose={...scene.paso};if(input.bounds!==undefined)scene.bounds=input.bounds;
+  try{scene.gameplay=cleanGameplay(input.gameplay);validateMapDocument(scene)}catch(error){fail(error.message)}draft.gameplayScene=scene;
+ }
  if(v.authoringScene!==undefined){
   if(!/^native-\d+$/.test(key)||!v.authoringScene||typeof v.authoringScene!=='object')fail('Escena completa no válida.');
   const input=v.authoringScene,authored={schema:'apulso-universal-editor-v2',metadata:{mapKey:key,map:string(input.metadata?.map||key,100),sourceType:'native',inheritNativeLimits:true,precisionGeometry:true},resources:resources.map(({image,...a})=>a)};
   for(const kind of KINDS)authored[kind]=cleanArray(input[kind]||[],kind);
-  if(!authored.checkpoints.some(cp=>cp.finish))fail('Marca un checkpoint como llegada antes de publicar este mapa.');
+  try{authored.gameplay=cleanGameplay(input.gameplay)}catch(error){fail(error.message)}
+  if(!authored.checkpoints.some(cp=>cp.finish)&&!(authored.gameplay?.route?.enabled&&authored.gameplay.route.events.some(e=>['finish','exit'].includes(e.type))))fail('Marca un checkpoint como llegada antes de publicar este mapa.');
   const pose=input.startPose||input.paso;if(!pose)fail('Falta la salida de la escena completa.');authored.paso={x:number(pose.x,0,-2000,2000),y:number(pose.y,0,-2000,2000),angle:number(pose.angle,0,-360000,360000)};
   if(input.bounds!==undefined)authored.bounds=input.bounds;
   try{validateMapDocument(authored)}catch(error){fail(error.message)}draft.authoringScene=authored;
@@ -192,3 +201,4 @@ export default async function handler(req,res){
   return res.status(error.status||500).json({error:error.status?error.message:'No se pudo publicar el mapa. Comprueba la conexión e inténtalo de nuevo.'});
  }
 };
+

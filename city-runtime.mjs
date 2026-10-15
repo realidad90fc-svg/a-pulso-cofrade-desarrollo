@@ -55,8 +55,9 @@ export class CityRoute{
  tick(){
   const s=this.sim;this.follow();
   if(s.state.status!=='playing')return;
-  for(const c of s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity))if(!this.validShape(c.world())){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:2;s.send(s.stepEntity,'gameOverMet');return}
+  if(!s.gameplay?.replacesCollisions)for(const c of s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity))if(!this.validShape(c.world())){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:2;s.send(s.stepEntity,'gameOverMet');return}
   this.contacts.collision(s);if(s.state.status!=='playing')return;
+  if(s.gameplay?.ownsEvents)return;
   const position=s.position(s.stepEntity.transform),lowered=s.controller.animator.state==='pasoBajado';
   for(const cp of this.checkpoints){
    if(this.checkpointIds.includes(cp.id)||Math.hypot(position.x-cp.position[0],position.y-cp.position[1])>cp.radius)continue;

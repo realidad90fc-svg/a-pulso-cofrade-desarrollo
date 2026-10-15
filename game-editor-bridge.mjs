@@ -41,7 +41,8 @@ function shapePolygon(w){
  if(w.circle)return Array.from({length:12},(_,i)=>[w.center[0]+Math.cos(i*Math.PI/6)*w.radius,w.center[1]+Math.sin(i*Math.PI/6)*w.radius]);
  return w.points||[];
 }
-function obstaclesFor(layers){
+export function obstaclesFor(layers){
+ layers=Object.fromEntries(Object.entries(layers).map(([k,v])=>[k,Array.isArray(v)?v.filter(o=>o.collision!==false):v]));
  const obstacles=[];
  for(const o of layers.fences||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.95,o.depth||.18,o.angle||0),reason:9});
  for(const o of layers.chairs||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.40,o.depth||.43,o.angle||0),reason:9});
@@ -67,7 +68,8 @@ function parseDraft(obj,key){
  }));
  registerCustomAssets(obj.resources||[]);
  const authoringScene=obj.authoringScene?validateMapDocument({...obj.authoringScene,resources:obj.resources||[]}):null;
- return{mapKey:key,layers,total:obj.total,resources:obj.resources||[],authoringScene,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
+ const gameplayScene=obj.gameplayScene?validateMapDocument({...obj.gameplayScene,resources:obj.resources||[]}):null;
+ return{gameplayScene,mapKey:key,layers,total:obj.total,resources:obj.resources||[],authoringScene,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
 }
 function readDraft(key){
  try{
@@ -104,14 +106,15 @@ export function inspectEditorSpawn(sim){
   c._frame=-1;
   let world;try{world=c.world()}catch{return{ok:false,reason:'No se pudo calcular el volumen de la cuadrilla.'}}
   const part=c.entity?.name?.startsWith('manigueta')?'la manigueta':c.entity?.name?.startsWith('candelabro')?'los candelabros':'el paso';
-  if(typeof route?.validShape==='function'){
+  if(s.gameplay?.collisionReason(world))return{ok:false,reason:part+' invade una zona bloqueada o queda fuera del suelo transitable'};
+  if(!s.gameplay?.replacesCollisions&&typeof route?.validShape==='function'){
    try{if(!route.validShape(world))return{ok:false,reason:part+' queda fuera del espacio transitable o toca una pared'};}
    catch{return{ok:false,reason:'No se pudo comprobar la salida con la geometría del recorrido'}}
   }
   const polygonPoints=shapePolygon(world);
   if(polygon(polygonPoints)){
    const bb=bbox(polygonPoints);
-   for(const item of overlays)if(hits(bb,item.box||bbox(item.poly))&&surfacesOverlapPolygon(polygonPoints,item)){
+   for(const item of (s.gameplay?.replacesCollisions?[]:overlays))if(hits(bb,item.box||bbox(item.poly))&&surfacesOverlapPolygon(polygonPoints,item)){
     return{ok:false,reason:part+' invade '+(item.reason===13?'al público':item.reason===9?'mobiliario de la calle':'un edificio')}
    }
   }
@@ -297,7 +300,7 @@ export class RuntimeEditorDraft{
   return this.streetIdentifiers.notice;
  }
  update(sim){
-  if(sim.state.status!=='playing'||!sim.state.lifted||sim.controller?.martillo)return;
+  if(sim.gameplay?.ownsEvents||sim.state.status!=='playing'||!sim.state.lifted||sim.controller?.martillo)return;
   const checkpoints=this.layers.checkpoints||[];
   if(!checkpoints.length)return;
   const pos=sim.position(sim.stepEntity.transform);
@@ -312,7 +315,7 @@ export class RuntimeEditorDraft{
   }
  }
  collision(sim){
-  if(sim.state.status!=='playing'||!this.obstacles.length||this.lastCollisionFrame===sim.frameCount)return;
+  if(sim.gameplay?.replacesCollisions||sim.state.status!=='playing'||!this.obstacles.length||this.lastCollisionFrame===sim.frameCount)return;
   this.lastCollisionFrame=sim.frameCount;
   const s=sim,parts=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity);
   for(const c of parts){

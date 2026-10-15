@@ -1,0 +1,7 @@
+#collision-panel .stack,#route-config-panel .stack{display:flex;flex-direction:column;gap:9px}
+#collision-panel input:not([type=checkbox]),#route-config-panel input:not([type=checkbox]),#collision-panel select,#route-config-panel select{box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:9px;background:#15232c;color:var(--text,#f1eee5);border:1px solid var(--line,#53626b);border-radius:8px;font:inherit}
+#collision-panel .actions,#route-config-panel .actions{display:flex;flex-wrap:wrap;gap:6px}
+#collision-panel .actions>button,#route-config-panel .actions>button{flex:1;min-width:85px;white-space:normal}
+#collision-panel label,#route-config-panel label{line-height:1.4}
+#collision-panel .precision-two,#route-config-panel .precision-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#editor-canvas[data-tool^=collision],#editor-canvas[data-tool^=route]{cursor:crosshair}

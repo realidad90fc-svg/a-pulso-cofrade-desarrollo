@@ -1,3 +1,4 @@
+import {validateGameplay} from './map-gameplay.mjs';
 // Canonical maps and zones are referenced by stable IDs. A procession owns
 // its visit order and crowd settings; it never owns a copied street.
 export const CITY_SCHEMA='apulso-city-project-v1';
@@ -16,12 +17,14 @@ export function polygonBounds(p){const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);retur
 const intersects=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 export function validateMapDocument(doc){
  if(!doc||typeof doc!=='object'||typeof doc.metadata?.mapKey!=='string'||!doc.metadata.mapKey||doc.metadata.mapKey.length>150)throw Error('El mapa necesita un identificador válido.');
+ validateGameplay(doc.gameplay);
  const resources=validateResourceManifest(doc.resources||[]),resourceIds=new Set(resources.map(a=>a.id));
  for(const kind of KINDS){
   if(doc[kind]!==undefined&&!Array.isArray(doc[kind]))throw Error('Capa no válida: '+kind);
   const list=doc[kind]||[];if(list.length>20000)throw Error('La capa '+kind+' supera el límite de elementos.');
   for(const o of list){
    validateItemEdit(o);
+   if(o.collision!==undefined&&typeof o.collision!=='boolean')throw Error('Estado de colisión no válido.');
    if(o?.size!==undefined&&(!Array.isArray(o.size)||o.size.length!==2||!o.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100)))throw Error('Las medidas de un elemento deben estar entre 0,01 y 100 m.');
    if(['fences','chairs'].includes(kind))for(const key of ['width','depth'])if(o[key]!==undefined&&(!Number.isFinite(o[key])||o[key]<.02||o[key]>100))throw Error('Medidas de mobiliario no válidas.');
    if(kind==='checkpoints'&&o.radius!==undefined&&(!Number.isFinite(o.radius)||o.radius<.2||o.radius>3))throw Error('El radio del control debe estar entre 0,2 y 3 m.');
@@ -124,7 +127,7 @@ export function selectCityZone(p,zoneId,getDocument){
   if(o.poly)return intersects(polygonBounds(o.poly),zone.bounds);
   const pt=k==='labels'?o[1]:o.position||o.point;return pt&&pt[0]>=zone.bounds[0]&&pt[0]<=zone.bounds[2]&&pt[1]>=zone.bounds[1]&&pt[1]<=zone.bounds[3];
  }).map(clone);
- if(zone.bounds)selected.bounds=[...zone.bounds];
+ if(zone.bounds){selected.bounds=[...zone.bounds];if(selected.gameplay){selected.gameplay.collision?.zones?.splice(0,selected.gameplay.collision.zones.length,...selected.gameplay.collision.zones.filter(z=>intersects(polygonBounds(z.poly),zone.bounds)));if(selected.gameplay.route)selected.gameplay.route.events=selected.gameplay.route.events.filter(e=>e.position[0]>=zone.bounds[0]&&e.position[0]<=zone.bounds[2]&&e.position[1]>=zone.bounds[1]&&e.position[1]<=zone.bounds[3]);}}
  if(zone.startPose)selected.startPose={...zone.startPose};
  selected.metadata={...selected.metadata,zoneId:zone.id,zoneName:zone.name};return selected;
 }
@@ -133,6 +136,7 @@ export function transformMapDocument(doc,offset=[0,0],angle=0){
  const out=clone(doc);for(const k of KINDS)out[k]=(doc[k]||[]).map(o=>{
   const v=k==='labels'?[o[0],move(o[1]),...o.slice(2).map(clone)]:clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.holes)v.holes=v.holes.map(r=>r.map(move));if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;if(k==='trees')v.rotation=(v.rotation||0)+angle;const e=itemEdit(v);if(v.poly&&angle)itemEdit(v,true).angle=(e.angle||0)+angle;if(e.groupId)e.groupAngle=(e.groupAngle||0)+angle;return v;
  });
+ if(out.gameplay){for(const z of out.gameplay.collision?.zones||[]){z.poly=z.poly.map(move);if(z.holes)z.holes=z.holes.map(r=>r.map(move));}for(const e of out.gameplay.route?.events||[]){e.position=move(e.position);if(e.heading!==null)e.heading+=angle;}}
  if(doc.bounds)out.bounds=polygonBounds([[doc.bounds[0],doc.bounds[1]],[doc.bounds[2],doc.bounds[1]],[doc.bounds[2],doc.bounds[3]],[doc.bounds[0],doc.bounds[3]]].map(move));
  for(const key of ['paso','startPose'])if(doc[key]){const q=move([doc[key].x,doc[key].y]);out[key]={...doc[key],x:q[0],y:q[1],angle:doc[key].angle+angle};}
  return out;
@@ -147,6 +151,7 @@ export function resolveCityMap(p,mapKey,getDocument,trail=new Set()){
   const linked=selectCityZone(p,ref.zoneId,key=>resolveCityMap(p,key,getDocument,visited));
   const moved=transformMapDocument(linked,ref.offset||[0,0],ref.angle||0);
   for(const k of KINDS)doc[k]=[...(doc[k]||[]),...(moved[k]||[]).map(o=>k==='labels'?o:{...o,sharedZone:ref.zoneId})];
+  if(moved.gameplay?.collision?.zones?.length){doc.gameplay??={};doc.gameplay.collision??={mode:'inherit',zones:[]};doc.gameplay.collision.zones.push(...moved.gameplay.collision.zones.map(z=>({...z,id:ref.zoneId+':'+z.id})));}
   doc.resources=[...new Map([...(doc.resources||[]),...(moved.resources||[])].map(a=>[a.id,a])).values()];
  }
  return doc;

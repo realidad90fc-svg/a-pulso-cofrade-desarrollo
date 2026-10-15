@@ -28,7 +28,7 @@ export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show
    if(key.startsWith('city-')||data?.zoneRefs?.length)throw Error('Este diseño utiliza mapas o zonas compartidas. Guárdalo con Ciudad → Exportar ciudad completa para conservar sus vínculos. La publicación individual se mantiene para los mapas existentes.');
    if(!data||!base||data.metadata?.mapKey!==key)throw Error('No hay un mapa válido seleccionado.');
    const draft=makeGameDraft(data,base);
-   if(draft.authoringScene&&!draft.authoringScene.checkpoints.some(cp=>cp.finish))throw Error('Este mapa clásico usa contornos personalizados. Marca un checkpoint como «Llegada del mapa» antes de publicarlo; así la geometría completa tendrá una llegada jugable. Puedes probarlo sin publicar.');
+   if(draft.authoringScene&&!draft.authoringScene.checkpoints.some(cp=>cp.finish)&&!(draft.gameplayScene?.gameplay?.route?.enabled&&draft.gameplayScene.gameplay.route.events.some(e=>['finish','exit'].includes(e.type))))throw Error('Este mapa clásico usa contornos personalizados. Marca un checkpoint como «Llegada del mapa» antes de publicarlo; así la geometría completa tendrá una llegada jugable. Puedes probarlo sin publicar.');
    if(draft.total<1)throw Error('Este mapa todavía no tiene modificaciones para publicar.');
    pending={mapKey:key,draft};
    confirm.checked=false;token.value='';

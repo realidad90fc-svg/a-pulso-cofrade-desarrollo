@@ -1,3 +1,4 @@
+import {hasGameplay,cleanGameplay} from './map-gameplay.mjs';
 // Convert editor working copies to game data. Arenal owns its complete scene;
 // other original maps retain additive patches over their native environment.
 // No reference-photo bytes or positional metadata are included.
@@ -31,10 +32,12 @@ export function makeGameDraft(data,baseline){
  }
  const startChanged=!!data?.startReset||JSON.stringify(data?.startPose||null)!==JSON.stringify(baseline?.startPose||null);
  const authoredNative=!!data?.metadata?.precisionGeometry&&/^native-\d+$/.test(data.metadata.mapKey);
-  const total=MAP_KINDS.reduce((n,k)=>n+layers[k].length,0)+removedCount+(startChanged?1:0);
+  const gameplayChanged=JSON.stringify(data?.gameplay||null)!==JSON.stringify(baseline?.gameplay||null);
+ const gameplayScene=hasGameplay(data?.gameplay)?{schema:data.schema,metadata:{mapKey:data.metadata.mapKey,map:data.metadata.map,sourceType:data.metadata.sourceType},...Object.fromEntries(MAP_KINDS.map(k=>[k,data[k]||[]])),gameplay:cleanGameplay(data.gameplay),bounds:data.bounds,paso:data.paso,startPose:data.startPose,resources:(data.resources||[]).map(({image,...a})=>a)}:null;
+ const total=(gameplayChanged?1:0)+MAP_KINDS.reduce((n,k)=>n+layers[k].length,0)+removedCount+(startChanged?1:0);
  return{schema:EDITOR_PATCH_SCHEMA,mapKey:data?.metadata?.mapKey,
-  createdAt:new Date().toISOString(),layers,total:authoredNative?Math.max(1,total):total,resources:data?.resources||[],
-  ...(authoredNative?{authoringScene:{schema:'apulso-universal-editor-v2',metadata:{mapKey:data.metadata.mapKey,map:data.metadata.map||data.metadata.mapKey,sourceType:'native',inheritNativeLimits:true,precisionGeometry:true},...Object.fromEntries(MAP_KINDS.map(k=>[k,data[k]||[]])),bounds:data.bounds,paso:data.paso,startPose:data.startPose,resources:(data.resources||[]).map(({image,...a})=>a)}}:{}),
+  createdAt:new Date().toISOString(),gameplayScene,layers,total:authoredNative?Math.max(1,total):total,resources:data?.resources||[],
+  ...(authoredNative?{authoringScene:{schema:'apulso-universal-editor-v2',metadata:{mapKey:data.metadata.mapKey,map:data.metadata.map||data.metadata.mapKey,sourceType:'native',inheritNativeLimits:true,precisionGeometry:true},...Object.fromEntries(MAP_KINDS.map(k=>[k,data[k]||[]])),gameplay:cleanGameplay(data.gameplay),bounds:data.bounds,paso:data.paso,startPose:data.startPose,resources:(data.resources||[]).map(({image,...a})=>a)}}:{}),
    ...(startChanged?{startPose:data?.startPose||null}:{}),
   // Full road geometry supports accurate path validation on the Arenal route.
   labelScene:data?.labels||[],

@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.15-vegetacion-comercios-2.0.3",
+  "version": "dev-2026.10.15-colisiones-recorridos-2.3.0",
   "stage": "development",
-  "note": "2.0.3: catálogo visual de vegetación y banderolas salientes de farmacia, Cruzcampo, estanco y cafetería, configurables y visibles en juego."
+  "note": "2.3.0: colisiones visuales y recorridos configurables con controles, presentaciones, anuncios, conexiones y tiempos de estrellas."
 }

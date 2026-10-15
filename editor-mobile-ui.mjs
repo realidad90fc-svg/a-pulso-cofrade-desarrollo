@@ -30,7 +30,7 @@ function openRelevantSettings(){
  details=[...sidebar.querySelectorAll('details')];
  const current=canvas.dataset.tool;
  const choose={
-  house:'Tejados',road:'Pavimentos',sidewalk:'Pavimentos',tree:'Árboles',
+  'collision-draw':'collision-panel','collision-select':'collision-panel','route-event':'route-config-panel','route-select':'route-config-panel',house:'Tejados',road:'Pavimentos',sidewalk:'Pavimentos',tree:'Árboles',
   people:'Público', 'people-row':'Público',erase:'Público',
   fence:'Vallas', 'fence-row':'Vallas',chair:'Vallas','chair-row':'Vallas',
   urban:'urban-panel',reference:'photo-guides-panel',paso:'start-panel',
@@ -55,7 +55,7 @@ function syncActiveTool(){
   button.classList.toggle('active',active);
   button.setAttribute('aria-pressed',String(active));
  }
- const drawing=['road','sidewalk','house','hole'].includes(name);
+ const drawing=['road','sidewalk','house','hole','collision-draw'].includes(name);
  body.classList.toggle('mobile-polygon-mode',drawing&&mobileQuery.matches);
  body.classList.toggle('mobile-paso-mode',name==='paso'&&mobileQuery.matches);
 }

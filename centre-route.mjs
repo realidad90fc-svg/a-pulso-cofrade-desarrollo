@@ -104,7 +104,8 @@ export class CentreRoute{
  // The renderer owns the screen-space street banner for every map type.
  drawOverlay(){}
  tick(){const s=this.sim;this.updateStreet();this.follow();const shapes=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity).map(c=>({c,w:c.world()})),hull=bounds(shapes.flatMap(({w})=>samples(w))),nearby=this.obstacles.filter(o=>intersects(hull,o.rect));
-  for(const {c,w}of shapes)if(!this.validShape(w,nearby)){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:2;s.send(s.stepEntity,'gameOverMet');return;}
+  if(!s.gameplay?.replacesCollisions)for(const {c,w}of shapes)if(!this.validShape(w,nearby)){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:2;s.send(s.stepEntity,'gameOverMet');return;}
+  if(s.gameplay?.ownsEvents)return;
   const pos=s.position(s.stepEntity.transform);for(const cp of this.checkpoints)if(!this.checkpointIds.includes(cp.id)&&s.state.lifted&&!s.controller.martillo&&Math.hypot(pos.x-cp.position[0],pos.y-cp.position[1])<=cp.radius){this.checkpointIds.push(cp.id);this.checkpointReached=this.checkpointIds.includes(this.scene.checkpoint?.id);s.emit('checkpoint');}
   const f=this.scene.finish,delta=Math.abs(((s.angle(s.stepEntity.transform)-f.heading+540)%360)-180);
   if(s.controller.animator.state==='pasoBajado'&&delta<=f.tolerance&&shapes.every(({w})=>samples(w).every(p=>pointInPolygon(p,f.polygon)))){this.finished=true;s.send(s.stepEntity,'finJuegoExito');s.send(s.cameraEntity,'exitoMet');}
