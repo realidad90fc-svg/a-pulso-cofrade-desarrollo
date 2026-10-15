@@ -9,7 +9,7 @@ const stringify=x=>JSON.stringify(x);
 // Grouping and locking are authoring state, not extra scenery. Only resized
 // collision state participates in the playable delta.
 function sceneSignature(kind,item){
- const value=structuredClone(item);
+ const value=structuredClone(item);delete value.solid;delete value.walkable;
  if(kind==='labels'){value[2]={radius:1,...value[2]};delete value[2].edit;return stringify(value)}
  const resized=value.edit?.resized;delete value.edit;if(resized)value.edit={resized:true};return stringify(value);
 }
@@ -30,11 +30,13 @@ export function makeGameDraft(data,baseline){
   const removed=[...existing.values()].reduce((n,v)=>n+v,0);
   if(kind==='labels'||(data?.metadata?.mapKey==='RegresoArenal'&&['roads','sidewalks','houses','people'].includes(kind)))removedCount+=removed;
  }
+ const physicsSignature=d=>stringify(MAP_KINDS.map(k=>(d?.[k]||[]).filter(o=>o.solid!==undefined||o.walkable!==undefined).map(o=>[o.solid??null,o.walkable??null])));
+ const physicsChanged=physicsSignature(data)!==physicsSignature(baseline);
  const startChanged=!!data?.startReset||JSON.stringify(data?.startPose||null)!==JSON.stringify(baseline?.startPose||null);
  const authoredNative=!!data?.metadata?.precisionGeometry&&/^native-\d+$/.test(data.metadata.mapKey);
   const gameplayChanged=JSON.stringify(data?.gameplay||null)!==JSON.stringify(baseline?.gameplay||null);
  const gameplayScene=hasGameplay(data?.gameplay)?{schema:data.schema,metadata:{mapKey:data.metadata.mapKey,map:data.metadata.map,sourceType:data.metadata.sourceType},...Object.fromEntries(MAP_KINDS.map(k=>[k,data[k]||[]])),gameplay:cleanGameplay(data.gameplay),bounds:data.bounds,paso:data.paso,startPose:data.startPose,resources:(data.resources||[]).map(({image,...a})=>a)}:null;
- const total=(gameplayChanged?1:0)+MAP_KINDS.reduce((n,k)=>n+layers[k].length,0)+removedCount+(startChanged?1:0);
+ const total=(gameplayChanged||physicsChanged?1:0)+MAP_KINDS.reduce((n,k)=>n+layers[k].length,0)+removedCount+(startChanged?1:0);
  return{schema:EDITOR_PATCH_SCHEMA,mapKey:data?.metadata?.mapKey,
   createdAt:new Date().toISOString(),gameplayScene,layers,total:authoredNative?Math.max(1,total):total,resources:data?.resources||[],
   ...(authoredNative?{authoringScene:{schema:'apulso-universal-editor-v2',metadata:{mapKey:data.metadata.mapKey,map:data.metadata.map||data.metadata.mapKey,sourceType:'native',inheritNativeLimits:true,precisionGeometry:true},...Object.fromEntries(MAP_KINDS.map(k=>[k,data[k]||[]])),gameplay:cleanGameplay(data.gameplay),bounds:data.bounds,paso:data.paso,startPose:data.startPose,resources:(data.resources||[]).map(({image,...a})=>a)}}:{}),
