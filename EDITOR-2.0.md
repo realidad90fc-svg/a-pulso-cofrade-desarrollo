@@ -1,5 +1,12 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.0.3: vegetación y banderolas
+
+Árboles y vegetación tiene ocho miniaturas y una vista ampliada que se actualiza al elegir modelo o radio. Elegir una miniatura desactiva la alternancia para colocar ese modelo concreto; con Alternar activado se muestra el siguiente árbol. Se utiliza el mismo dibujante que en el mapa.
+
+En Fachadas y comercios, el rótulo saliente puede elegirse de forma automática o manual: cruz luminosa de farmacia, Gambrinus de Cruzcampo, Tabacos de estanco, taza de cafetería y comercio tradicional. Selecciona el lado de fachada que mira a la calle y ajusta posición, salida y tamaño. Pulsa Aplicar a edificios seleccionados. Los rótulos son decoración y se guardan, exportan, publican y dibujan también al probar el mapa. La opción Sin banderola los quita.
+
+
 ## Corrección 2.0.2: puntos de anuncio de calle
 
 En **Anuncios de calle** escribe el nombre y el radio de activación. Selecciona **Aa Punto de calle** y colócalo donde deba anunciarse. El centro del paso debe entrar en el círculo: entonces aparece el nombre exacto en el cartel superior durante unos segundos. La calle activa se conserva hasta cruzar otro punto con otro nombre. Ni los puntos ni sus círculos se dibujan en el juego.

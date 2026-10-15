@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de Sevilla 2.0.2 · A Pulso Cofrade</title>
+<title>Taller de Sevilla 2.0.3 · A Pulso Cofrade</title>
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -59,7 +59,7 @@
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de Sevilla · A Pulso 2.0.2</strong><span>Mapas, calles compartidas y hermandades</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 2.0.3</strong><span>Mapas, calles compartidas y hermandades</span></div>
  </div>
  <div class="title-actions">
   <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
@@ -287,6 +287,16 @@
     <small class="muted">Las miniaturas muestran el aspecto cenital de la propia herramienta, no una fachada de frente.</small>
     <label for="facade-shop">Tipo de comercio</label>
     <select id="facade-shop"></select>
+    <label for="facade-blade-sign">Rótulo que sobresale hacia la calle</label>
+    <select id="facade-blade-sign"></select>
+    <canvas id="facade-shop-preview" width="288" height="164" role="img" aria-label="Vista previa del comercio y su rótulo saliente"></canvas>
+    <label for="facade-blade-position">Posición sobre la fachada: <output id="facade-blade-position-value">22 %</output></label>
+    <input id="facade-blade-position" type="range" min="5" max="95" step="1" value="22">
+    <label for="facade-blade-depth">Salida hacia la calle: <output id="facade-blade-depth-value">0,65 m</output></label>
+    <input id="facade-blade-depth" type="range" min=".25" max="1.5" step=".05" value=".65">
+    <label for="facade-blade-size">Tamaño del símbolo: <output id="facade-blade-size-value">0,60 m</output></label>
+    <input id="facade-blade-size" type="range" min=".25" max="1" step=".05" value=".6">
+    <p class="muted">En Automático: cruz verde para farmacias, Gambrinus de Cruzcampo para bares, Tabacos para estancos y taza para cafeterías. El soporte sale del lado de fachada elegido. Puedes cambiar el símbolo o quitarlo.</p>
     <label for="facade-sign">Texto del rótulo (opcional)</label>
     <input id="facade-sign" maxlength="42" placeholder="Nombre del bar o comercio" type="text">
     <div class="actions">
@@ -323,9 +333,13 @@
    <div class="stack">
     <label for="tree-variant">Tipo de árbol (8 variedades)</label>
     <select id="tree-variant"></select>
+    <canvas id="tree-preview" width="288" height="190" role="img" aria-label="Vista previa del árbol o vegetación que vas a colocar"></canvas>
+    <p id="tree-preview-name" class="muted" aria-live="polite"></p>
+    <div id="tree-preview-gallery" class="decor-gallery tree-gallery" role="group" aria-label="Catálogo visual de árboles y vegetación"></div>
     <label for="tree-radius">Radio del árbol (unidades del mapa)</label>
     <input id="tree-radius" type="range" min=".15" max="1.2" step=".05" value=".35">
     <label class="flag"><input id="tree-cycle" type="checkbox" checked> Alternar modelos al colocarlos</label>
+    <p class="muted">Al elegir una miniatura se colocará ese modelo. Activa Alternar para variar automáticamente; la vista previa mostrará el siguiente árbol.</p>
      <p class="muted">No se colocan personas debajo de las copas. El público previamente guardado que coincida con árboles se oculta sin perder sus datos.</p>
     <p class="muted">Los árboles nuevos pueden variar de tamaño y orientación. También puedes moverlos con «Seleccionar».</p>
    </div>
@@ -457,7 +471,7 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=puntos-calle-2.0.2"></script>
+<script type="module" src="./editor-arenal.mjs?rev=vegetacion-comercios-2.0.3"></script>
 <script type="module" src="./editor-mobile-ui.mjs"></script>
 </body>
 </html>

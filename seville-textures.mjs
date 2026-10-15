@@ -8,12 +8,13 @@ export function registerTexture(key,image){images.set(key,image);revision++;}
 export async function loadSevilleTextures(){
  if(pending)return pending;
  if(typeof Image==='undefined')return;
- pending=Promise.all(['piedra','caliza','teja'].map(key=>new Promise(resolve=>{
+ const files={piedra:'piedra.webp',caliza:'caliza.webp',teja:'teja.webp',gambrinus:'gambrinus.png'};
+ pending=Promise.all(Object.entries(files).map(([key,file])=>new Promise(resolve=>{
   const image=new Image();let done=false;
   const finish=ok=>{if(done)return;done=true;clearTimeout(timer);if(ok)registerTexture(key,image);resolve(ok)};
   const timer=setTimeout(()=>finish(false),12000);
   image.onload=()=>finish(true);image.onerror=()=>finish(false);
-  image.src=new URL('./assets/sevilla/'+key+'.webp',import.meta.url).href;
+  image.src=new URL('./assets/sevilla/'+file,import.meta.url).href;
  }))).then(()=>undefined);
  return pending;
 }

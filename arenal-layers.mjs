@@ -1,7 +1,7 @@
 import {NATIVE_HOUSE_KEYS} from './native-route-architecture.mjs';
 import {BARATILLO} from './arenal-data.mjs';
 import {pointInPolygon} from './engine.mjs';
-import {drawFacadeDecor} from './editor-facades.mjs';
+import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {drawRoof,drawSurface,NATIVE_ROOF_IDS} from './editor-materials.mjs';
 import {paintArenalGround} from './editor-arenal-ground.mjs';
 
@@ -421,7 +421,7 @@ export function paintArenalScene(route,ctx,images,r){
  // Decorations from the editable Arenal scene: no change to street masks,
  // roof parcels, buildings, collision obstacles or original sprite dimensions.
  for(const lot of route.buildings){
-  if(lot.facade&&boxhit(lot.bbox,r))
+  if(lot.facade&&boxhit(facadeVisualBounds(lot),r))
    drawFacadeDecor(ctx,lot,(x,y)=>[px(x),py(y)],p);
  }
  route.paintBaratillo(ctx,r,images);

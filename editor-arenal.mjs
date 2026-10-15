@@ -14,7 +14,9 @@ import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,cross
 import {nextRoofId} from './editor-roof-cycle.mjs';
 import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
-import {drawFacadeDecor} from './editor-facades.mjs';
+import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
+import {setupVegetationPreviews} from './editor-vegetation-ui.mjs';
+let vegetationPreview;
 import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
 import {paintArenalGround} from './editor-arenal-ground.mjs';
@@ -97,7 +99,7 @@ function snapshot(){
  state.future.length=0;
 }
 function changed(){
- state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();
+ state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();vegetationPreview?.sync();
  clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);
 }
 function saveLocal(){
@@ -237,7 +239,7 @@ function renderStaticScene(){
   }
   // Applied after the roof: balcony/awning/storefront decorations stay visible
   // without changing the original polygon, scale, physics or roof texture.
-  for(const o of data.houses)if(o.facade&&bboxHit(rect(o.poly),visualBounds()))
+  for(const o of data.houses)if(o.facade&&bboxHit(facadeVisualBounds(o),visualBounds()))
    drawFacadeDecor(ctx,o,pixel,view.zoom);
  }
  if($('urban-on').checked)for(const o of data.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
@@ -1146,6 +1148,9 @@ async function init(){
   palette();setupUrbanPalette();bind();
   visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,
    getFloorImage:()=>getImage(FLOOR_KEY),applySurface:applySurfaceToSelection});
+  vegetationPreview=setupVegetationPreviews({state,getImage});
+  const treeImage=spriteFor('sharedassets2.assets:563');
+  if(treeImage&&!treeImage.complete)treeImage.addEventListener('load',()=>vegetationPreview?.redraw(),{once:true});
   // The native asphalt grain sprite may arrive after the editor UI: update
   // the thumbnails once, so the gallery matches the finished map texture.
   const floorImage=spriteFor(FLOOR_KEY);

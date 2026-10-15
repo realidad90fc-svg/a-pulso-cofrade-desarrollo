@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.15-puntos-calle-2.0.2",
+  "version": "dev-2026.10.15-vegetacion-comercios-2.0.3",
   "stage": "development",
-  "note": "2.0.2: anuncios de calle al cruzar puntos editables, con nombre, posición y radio configurables. Sin nombres deducidos por cercanía en los mapas editados."
+  "note": "2.0.3: catálogo visual de vegetación y banderolas salientes de farmacia, Cruzcampo, estanco y cafetería, configurables y visibles en juego."
 }

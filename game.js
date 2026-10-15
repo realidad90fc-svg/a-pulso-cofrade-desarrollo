@@ -12,7 +12,7 @@ import {prepareMap,prepareStep} from './engine.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
-import {Renderer} from './renderer.mjs?rev=puntos-calle-2.0.2';
+import {Renderer} from './renderer.mjs?rev=vegetacion-comercios-2.0.3';
 import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart,inspectEditorSpawn} from './game-editor-bridge.mjs';
 import {withEditorStreetPoints} from './editor-game-draft.mjs';
 import {Sound} from './audio.mjs';

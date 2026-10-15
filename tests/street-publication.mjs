@@ -11,11 +11,12 @@ globalThis.fetch=async(url,options={})=>{
  }
  return{ok:false,status:404,json:async()=>({})};
 };
-const doc={metadata:{mapKey:'native-1'},labels:[['Nombre editable',[1,2],{radius:.6}]]};
+const doc={metadata:{mapKey:'native-1'},labels:[['Nombre editable',[1,2],{radius:.6}]],houses:[{poly:[[0,0],[3,0],[3,3],[0,3]],facade:{shop:'pharmacy',bladeSign:'pharmacy',bladeDepth:1.1,bladeSize:.7,bladePosition:.35}}]};
 const draft=makeGameDraft(doc,{});let status,body;
 const response={setHeader(){},status(n){status=n;return this},json(v){body=v;return this}};
 await handler({method:'POST',headers:{authorization:'Bearer test-only'},body:{mapKey:'native-1',draft}},response);
 assert.equal(status,200,JSON.stringify(body));assert.deepEqual(uploaded.labelScene,doc.labels);assert.deepEqual(uploaded.layers.labels,doc.labels);
+assert.deepEqual(uploaded.layers.houses[0].facade,doc.houses[0].facade,'Publication preserves the projecting symbol and its settings');
 const preview=withEditorStreetPoints(null,{...doc,labels:[]});assert.equal(preview.total,1);assert.deepEqual(preview.labelScene,[],'Even an unmodified preview with zero points owns its announcements');
 await handler({method:'POST',headers:{authorization:'Bearer test-only'},body:{mapKey:'native-1',draft:{...draft,labelScene:[['Arfe',[0,0],{radius:100}]]}}},response);
 assert.equal(status,400);assert(body.error);

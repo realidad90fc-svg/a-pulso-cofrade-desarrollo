@@ -1,5 +1,5 @@
 import {drawSurface,drawRoof,drawTree,drawFurniture} from './editor-materials.mjs';
-import {drawFacadeDecor} from './editor-facades.mjs';
+import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {drawUrbanElement,urbanIsMarking} from './editor-urban-elements.mjs';
 import {polygonBounds} from './city-project.mjs';
 import {drawStreetTriggerGuide} from './street-identifiers.mjs';
@@ -10,7 +10,8 @@ export function paintCityScene(ctx,doc,pixel,zoom,getImage=()=>null,visible=null
  const floor=getImage('sharedassets2.assets:373');
  for(const kind of ['roads','sidewalks'])for(const o of doc[kind]||[])if(o.poly&&hits(polygonBounds(o.poly),visible))drawSurface(ctx,o.poly,kind,o.material||(kind==='roads'?'road-art-granite':'sidewalk-art-caliza'),pixel,zoom,floor,visible);
  for(const o of doc.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,zoom);
- for(const o of doc.houses||[])if(o.poly&&hits(polygonBounds(o.poly),visible)){drawRoof(ctx,o.poly,o.material||o.key||'realista-mixta-tradicional',pixel,getImage,zoom,o);if(o.facade)drawFacadeDecor(ctx,o,pixel,zoom)}
+ for(const o of doc.houses||[])if(o.poly&&hits(polygonBounds(o.poly),visible))drawRoof(ctx,o.poly,o.material||o.key||'realista-mixta-tradicional',pixel,getImage,zoom,o);
+ for(const o of doc.houses||[])if(o.poly&&o.facade&&hits(facadeVisualBounds(o),visible))drawFacadeDecor(ctx,o,pixel,zoom);
  for(const o of doc.trees||[])drawTree(ctx,o,pixel,zoom,getImage);
  for(const kind of ['fences','chairs'])for(const o of doc[kind]||[])drawFurniture(ctx,o,kind==='fences'?'fence':'chair',pixel,zoom);
  for(const o of doc.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,zoom);

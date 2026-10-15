@@ -6,6 +6,7 @@ const styles={
  bar:{wall:'#895943',trim:'#e1c5a0',roof:'#75533e',sign:'#392a24',ink:'#ffe9c9'},
  cafe:{wall:'#dcc7a0',trim:'#967451',roof:'#b8a383',sign:'#516749',ink:'#fff8d4'},
  pharmacy:{wall:'#e4e6d6',trim:'#488961',roof:'#b8c9b7',sign:'#377b53',ink:'#f8fff1'},
+ tobacco:{wall:'#d3bf96',trim:'#d3aa50',roof:'#8e5344',sign:'#972b34',ink:'#f7d780'},
  shop:{wall:'#aa9c86',trim:'#c9b997',roof:'#647c82',sign:'#3e555f',ink:'#f8eccc'},
  campana:{wall:'#ebdab6',trim:'#ad8658',roof:'#d7c8a8',sign:'#802935',ink:'#fff3d4'},
  maquedano:{wall:'#c0afa0',trim:'#795d45',roof:'#b08e68',sign:'#4d3428',ink:'#ffe4ac'},
@@ -114,6 +115,8 @@ export function drawDistinctShop(ctx,{shop,sign,at,polygon:quad,stroke,pixel,zoo
   Q(.445,.555,-inset+.10,-.13,'#409b65');
   Q(.32,.68,-inset+.10+r*.40,-inset+.10+r*.9,'#409b65');
   circle(crossPos,-.15,.025,'#fff');
+ }else if(shop==='tobacco'){
+  Q(.04,.96,-inset+.08,-.10,'#945b42');Q(.06,.94,.03,.22,'#9b2931','#f3d078');for(let i=0;i<5;i++)Q(.09+i*.17,.20+i*.17,-inset+.14,-.16,'#d9b676','#6c4633');
  }else if(shop==='bar'){
   Q(.05,.95,-inset+.10,-.12,'#a38b67');
   for(let i=0;i<7;i++){
@@ -154,7 +157,7 @@ export function drawDistinctShop(ctx,{shop,sign,at,polygon:quad,stroke,pixel,zoo
  if(angle>Math.PI/2||angle<-Math.PI/2)angle+=Math.PI;
  ctx.save();ctx.translate(...center);ctx.rotate(angle);
  const text=(sign||{
-  bar:'BAR',cafe:'CAFETERÍA',pharmacy:'FARMACIA',shop:'COMERCIO',
+  bar:'BAR',cafe:'CAFETERÍA',pharmacy:'FARMACIA',tobacco:'TABACOS',shop:'COMERCIO',
   campana:'LA CAMPANA',maquedano:'MAQUEDANO',baratillo:'EL BARATILLO',morales:'CASA MORALES'
  }[shop]||'').slice(0,36);
  ctx.font='800 '+Math.max(7,Math.min(16,.18*zoom))+'px system-ui';

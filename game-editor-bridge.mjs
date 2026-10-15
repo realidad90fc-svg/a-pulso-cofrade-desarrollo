@@ -7,7 +7,7 @@ import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-dra
 import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
-import {drawFacadeDecor} from './editor-facades.mjs';
+import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {StreetIdentifiers} from './street-identifiers.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
@@ -264,14 +264,8 @@ export class RuntimeEditorDraft{
     drawUrbanElement(ctx,o,px,1);
    for(const o of this.layers.houses)if(!this.baseArenalHouses&&polygon(o.poly)&&hits(bbox(o.poly),bound)){
     drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
-    if(o.facade){
-     // This canvas is already transformed in world units. Work temporarily
-     // in a 96px/unit facade canvas, then undo: no physics/geometry changes.
-     ctx.save();ctx.scale(1/96,1/96);
-     drawFacadeDecor(ctx,o,(x,y)=>[x*96,-y*96],96);
-     ctx.restore();
-    }
    }
+   for(const o of this.layers.houses)if(!this.baseArenalHouses&&o.facade&&polygon(o.poly)&&hits(facadeVisualBounds(o),bound))drawFacadeDecor(ctx,o,px,1);
   for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
   for(const o of this.layers.signs)if(valid(o.point)){
    const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;

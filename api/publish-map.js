@@ -45,9 +45,10 @@ function item(v,kind){
    if(v.facade!==undefined){
     if(!v.facade||typeof v.facade!=='object'||Array.isArray(v.facade))fail('Fachada inválida.');
     const f=v.facade;result.facade={};
-    for(const key of ['shop','awning','awningColor','awningPreset','balcony'])if(f[key]!==undefined)result.facade[key]=string(f[key],80);
+    for(const key of ['shop','awning','awningColor','awningPreset','balcony','bladeSign'])if(f[key]!==undefined)result.facade[key]=string(f[key],80);
     if(f.sign!==undefined)result.facade.sign=string(f.sign,100);
     for(const key of ['edge','awningDepth','awningStart','awningWidth'])if(f[key]!==undefined)result.facade[key]=number(f[key],0,0,key==='edge'?10000:20);
+    for(const key of ['bladePosition','bladeDepth','bladeSize'])if(f[key]!==undefined)result.facade[key]=number(f[key],key==='bladePosition'?.22:key==='bladeDepth'?.65:.6,key==='bladePosition'?.05:.25,key==='bladePosition'?.95:key==='bladeDepth'?1.5:1);
    }
   }
   return result;

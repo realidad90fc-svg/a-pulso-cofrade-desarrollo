@@ -1,4 +1,5 @@
 import {drawDistinctShop} from './editor-shop-overhead.mjs';
+import {PROJECTING_SIGNS,drawProjectingSign} from './editor-projecting-signs.mjs';
 // Decorative Sevillian street fronts in native editor world units.
 // Attached to existing buildings; never exported as collision geometry.
 // This is a stylised library of references, not photographic replicas.
@@ -7,6 +8,7 @@ export const FACADE_PRESETS=[
  {id:'bar',name:'Bar sevillano',sign:'BAR',type:'bar',color:'#823e36',ink:'#fff0cb'},
  {id:'cafe',name:'Cafetería',sign:'CAFETERÍA',type:'cafe',color:'#5f704b',ink:'#fff0ca'},
  {id:'pharmacy',name:'Farmacia',sign:'FARMACIA',type:'pharmacy',color:'#e1f0df',ink:'#25633e'},
+ {id:'tobacco',name:'Estanco',sign:'TABACOS',type:'tobacco',color:'#962b32',ink:'#f2cf77'},
  {id:'shop',name:'Comercio tradicional',sign:'COMERCIO',type:'shop',color:'#4e6173',ink:'#fff1d3'},
  {id:'campana',name:'La Campana · referencia',sign:'LA CAMPANA',type:'cafe',color:'#741f2b',ink:'#fce5b5'},
  {id:'maquedano',name:'Maquedano · referencia',sign:'MAQUEDANO',type:'shop',color:'#233d4c',ink:'#f7e0ac'},
@@ -55,6 +57,8 @@ export function cleanFacade(input={},edgeMax=3){
   balconyStart:number(input.balconyStart,.06,0,.85),
   balconyWidth:number(input.balconyWidth,.88,.10,1),
   shop,
+  bladeSign:PROJECTING_SIGNS.some(p=>p.id===input.bladeSign)?input.bladeSign:'auto',
+  bladePosition:number(input.bladePosition,.22,.05,.95),bladeDepth:number(input.bladeDepth,.65,.25,1.5),bladeSize:number(input.bladeSize,.60,.25,1),
   // A harmless sign label: never inserted as HTML.
   sign:String(input.sign||'').trim().slice(0,42)
  };
@@ -62,6 +66,7 @@ export function cleanFacade(input={},edgeMax=3){
 export function drawFacadeDecor(ctx,house,pixel,zoom=1){
  const poly=house?.poly,decor=house?.facade;
  if(!decor||!Array.isArray(poly)||poly.length<3)return;
+ if(zoom<8){const factor=96/zoom;ctx.save();ctx.scale(1/factor,1/factor);drawFacadeDecor(ctx,house,(x,y)=>pixel(x,y).map(v=>v*factor),96);ctx.restore();return}
  const f=cleanFacade(decor,poly.length-1);
  const a=poly[f.edge],b=poly[(f.edge+1)%poly.length];
  if(!a||!b)return;
@@ -175,9 +180,14 @@ export function drawFacadeDecor(ctx,house,pixel,zoom=1){
    }
   }
  }
+ drawProjectingSign(ctx,f,at,pixel,length);
  ctx.restore();
 }
-// Preview built from original preset colors rather than external trademark imagery.
+export function facadeVisualBounds(house){
+ const poly=house.poly,f=cleanFacade(house.facade||{},poly.length-1),pad=Math.max(f.bladeDepth+f.bladeSize+.15,f.awningDepth+.35,.6);
+ return[Math.min(...poly.map(p=>p[0]))-pad,Math.min(...poly.map(p=>p[1]))-pad,Math.max(...poly.map(p=>p[0]))+pad,Math.max(...poly.map(p=>p[1]))+pad];
+}
+// Preview uses the same painter and symbols as the playable map.
 // The thumbnail is a TOP-DOWN map crop using the EXACT SAME rendering
 // function as the real editor/game, not a front/elevation illustration.
 export function drawFacadePresetPreview(ctx,preset){

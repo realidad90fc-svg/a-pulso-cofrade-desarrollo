@@ -2,6 +2,7 @@
 // geometry, photo scale or serialization; all edits use snapshot()/changed().
 import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface,drawRoof} from './editor-materials.mjs';
 import {FACADE_PRESETS,AWNING_COLORS,AWNING_PRESETS,getFacadePreset,cleanFacade,drawFacadePresetPreview,drawFacadeDecor} from './editor-facades.mjs';
+import {PROJECTING_SIGNS} from './editor-projecting-signs.mjs';
 
 export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface}){
  const $=id=>document.getElementById(id);
@@ -75,12 +76,14 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;awningPresetSelect.append(option);
  }
  const presetGallery=$('facade-preset-gallery');
+ for(const item of PROJECTING_SIGNS){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('facade-blade-sign').append(option)}
  const previewAwning=()=>{
-  const canvas=$('facade-awning-preview');if(!canvas)return;
+  for(const id of ['facade-awning-preview','facade-shop-preview']){
+  const canvas=$(id);if(!canvas)continue;
   const c=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
   c.clearRect(0,0,w,h);c.fillStyle='#737673';c.fillRect(0,0,w,h);
-  const zoom=29,px=(x,y)=>[x*zoom,h-y*zoom];
-  const house={poly:[[.65,1.50],[8.7,1.50],[8.7,4.60],[.65,4.60]]};
+  const zoom=Math.min(29,(h-16)/5.5),offset=(w-9.35*zoom)/2,px=(x,y)=>[offset+x*zoom,h-6-y*zoom];
+  const house={poly:[[.65,2.1],[8.7,2.1],[8.7,5.2],[.65,5.2]]};
   drawRoof(c,house.poly,state.material,px,()=>null,zoom,{roofDetail:'none',roofInset:.05});
   drawFacadeDecor(c,{...house,facade:{
    edge:0,shop:facadeSelect.value,sign:$('facade-sign').value,
@@ -89,10 +92,11 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    awningDepth:Number($('facade-awning-depth').value)||.55,
    awningStart:Number($('facade-awning-start').value)/100,
    awningWidth:Number($('facade-awning-width').value)/100,
-   balcony:'none'
+   balcony:'none',bladeSign:$('facade-blade-sign').value,bladePosition:Number($('facade-blade-position').value)/100,bladeDepth:Number($('facade-blade-depth').value),bladeSize:Number($('facade-blade-size').value)
   }},px,zoom);
   c.fillStyle='#ffffff';c.font='600 11px system-ui';
   c.fillText('CALLE · VISTA CENITAL',12,h-8);
+  }
  };
  const selectPreset=id=>{
   facadeSelect.value=id;
@@ -123,7 +127,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   awningColor:colorSelect,awningPreset:awningPresetSelect,awningDepth:$('facade-awning-depth'),
   awningStart:$('facade-awning-start'),awningWidth:$('facade-awning-width'),
   balconyStart:$('facade-balcony-start'),balconyWidth:$('facade-balcony-width'),
-  sign:$('facade-sign')
+  sign:$('facade-sign'),bladeSign:$('facade-blade-sign'),bladePosition:$('facade-blade-position'),bladeDepth:$('facade-blade-depth'),bladeSize:$('facade-blade-size')
  };
  const updateCount=()=>{$('facade-balcony-count-value').textContent=fields.count.value};
  const updateDepth=()=>{$('facade-awning-depth-value').textContent=Number(fields.awningDepth.value).toFixed(2).replace('.',',')+' m'};
@@ -138,6 +142,13 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  for(const field of ['awningStart','awningWidth','balconyStart','balconyWidth'])
   fields[field].addEventListener('input',()=>{updateSpans();previewAwning()});
  for(const id of ['facade-awning','facade-awning-color','facade-awning-preset','facade-sign'])$(id).addEventListener('input',previewAwning);
+ const syncBlade=()=>{
+  $('facade-blade-position-value').textContent=fields.bladePosition.value+' %';
+  for(const name of ['depth','size'])$('facade-blade-'+name+'-value').textContent=Number($('facade-blade-'+name).value).toFixed(2).replace('.',',')+' m';
+  previewAwning();
+ };
+ fields.bladeSign.addEventListener('change',syncBlade);
+ for(const field of ['bladePosition','bladeDepth','bladeSize'])fields[field].addEventListener('input',syncBlade);
  const selectedHouses=()=>state.selectedItems.filter(x=>x.type==='houses'&&getData()?.houses?.[x.index]);
  function refreshSelected(){
   // On selection, reflect the surface's CURRENT saved material in the gallery.
@@ -188,7 +199,8 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   fields.balconyWidth.value=String(Math.round(facade.balconyWidth*100));
   selectPreset(facade.shop);
   fields.sign.value=facade.sign;
-  updateCount();updateDepth();updateSpans();previewAwning();
+  fields.bladeSign.value=facade.bladeSign;fields.bladePosition.value=String(Math.round(facade.bladePosition*100));fields.bladeDepth.value=String(facade.bladeDepth);fields.bladeSize.value=String(facade.bladeSize);
+  updateCount();updateDepth();updateSpans();syncBlade();
  }
  function readInputs(){
   return{
@@ -201,7 +213,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    awningWidth:Number(fields.awningWidth.value)/100,
    balconyStart:Number(fields.balconyStart.value)/100,
    balconyWidth:Number(fields.balconyWidth.value)/100,
-   shop:facadeSelect.value,sign:fields.sign.value
+   shop:facadeSelect.value,sign:fields.sign.value,bladeSign:fields.bladeSign.value,bladePosition:Number(fields.bladePosition.value)/100,bladeDepth:Number(fields.bladeDepth.value),bladeSize:Number(fields.bladeSize.value)
   };
  }
  $('facade-apply').addEventListener('click',()=>{
