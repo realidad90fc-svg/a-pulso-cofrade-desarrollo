@@ -27,6 +27,9 @@
 .tree-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
 .tree-gallery .decor-card canvas{background:#c2bfae;aspect-ratio:164 / 100;object-fit:contain}
 #tree-preview-name{min-height:32px}
+#placement-preview{display:block;width:100%;height:auto;aspect-ratio:288 / 160;border:1px solid #6a8185;border-radius:8px;background:#c2bfae}
+#placement-preview-name{font-weight:600;color:#f4eddd;margin:0}
+#placement-preview-note{margin:0;line-height:1.45}
 @media(max-width:850px){
  .decor-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
  #facade-panel .facade-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}

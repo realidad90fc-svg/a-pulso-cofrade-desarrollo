@@ -3,11 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 const runtime=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/');
 const require=createRequire((process.env.APULSO_DOM_TEST_MODULES||'/workspace/scratch/068044d9504c/qa-env/node_modules')+'/');
 const {parseHTML}=require('linkedom'),{indexedDB}=require('fake-indexeddb');
 const {createCanvas,Image:NativeImage}=runtime('@napi-rs/canvas');
-const root=new URL('../',import.meta.url).pathname;
+const root=fileURLToPath(new URL('../',import.meta.url));
 const {window}=parseHTML(fs.readFileSync(path.join(root,'editor-arenal.html'),'utf8')),document=window.document;
 const canvases=new WeakMap(),frames=[],storage=new Map();
 function adaptCanvas(node){
@@ -25,12 +26,12 @@ Object.defineProperty(inputProto,'disabled',{get(){return this.hasAttribute('dis
 Object.defineProperty(window.HTMLSelectElement.prototype,'value',{get(){return this.querySelector('option[selected]')?.getAttribute('value')||this.querySelector('option')?.getAttribute('value')||''},set(value){for(const o of this.querySelectorAll('option'))o.toggleAttribute('selected',o.getAttribute('value')===String(value))},configurable:true});
 for(const dialog of document.querySelectorAll('dialog')){dialog.showModal=function(){this.open=true};dialog.close=function(){this.open=false}}
 const baseCreate=document.createElement;document.createElement=(name,...args)=>{const n=baseCreate(name,...args);if(name==='dialog'){n.showModal=function(){this.open=true};n.close=function(){this.open=false}}return n};
-class Image extends NativeImage{set src(v){super.src=String(v).startsWith('file:')?new URL(v).pathname:path.join(root,String(v).replace(/^\.\//,''))}get src(){return super.src}addEventListener(type,fn){if(type==='load'){const old=this.onload;this.onload=()=>{old?.();fn()}}}}
+class Image extends NativeImage{set src(v){super.src=String(v).startsWith('file:')?fileURLToPath(new URL(v)):path.join(root,String(v).replace(/^\.\//,''))}get src(){return super.src}addEventListener(type,fn){if(type==='load'){const old=this.onload;this.onload=()=>{old?.();fn()}}}}
 const localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
 window.matchMedia=()=>({matches:false,addEventListener(){}});window.indexedDB=indexedDB;window.open=()=>({});window.requestAnimationFrame=fn=>frames.push(fn);
-Object.assign(globalThis,{window,document,Image,localStorage,indexedDB,location:{search:'',protocol:'https:'},devicePixelRatio:1,requestAnimationFrame:window.requestAnimationFrame,confirm:()=>true});
+Object.assign(globalThis,{window,document,Image,Event:window.Event,localStorage,indexedDB,location:{search:'',protocol:'https:'},devicePixelRatio:1,requestAnimationFrame:window.requestAnimationFrame,confirm:()=>true});
 Object.defineProperty(globalThis,'FormData',{value:class{constructor(form){this.values=new Map([...form.querySelectorAll('[name]')].map(n=>[n.name,n.value]))}get(name){return this.values.get(name)}},configurable:true});
-globalThis.fetch=async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(new URL(String(url),new URL('file://'+root)).pathname,'utf8'))});
+globalThis.fetch=async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(fileURLToPath(new URL(String(url),pathToFileURL(root))),'utf8'))});
 // Worker-native canvas fallback is exercised too; browser UI canvases remain DOM nodes.
 globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
 await import('../editor-arenal.mjs');
@@ -91,7 +92,40 @@ assert.equal(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).zoneR
 assert.deepEqual(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).labels[0],pointDoc.labels[0],'Name, activation radius and position survive reopen');
 assert.equal(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).houses[0].facade.bladeSign,'pharmacy','Shop symbol survives reopen');
 
-const out=new URL('../../qa-renders/',import.meta.url);fs.mkdirSync(out,{recursive:true});fs.writeFileSync(new URL('editor-canvas.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));
+// Every placeable tool, including decorative options, has the same visual chooser.
+const category=$('placement-category');assert.equal(category.options.length,20,'All placement families have a visual catalogue');
+const chooseCategory=id=>{category.value=id;category.dispatchEvent(new window.Event('change',{bubbles:true}))};
+const chooseCard=id=>{$('placement-preview-gallery').querySelector('[data-preview-item="'+id+'"]').click()};
+const catalogueBefore=storage.get('apulso-universal-editor-v2:'+active);
+const out=new URL('../../qa-renders/',import.meta.url);fs.mkdirSync(out,{recursive:true});
+for(const option of [...category.options]){
+ chooseCategory(option.value);await flush();
+ const thumbs=$('placement-preview-gallery').querySelectorAll('canvas');assert(thumbs.length>0,option.value+' must show image cards');
+ assert($('placement-preview-gallery').querySelector('[aria-pressed="true"]'),option.value+' marks the selected card');
+ fs.writeFileSync(new URL('catalogue-'+option.value+'.png',out),canvases.get($('placement-preview')).toBuffer('image/png'));
+}
+assert.equal(storage.get('apulso-universal-editor-v2:'+active),catalogueBefore,'Browsing previews never alters saved geometry');
+chooseCategory('furniture');chooseCard('chair');assert.equal($('editor-canvas').dataset.tool,'chair');
+pointer('pointerdown',940,630);pointer('pointerup',940,630);$('save').onclick();
+let placement=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(placement.chairs.at(-1).width,.4,'Chair card places the shown chair');
+document.querySelector('[data-tool="fence-row"]').onclick();
+const rowBefore=canvases.get($('placement-preview')).toBuffer('image/png');$('furniture-spacing').value='1.2';$('furniture-spacing').dispatchEvent(new window.Event('input',{bubbles:true}));
+assert(!canvases.get($('placement-preview')).toBuffer('image/png').equals(rowBefore),'Row preview follows furniture spacing');
+pointer('pointerdown',450,620);pointer('pointermove',800,620);pointer('pointerup',800,620);$('save').onclick();
+placement=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert(placement.fences.length>1);assert(placement.fences.every(f=>f.width===.95));
+chooseCategory('urban');chooseCard('bench');pointer('pointerdown',930,550);pointer('pointerup',930,550);$('save').onclick();
+placement=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(placement.urban.at(-1).type,'bench','Urban card selects the real object');
+chooseCategory('people');chooseCard('sharedassets2.assets:419');assert.equal($('public-mode').value,'fixed');
+pointer('pointerdown',920,440);pointer('pointerup',920,440);$('save').onclick();
+placement=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(placement.people.at(-1).key,'sharedassets2.assets:419');
+$('public-mode').value='random';$('public-mode').dispatchEvent(new window.Event('change',{bubbles:true}));
+const shown=$('placement-preview-gallery').querySelector('[aria-pressed="true"]').dataset.previewItem;
+pointer('pointerdown',920,350);pointer('pointerup',920,350);$('save').onclick();
+placement=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(placement.people.at(-1).key,shown,'Random placement uses the person shown beforehand');
+chooseCategory('balcony');chooseCard('continuous');assert.equal($('facade-balcony').value,'continuous');
+chooseCategory('awning');chooseCard('stripe-burgundy');assert.equal($('facade-awning-preset').value,'stripe-burgundy');
+chooseCategory('street-name');$('street-name-text').value='Calle de primavera';$('street-name-text').dispatchEvent(new window.Event('input',{bubbles:true}));assert($('placement-preview-name').textContent.includes('Calle de primavera'));
+fs.writeFileSync(new URL('editor-canvas.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));
 clearTimeout();
-console.log('PASS editor UI: all 17 maps, catalogue, create/open/save new map, existing-street search, attach to brotherhood, duplicate prevention, reference-only linking and reopen. DOM/Canvas only; browser QA remains separate.');
+console.log('PASS editor UI: all 17 maps, create/open/save, shared streets, brotherhood links, 20 visual catalogues, chair/row/urban placement and the actual next random spectator. DOM/Canvas only; browser QA remains separate.');
 process.exit(0);

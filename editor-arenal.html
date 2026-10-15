@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de Sevilla 2.0.4 · A Pulso Cofrade</title>
+<title>Taller de Sevilla 2.0.5 · A Pulso Cofrade</title>
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -59,7 +59,7 @@
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de Sevilla · A Pulso 2.0.4</strong><span>Mapas, calles compartidas y hermandades</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 2.0.5</strong><span>Mapas, calles compartidas y hermandades</span></div>
  </div>
  <div class="title-actions">
   <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
@@ -142,6 +142,18 @@
     </div>
     <div class="actions"><button id="check">✓ Revisar mapa</button><button id="reset" class="danger">Reiniciar dibujo</button></div>
     <div id="validation"></div>
+   </div>
+  </details>
+  <details open id="placement-preview-panel">
+   <summary>Visor de todos los elementos</summary>
+   <div class="stack" id="placement-viewer-content">
+    <label for="placement-category"><strong>Qué quieres ver y colocar</strong></label>
+    <select id="placement-category"></select>
+    <canvas id="placement-preview" width="576" height="320" role="img" aria-label="Vista previa del elemento elegido"></canvas>
+    <p id="placement-preview-name" class="muted" aria-live="polite"></p>
+    <p id="placement-preview-note" class="muted"></p>
+    <div id="placement-preview-gallery" class="decor-gallery tree-gallery" role="group" aria-label="Catálogo visual del elemento elegido"></div>
+    <button id="placement-adjust" type="button">Abrir ajustes de este elemento</button>
    </div>
   </details>
   <details open>
@@ -471,7 +483,7 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=vegetacion-realista-2.0.4"></script>
+<script type="module" src="./editor-arenal.mjs?rev=primavera-visor-completo-2.0.5"></script>
 <script type="module" src="./editor-mobile-ui.mjs"></script>
 </body>
 </html>

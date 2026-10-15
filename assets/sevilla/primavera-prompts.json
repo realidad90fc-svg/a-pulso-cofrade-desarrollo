@@ -1,0 +1,34 @@
+{
+  "generator": "built-in image_gen",
+  "season": "Primavera sevillana · Semana Santa",
+  "transparent_background": true,
+  "delivery": {
+    "size": [
+      512,
+      512
+    ],
+    "format": "webp",
+    "quality": 92,
+    "fit": "contain; preserve aspect ratio and alpha"
+  },
+  "sources": [
+    "https://www.asignatura.us.es/abotcam/especies/Citrus_aurantium.html",
+    "https://asignatura.us.es/abotcam/especies/Platanus_hispanica.html",
+    "https://asignatura.us.es/abotcam/especies/Ficus_retusa.html",
+    "https://www.asignatura.us.es/abotcam/especies/Cupressus_sempervirens.html",
+    "https://asignatura.us.es/abotcam/especies/Phoenix_canariensis.html"
+  ],
+  "art_direction": "Naranjo representado con azahar blanco y sin frutos visibles por elección artística para la Semana Santa. No se afirma que flores y frutos no puedan coexistir. Plátano con hojas nuevas y huecos entre ramas; se conserva el follaje de los modelos perennes.",
+  "edits": [
+    {
+      "file": "vegetacion-naranjo-primavera-v2.webp",
+      "source": "vegetacion-naranjo-v1.webp",
+      "prompt": "Use case: precise-object-edit. Asset: production tree sprite for the overhead Sevilla city RPG A Pulso. This image is the EDIT TARGET. Change ONLY its seasonal state to a Seville Holy Week springtime bitter-orange canopy, March/April. Remove EVERY orange fruit; absolutely no orange or yellow citrus spheres. Add natural abundant but restrained white AZAHAR blossom: tiny cream-white five-petalled flowers in small uneven clusters among the dark glossy green leaves, with occasional pale green new leaf tips. Flowers should read as delicate small white specks at game scale, never a tree made of snow or huge daisies. Preserve the realistic fine leaf texture, natural canopy silhouette, top-down orthographic camera, lighting direction, colours of mature leaves, volume, and transparent background including foliage gaps. Keep complete crown and transparent margin within the square frame. No ground, trunk extending out, shadow disc, labels, outline, pots, perspective, flat cartoon, icons, black or coloured matte fringes. Natural early-spring Sevilla foliage, same game style and species."
+    },
+    {
+      "file": "vegetacion-platano-primavera-v2.webp",
+      "source": "vegetacion-platano-v1.webp",
+      "prompt": "Use case: precise-object-edit. Asset: production plane-tree sprite for the overhead Sevilla city RPG A Pulso. This image is the EDIT TARGET. Change ONLY its seasonal state from a full summer crown to a believable Seville late-March/April spring crown of Platanus hispanica. Many smaller fresh pale apple-green and soft olive-green lobed new leaves on its branches, uneven 60-75% foliage cover with delicate brown branching glimpsed in gaps; small subtle bronze-green emerging shoots. It is leafing out, neither winter-bare nor autumn-yellow nor the fully opaque mature summer canopy. Preserve the irregular spreading crown shape, straight-down orthographic camera, fine natural realistic raster leaf texture, lighting from upper left and subtle volume. Keep whole complete canopy within square frame, transparent margin and transparent gaps, no ground or cast-shadow disc, no side-view trunk, no text or border, no black outlines, no toy/vector/low-poly look, no coloured matte fringes. Same aesthetic as the original game's realistic foliage."
+    }
+  ]
+}

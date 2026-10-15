@@ -1,5 +1,13 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.0.5: primavera y visor completo
+
+En Ajustes se encuentra **Visor de todos los elementos**: imagen ampliada, miniaturas seleccionables y acceso a los ajustes del elemento. Incluye veinte secciones: edificios, calzadas, aceras, árboles, público, vallas/sillas, urbanismo, señales, checkpoints, puntos de calle, huella del paso, detalles de cubierta, pretiles, comercios, balcones/rejas, toldos, banderolas, colores de toldo, macetas/colgaduras y fotografías guía privadas. El visor utiliza los mismos dibujantes y recursos que el editor. La fila de mobiliario sigue su separación; el modo aleatorio de público prepara y muestra el próximo personaje antes de colocarlo. Navegar por miniaturas no crea objetos ni modifica las fotografías.
+
+Las decoraciones de fachada se aplican con el botón existente después de seleccionar el edificio. Las fotos conservan dimensiones, posición y escala. Los puntos de calle mantienen su guía invisible en el juego y el nombre en el cartel superior. Se corrige el mínimo de píxeles de vallas y sillas cuando se dibujan en unidades del juego.
+
+La vegetación representa primavera: naranjo con azahar blanco y sin naranjas visibles; plátano con hojas nuevas y ramas parcialmente visibles. Se conserva el modelo original y el follaje de los modelos perennes. No se alteran los identificadores, posiciones ni radios guardados. Fuentes botánicas y prompts: `assets/sevilla/primavera-prompts.json`.
+
 ## Actualización 2.0.4: vegetación realista
 
 Los siete modelos alternativos de árbol utilizan texturas raster cenitales con follaje, luces, sombras internas y transparencia. El árbol original se conserva. El catálogo y la vista previa grande tienen el doble de resolución para pantallas de alta densidad. Editor y juego usan los mismos recursos; al abrir mapas anteriores se actualiza el aspecto sin cambiar sus tipos, posiciones, tamaños, giros ni colisiones. La descarga incluye las texturas para funcionar sin conexión.

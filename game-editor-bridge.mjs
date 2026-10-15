@@ -9,6 +9,7 @@ import {pointInPolygon} from './engine.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {StreetIdentifiers} from './street-identifiers.mjs';
+import {drawTrafficSign,drawCheckpointGuide} from './editor-object-render.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
@@ -267,21 +268,11 @@ export class RuntimeEditorDraft{
    }
    for(const o of this.layers.houses)if(!this.baseArenalHouses&&o.facade&&polygon(o.poly)&&hits(facadeVisualBounds(o),bound))drawFacadeDecor(ctx,o,px,1);
   for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
-  for(const o of this.layers.signs)if(valid(o.point)){
-   const [x,y]=px(...o.point);ctx.fillStyle='#d9c5a8';ctx.strokeStyle='#ad302c';ctx.lineWidth=.04;
-   ctx.beginPath();ctx.arc(x,y,.10,0,Math.PI*2);ctx.fill();ctx.stroke();
-   ctx.save();ctx.translate(x,y);ctx.rotate(-(o.angle||0)*Math.PI/180);
-   ctx.strokeStyle='#842a2c';ctx.lineWidth=.025;ctx.beginPath();
-   ctx.moveTo(-.065,.065);ctx.lineTo(.065,-.065);ctx.stroke();ctx.restore();
-  }
+  for(const o of this.layers.signs)if(valid(o.point))drawTrafficSign(ctx,o,px,1);
   for(const o of this.layers.urban||[])if(valid(o.point)&&!urbanIsMarking(o.type)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))
     drawUrbanElement(ctx,o,px,1);
    for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
-  for(const cp of this.layers.checkpoints||[])if(valid(cp.position)){
-   const [x,y]=px(...cp.position);ctx.strokeStyle='#65eed8';ctx.lineWidth=.045;
-   ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
-   ctx.moveTo(x,y-.28);ctx.lineTo(x,y+.28);ctx.stroke();
-  }
+  for(const cp of this.layers.checkpoints||[])if(valid(cp.position))drawCheckpointGuide(ctx,cp,px,1,{label:false});
   for(const o of this.layers.people)if(!this.baseArenalPeople&&valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;

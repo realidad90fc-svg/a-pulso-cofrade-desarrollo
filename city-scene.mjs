@@ -3,6 +3,7 @@ import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {drawUrbanElement,urbanIsMarking} from './editor-urban-elements.mjs';
 import {polygonBounds} from './city-project.mjs';
 import {drawStreetTriggerGuide} from './street-identifiers.mjs';
+import {drawTrafficSign} from './editor-object-render.mjs';
 const hits=(a,b)=>!b||a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 // Shared scenery painter for map cards, linked zones and new playable maps.
 // Guides/selection handles are intentionally owned by the editor only.
@@ -15,6 +16,7 @@ export function paintCityScene(ctx,doc,pixel,zoom,getImage=()=>null,visible=null
  for(const o of doc.trees||[])drawTree(ctx,o,pixel,zoom,getImage);
  for(const kind of ['fences','chairs'])for(const o of doc[kind]||[])drawFurniture(ctx,o,kind==='fences'?'fence':'chair',pixel,zoom);
  for(const o of doc.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,zoom);
+ for(const o of doc.signs||[])drawTrafficSign(ctx,o,pixel,zoom);
  if(crowd)for(const o of doc.people||[]){
   const image=getImage(o.key),[x,y]=pixel(...o.point),w=(o.size?.[0]||.19)*zoom,h=(o.size?.[1]||.19)*zoom;
   ctx.save();ctx.translate(x,y);ctx.rotate(-(o.angle||0)*Math.PI/180);

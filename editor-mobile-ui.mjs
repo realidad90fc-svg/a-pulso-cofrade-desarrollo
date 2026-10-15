@@ -35,7 +35,8 @@ function openRelevantSettings(){
   urban:'urban-panel',reference:'photo-guides-panel',paso:'start-panel',
   'street-name':'street-label-panel'
  };
- const target=choose[current];
+ const paintTools=['house','road','sidewalk','tree','people','people-row','fence','fence-row','chair','chair-row','urban','sign','checkpoint','street-name','paso','reference'];
+ const target=paintTools.includes(current)?'placement-preview-panel':choose[current];
  let section=details[0];
  if(target){
   section=details.find(el=>el.id===target||el.querySelector('summary')?.textContent.includes(target))||section;

@@ -334,5 +334,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   window.addEventListener('pagehide',()=>{void flush()});
   updateUI();
  }
- return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush,cancelCalibration:()=>{}};
+ return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush,cancelCalibration:()=>{},
+  previewItems:()=>photos.map(p=>({id:p.id,name:p.name,image:p.image,rotation:p.rotation,opacity:p.opacity,selected:p.id===currentId})),
+  selectPreview:id=>{if(!photos.some(p=>p.id===id))return;currentId=id;updateUI();requestDraw()}};
 }

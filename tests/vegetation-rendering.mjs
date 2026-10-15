@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import {TREE_VARIANTS,drawTree,treeDrawRadius} from '../editor-materials.mjs';
-import {registerTexture,textureImage} from '../seville-textures.mjs';
+import {registerTexture,textureImage,VEGETATION_FILES} from '../seville-textures.mjs';
 import {RuntimeEditorDraft} from '../game-editor-bridge.mjs';
 
 const require=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/');
@@ -11,7 +11,7 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
 const original=await loadImage(fileURLToPath(new URL('../assets/original-animation/sprite-563.webp',import.meta.url)));
 const images=new Map([['sharedassets2.assets:563',original]]);
 for(const tree of TREE_VARIANTS.filter(t=>t.texture)){
- const file='../assets/sevilla/vegetacion-'+tree.texture.slice(5)+'-v1.webp';
+ const file='../assets/sevilla/'+VEGETATION_FILES[tree.texture.slice(5)];
  const image=await loadImage(fileURLToPath(new URL(file,import.meta.url)));
  assert.equal(image.width,512);assert.equal(image.height,512);
  const sample=createCanvas(128,128),c=sample.getContext('2d');c.drawImage(image,0,0,128,128);

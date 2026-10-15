@@ -171,8 +171,8 @@ const pavements=[
 export const SIDEWALK_MATERIALS=[{id:'sidewalk-art-caliza',name:'Caliza sevillana · textura ilustrada',base:'#cfbea2',light:'#ecdec4',pattern:'art-caliza'},...pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_SIDEWALK_MATERIALS];
 export const TREE_VARIANTS=[
  {id:'tree-0',name:'Árbol original · copa ancha',tone:'#426a3e',shape:'round'},
- {id:'tree-1',name:'Naranjo · copa redonda',tone:'#356646',shape:'round',texture:'tree-naranjo'},
- {id:'tree-2',name:'Plátano de sombra',tone:'#5c7846',shape:'lobed',texture:'tree-platano'},
+ {id:'tree-1',name:'Naranjo · azahar de primavera',tone:'#356646',shape:'round',texture:'tree-naranjo'},
+ {id:'tree-2',name:'Plátano de sombra · brotación',tone:'#5c7846',shape:'lobed',texture:'tree-platano'},
  {id:'tree-3',name:'Ficus · copa densa',tone:'#28543f',shape:'cluster',texture:'tree-ficus'},
  {id:'tree-4',name:'Palmera',tone:'#547353',shape:'palm',texture:'tree-palmera'},
  {id:'tree-5',name:'Árbol pequeño',tone:'#769059',shape:'small',texture:'tree-pequeno'},
@@ -246,6 +246,10 @@ export function drawTree(ctx,tree,pixel,zoom,getImage){
  ctx.restore();
 }
 export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
+ if(zoom<8){
+  ctx.save();ctx.scale(1/96,1/96);
+  drawFurniture(ctx,item,type,(x,y)=>pixel(x,y).map(v=>v*96),zoom*96,selected);ctx.restore();return;
+ }
  const [x,y]=pixel(...item.point),angle=(item.angle||0)*Math.PI/180;
  const w=Math.max(5,zoom*(item.width|| (type==='fence'?.95:.40))),d=Math.max(3,zoom*(type==='fence'?.18:.43));
  ctx.save();ctx.translate(x,y);ctx.rotate(-angle);

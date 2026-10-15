@@ -16,7 +16,9 @@ import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './edito
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
 import {setupVegetationPreviews} from './editor-vegetation-ui.mjs';
-let vegetationPreview;
+import {setupPlacementPreviews} from './editor-placement-previews.mjs';
+import {drawTrafficSign,drawCheckpointGuide} from './editor-object-render.mjs';
+let vegetationPreview,placementPreviews;
 import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
 import {paintArenalGround} from './editor-arenal-ground.mjs';
@@ -247,20 +249,11 @@ function renderStaticScene(){
  if($('trees-on').checked)for(const t of data.trees||[])drawTree(ctx,t,pixel,view.zoom,getImage);
  if($('fences-on').checked)for(const f of data.fences||[])drawFurniture(ctx,f,'fence',pixel,view.zoom);
  if($('chairs-on').checked)for(const c of data.chairs||[])drawFurniture(ctx,c,'chair',pixel,view.zoom);
- if($('signs-on').checked)for(const t of data.signs||[]){
-  const p=pixel(...t.point),r=Math.max(4,Math.min(10,.20*view.zoom));
-  ctx.fillStyle='#e7d5b7';ctx.strokeStyle='#c23b36';ctx.lineWidth=2;ctx.beginPath();ctx.arc(...p,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-  ctx.save();ctx.translate(...p);ctx.rotate(-(t.angle||0)*Math.PI/180);
-  ctx.beginPath();ctx.moveTo(-r*.7,r*.7);ctx.lineTo(r*.7,-r*.7);ctx.stroke();ctx.restore();
- }
+ if($('signs-on').checked)for(const t of data.signs||[])drawTrafficSign(ctx,t,pixel,view.zoom);
  if($('urban-on').checked)for(const o of data.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
  drawGrid();
  if(!showMaterialsAbovePhotos)photoGuides?.draw('overlay');
- if($('checkpoints-on').checked)for(const cp of data.checkpoints||[]){
-  const p=pixel(...cp.position);ctx.strokeStyle='#58f7dc';ctx.lineWidth=2;ctx.beginPath();
-  ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]+9,p[1]);ctx.moveTo(p[0],p[1]-9);ctx.lineTo(p[0],p[1]+9);ctx.stroke();
-  ctx.fillStyle='#a6fff0';ctx.font='11px system-ui';ctx.fillText(cp.name||cp.id||'Control',p[0]+12,p[1]-5);
- }
+ if($('checkpoints-on').checked)for(const cp of data.checkpoints||[])drawCheckpointGuide(ctx,cp,pixel,view.zoom);
  if($('labels-on').checked)for(const label of data.labels)drawStreetTriggerGuide(ctx,label,pixel,view.zoom);
  if(data.startPose){
    const start=data.startPose,q=pixel(start.x,start.y),front=pasoPoint(start,0,.9),end=pixel(...front);
@@ -389,6 +382,7 @@ function drawPaso(){
  ctx.restore();
 }
 function requestDraw(overlayOnly=false){
+ placementPreviews?.sync();
  if(!overlayOnly)staticMapDirty=true;
  if(!frames){frames=true;requestAnimationFrame(draw)}
 }
@@ -476,22 +470,31 @@ function selectAt(p,px){
  }
  return null;
 }
-function updatePeopleHint(){
+let pendingAudience=null,pendingAudienceSignature='';
+function nextAudienceKey(){
  const ids=[...$('public-sprite').options].map(o=>o.value).filter(Boolean);
- const mode=$('public-mode').value;
- const key=mode==='cycle'?ids[state.peopleIndex%Math.max(1,ids.length)]:state.audience;
- $('public-next').textContent=mode==='random'?'Siguiente referencia: aleatoria': 'Siguiente referencia: '+(key?.split(':').at(-1)||'—')+(mode==='cycle'?' (rotativa)':' (fija)');
+ if(!ids.length)return null;
+ const mode=$('public-mode').value,signature=ids.join('|')+':'+state.audience;
+ if(mode==='cycle')return ids[state.peopleIndex%ids.length];
+ if(mode!=='random')return state.audience;
+ if(!pendingAudience||pendingAudienceSignature!==signature){pendingAudience=ids[Math.floor(Math.random()*ids.length)];pendingAudienceSignature=signature}
+ return pendingAudience;
+}
+function updatePeopleHint(){
+ const mode=$('public-mode').value,key=nextAudienceKey();
+ $('public-next').textContent='Siguiente referencia: '+(key?.split(':').at(-1)||'—')+(mode==='cycle'?' (rotativa)':mode==='random'?' (aleatoria preparada)':' (fija)');
 }
 function appendPerson(q){
  if(personBlockedByTrees(q,data.trees))return false;
  const ids=[...$('public-sprite').options].map(o=>o.value).filter(Boolean);
  if(!ids.length)return false;
  const mode=$('public-mode').value;
- const key=mode==='cycle'?ids[state.peopleIndex%ids.length]:mode==='random'?ids[Math.floor(Math.random()*ids.length)]:state.audience;
+ const key=nextAudienceKey();
  if(!key)return false;
  const sprite=sprites[key],size=sprite?.rectSize?sprite.rectSize.map(x=>x/(sprite.pixelsToUnits||100)):[.19,.19];
  data.people.push({point:q.map(x=>+x.toFixed(3)),key,size});
  if(mode==='cycle')state.peopleIndex=(state.peopleIndex+1)%ids.length;
+ if(mode==='random')pendingAudience=null;
  return true;
 }
 function selectionVisibility(type){
@@ -1149,6 +1152,10 @@ async function init(){
   visualPanels=setupVisualPanels({state,getData:()=>data,snapshot,changed,show,
    getFloorImage:()=>getImage(FLOOR_KEY),applySurface:applySurfaceToSelection});
   vegetationPreview=setupVegetationPreviews({state,getImage});
+  placementPreviews=setupPlacementPreviews({state,getImage,spriteDims,getRoofs:()=>roofsInCategory(),
+   chooseRoof:id=>{state.material=id;palette();requestDraw()},configureTool,nextAudience:nextAudienceKey,
+   getPaso:()=>state.paso||data?.paso,getFacade:()=>visualPanels.readInputs(),
+   getPhotos:()=>photoGuides?.previewItems()||[],selectPhoto:id=>photoGuides?.selectPreview(id)});
   const treeImage=spriteFor('sharedassets2.assets:563');
   onTextureReady(key=>{if(key.startsWith('tree-'))requestDraw()});
   if(treeImage&&!treeImage.complete)treeImage.addEventListener('load',()=>vegetationPreview?.redraw(),{once:true});

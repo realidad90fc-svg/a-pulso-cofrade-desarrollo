@@ -92,7 +92,10 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
    awningDepth:Number($('facade-awning-depth').value)||.55,
    awningStart:Number($('facade-awning-start').value)/100,
    awningWidth:Number($('facade-awning-width').value)/100,
-   balcony:'none',bladeSign:$('facade-blade-sign').value,bladePosition:Number($('facade-blade-position').value)/100,bladeDepth:Number($('facade-blade-depth').value),bladeSize:Number($('facade-blade-size').value)
+   balcony:$('facade-balcony').value,balconyCount:Number($('facade-balcony-count').value),
+   balconyStart:Number($('facade-balcony-start').value)/100,balconyWidth:Number($('facade-balcony-width').value)/100,
+   flowers:$('facade-flowers').checked,hangings:$('facade-hangings').checked,
+   bladeSign:$('facade-blade-sign').value,bladePosition:Number($('facade-blade-position').value)/100,bladeDepth:Number($('facade-blade-depth').value),bladeSize:Number($('facade-blade-size').value)
   }},px,zoom);
   c.fillStyle='#ffffff';c.font='600 11px system-ui';
   c.fillText('CALLE · VISTA CENITAL',12,h-8);
@@ -138,6 +141,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   }
  };
  fields.count.addEventListener('input',updateCount);
+ for(const name of ['balcony','count','flowers','hangings'])for(const event of ['input','change'])fields[name].addEventListener(event,previewAwning);
  fields.awningDepth.addEventListener('input',()=>{updateDepth();previewAwning()});
  for(const field of ['awningStart','awningWidth','balconyStart','balconyWidth'])
   fields[field].addEventListener('input',()=>{updateSpans();previewAwning()});
@@ -257,5 +261,5 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
   }
   syncSurface();
  };
- return{refreshSelected,syncSurface,redrawFloorPreviews};
+ return{refreshSelected,syncSurface,redrawFloorPreviews,readInputs};
 }
