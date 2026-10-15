@@ -61,6 +61,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/custom-content-precision.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/selection-templates.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-workflow.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Crear instalador EXE

@@ -34,7 +34,7 @@ function openRelevantSettings(){
   people:'Público', 'people-row':'Público',erase:'Público',
   fence:'Vallas', 'fence-row':'Vallas',chair:'Vallas','chair-row':'Vallas',
   urban:'urban-panel',reference:'photo-guides-panel',paso:'start-panel',
-  'street-name':'street-label-panel'
+  'street-name':'street-label-panel',select:'selection-editor-panel',custom:'custom-assets-panel','custom-row':'custom-assets-panel',template:'templates-panel',measure:'precision-panel',split:'precision-panel',hole:'precision-panel','vertex-add':'precision-panel','vertex-remove':'precision-panel'
  };
  const paintTools=['house','road','sidewalk','tree','people','people-row','fence','fence-row','chair','chair-row','urban','sign','checkpoint','street-name','paso','reference'];
  const target=paintTools.includes(current)?'placement-preview-panel':choose[current];

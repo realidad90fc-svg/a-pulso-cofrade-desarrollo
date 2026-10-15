@@ -47,20 +47,25 @@ const sizes={
  'tree-grille':[.90,.90]
 };
 export function urbanCollisionSize(item){
- return urbanIsMarking(item?.type)||item?.type==='tree-grille'?null:(sizes[item?.type]||[.32,.32]);
+ return urbanIsMarking(item?.type)||item?.type==='tree-grille'?null:(item.size||sizes[item?.type]||[.32,.32]);
+}
+export function urbanElementSize(item,original=false){
+ if(!original&&item.size)return item.size;
+ return urbanIsMarking(item.type)?[clamp(item.width||3,1.5,12),item.type==='stop-line'?.30:clamp(item.depth||2.6,1,6)]:(sizes[item.type]||[.32,.32]);
 }
 export function urbanContains(item,point,tolerance=.18){
  if(!Array.isArray(item?.point)||!Array.isArray(point))return false;
  const dx=point[0]-item.point[0],dy=point[1]-item.point[1],
   a=(item.angle||0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a),
   x=dx*c+dy*s,y=-dx*s+dy*c;
- const dims=urbanIsMarking(item.type)?[item.width||3,item.depth||2.6]:(sizes[item.type]||[.4,.4]);
+ const dims=urbanElementSize(item);
  return Math.abs(x)<=dims[0]/2+tolerance&&Math.abs(y)<=dims[1]/2+tolerance;
 }
 export function drawUrbanElement(ctx,item,pixel,zoom,selected=false){
  if(!item?.point||!ids.has(item.type))return;
  const [x,y]=pixel(...item.point),z=Math.max(.1,zoom);
  ctx.save();ctx.translate(x,y);ctx.rotate(-(item.angle||0)*Math.PI/180);ctx.scale(z,z);
+ if(item.size){const base=urbanElementSize(item,true);ctx.scale(item.size[0]/base[0],item.size[1]/base[1]);}
  const rect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h)};
  const outline=(x,y,w,h,color='#312f2c',weight=.025)=>{ctx.strokeStyle=color;ctx.lineWidth=weight;ctx.strokeRect(x,y,w,h)};
  const disk=(x,y,r,color,stroke=null)=>{

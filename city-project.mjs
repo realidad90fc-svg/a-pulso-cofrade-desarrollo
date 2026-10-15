@@ -5,6 +5,7 @@ export const CITY_KEY='apulso-city-project-v1';
 export const MAP_STORAGE_PREFIX='apulso-universal-editor-v2:';
 import {validateResourceManifest,validateCustomObject,embedDocumentAssets} from './custom-assets.mjs';
 import {validSurface,validateTextureSettings} from './map-geometry.mjs';
+import {validateItemEdit,itemEdit} from './editor-item-state.mjs';
 export const KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 const clone=v=>structuredClone(v);
 export const normalizeStreet=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘´'`]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/^(calle|c)\s+/,'').replace(/^avda\s+/,'avenida ');
@@ -20,6 +21,10 @@ export function validateMapDocument(doc){
   if(doc[kind]!==undefined&&!Array.isArray(doc[kind]))throw Error('Capa no válida: '+kind);
   const list=doc[kind]||[];if(list.length>20000)throw Error('La capa '+kind+' supera el límite de elementos.');
   for(const o of list){
+   validateItemEdit(o);
+   if(o?.size!==undefined&&(!Array.isArray(o.size)||o.size.length!==2||!o.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100)))throw Error('Las medidas de un elemento deben estar entre 0,01 y 100 m.');
+   if(['fences','chairs'].includes(kind))for(const key of ['width','depth'])if(o[key]!==undefined&&(!Number.isFinite(o[key])||o[key]<.02||o[key]>100))throw Error('Medidas de mobiliario no válidas.');
+   if(kind==='checkpoints'&&o.radius!==undefined&&(!Number.isFinite(o.radius)||o.radius<.2||o.radius>3))throw Error('El radio del control debe estar entre 0,2 y 3 m.');
    if(['roads','sidewalks','houses'].includes(kind)&&!poly(o?.poly))throw Error('Hay polígonos no válidos en '+kind);
    if(o?.poly){if(o.holes!==undefined&&!validSurface(o))throw Error('Hay un patio o contorno no válido en '+kind);validateTextureSettings(o.texture)}
    if(kind==='customObjects'){validateCustomObject(o);if(!resourceIds.has(o.assetId))throw Error('Falta la definición de un recurso importado.')}
@@ -126,8 +131,7 @@ export function selectCityZone(p,zoneId,getDocument){
 export function transformMapDocument(doc,offset=[0,0],angle=0){
  const c=Math.cos(angle*Math.PI/180),s=Math.sin(angle*Math.PI/180),move=([x,y])=>[x*c-y*s+offset[0],x*s+y*c+offset[1]];
  const out=clone(doc);for(const k of KINDS)out[k]=(doc[k]||[]).map(o=>{
-  if(k==='labels')return[o[0],move(o[1]),...o.slice(2).map(clone)];
-  const v=clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.holes)v.holes=v.holes.map(r=>r.map(move));if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;return v;
+  const v=k==='labels'?[o[0],move(o[1]),...o.slice(2).map(clone)]:clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.holes)v.holes=v.holes.map(r=>r.map(move));if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;if(k==='trees')v.rotation=(v.rotation||0)+angle;const e=itemEdit(v);if(v.poly&&angle)itemEdit(v,true).angle=(e.angle||0)+angle;if(e.groupId)e.groupAngle=(e.groupAngle||0)+angle;return v;
  });
  if(doc.bounds)out.bounds=polygonBounds([[doc.bounds[0],doc.bounds[1]],[doc.bounds[2],doc.bounds[1]],[doc.bounds[2],doc.bounds[3]],[doc.bounds[0],doc.bounds[3]]].map(move));
  for(const key of ['paso','startPose'])if(doc[key]){const q=move([doc[key].x,doc[key].y]);out[key]={...doc[key],x:q[0],y:q[1],angle:doc[key].angle+angle};}

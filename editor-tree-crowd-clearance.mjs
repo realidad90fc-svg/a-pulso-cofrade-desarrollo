@@ -1,6 +1,7 @@
 // Exclusion zone is the rendered tree canopy plus the spectator's body.
 // Keep source-map people unchanged; they become visible if a tree is moved.
 export function treeCanopyRadius(t){
+ if(t?.size)return Math.max(...t.size)/2;
  const r=Number.isFinite(t?.radius)?t.radius:.35;
  const s=Number.isFinite(t?.scale)?t.scale:1;
  return Math.max(.125,r*s);

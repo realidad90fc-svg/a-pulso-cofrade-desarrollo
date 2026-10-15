@@ -4,7 +4,7 @@ import {ROAD_MATERIALS,SIDEWALK_MATERIALS,drawSurface,drawRoof} from './editor-m
 import {FACADE_PRESETS,AWNING_COLORS,AWNING_PRESETS,getFacadePreset,cleanFacade,drawFacadePresetPreview,drawFacadeDecor} from './editor-facades.mjs';
 import {PROJECTING_SIGNS} from './editor-projecting-signs.mjs';
 
-export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface}){
+export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorImage,applySurface,canEdit=()=>true}){
  const $=id=>document.getElementById(id);
  const galleries={roads:$('road-preview-gallery'),sidewalks:$('sidewalk-preview-gallery')};
  const materials={roads:ROAD_MATERIALS,sidewalks:SIDEWALK_MATERIALS};
@@ -222,6 +222,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  }
  $('facade-apply').addEventListener('click',()=>{
   const selected=selectedHouses();
+  if(!canEdit(selected))return;
   if(!selected.length){show('Selecciona primero uno o varios edificios.','error');return}
   snapshot();
   const decor=readInputs();
@@ -234,6 +235,7 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  });
  $('facade-remove').addEventListener('click',()=>{
   const selected=selectedHouses();
+  if(!canEdit(selected))return;
   if(!selected.length){show('Selecciona primero los edificios de los que quieras quitar la decoración.','error');return}
   if(!selected.some(item=>getData().houses[item.index].facade)){
    show('Los edificios seleccionados no tienen decoración para quitar.','info');return;

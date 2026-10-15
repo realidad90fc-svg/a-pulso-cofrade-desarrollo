@@ -1,5 +1,21 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.2.0: edición completa y plantillas reutilizables
+
+**Editar selección** permite copiar, pegar y duplicar las doce familias del mapa: calzadas, aceras, edificios con sus patios y fachadas, público, árboles, señales, checkpoints, vallas, sillas, puntos de calle, mobiliario urbano y recursos propios. El botón de duplicar que ya existía también funciona con cualquiera de ellos. Las copias son independientes; los checkpoints reciben identificadores nuevos. El portapapeles del editor permite copiar entre mapas y pestañas del mismo perfil, sin duplicar las imágenes en el guardado automático.
+
+En el panel puedes introducir el centro X/Y, ancho, fondo y giro. Para un elemento, las medidas siguen sus ejes propios; para un conjunto, siguen los ejes del plano. Los conjuntos mantienen sus proporciones al redimensionarse. Los puntos de calle y checkpoints se dimensionan por su diámetro de activación y mantienen su forma circular. Los tamaños de mobiliario, árboles, público y recursos propios se usan también en la partida. Redimensionar una superficie conserva la escala física de su textura. Las fotografías guía mantienen sus medidas y su almacén privado.
+
+La alineación funciona a izquierda, centro o derecha y arriba, centro o abajo. **Repartir huecos** iguala las separaciones horizontales o verticales entre al menos tres elementos o grupos independientes. Cada grupo cuenta como una unidad. **Agrupar** crea un conjunto mixto que puedes mover, girar, escalar, copiar o guardar como plantilla; **Seleccionar miembros por separado** permite ajustar una pieza sin deshacer el grupo. **Desagrupar** conserva todos sus elementos.
+
+**Bloquear** protege el conjunto seleccionado: sigue siendo seleccionable y copiable, pero no puede desplazarse, girarse, redimensionarse, borrarse ni recibir cambios de materiales, fachadas, vértices o checkpoint hasta desbloquearlo. Los bloqueos y grupos se guardan y exportan con el mapa. Deshacer y rehacer conservan las operaciones completas.
+
+Atajos: Ctrl+C / Ctrl+V / Ctrl+D para copiar, pegar y duplicar; Ctrl+A selecciona las capas visibles; Ctrl+G agrupa y Ctrl+Mayús+G desagrupa. Las flechas desplazan 10 cm, con Mayús 1 m y con Alt 1 cm. Pegar coloca en el centro de la vista, con un pequeño desplazamiento entre pegados sucesivos; duplicar desplaza 30 cm. Los atajos respetan la escritura en campos y los diálogos abiertos.
+
+**Plantillas** guarda la selección con nombre y vista previa. Por ejemplo, un edificio con comercio, toldo, banderola y balcones; una fila de sillas; o una fachada acompañada de árboles y mobiliario. Elige el giro, pulsa **Colocar plantilla en el plano** y marca su centro. Aparece una guía antes de colocarla; Escape cancela. Cada colocación crea un grupo independiente. Puedes actualizar una plantilla con otra selección, cambiarle el nombre o eliminarla del catálogo sin alterar las copias ya colocadas.
+
+Exporta una plantilla o el catálogo completo para llevarlo a otro equipo. Las imágenes utilizadas se incluyen una sola vez por catálogo exportado; el almacén local conserva referencias al catálogo de recursos. Se admiten hasta 100 plantillas y 5000 elementos por plantilla. Los mapas clásicos con ediciones de objetos usan su escena completa para que las posiciones anteriores no queden como duplicados en el juego; su publicación requiere una llegada marcada, como en la versión 2.1.0. Los mapas originales sin ediciones conservan su funcionamiento, pasos y controles.
+
 ## Actualización 2.1.0: recursos propios y dibujo preciso
 
 **Mis recursos** abre el importador de PNG, WebP o JPEG. Define nombre, categoría, ancho y fondo en metros, giro y colisión: ninguna, rectángulo o círculo para un tronco/poste. El visor muestra la imagen y la huella de colisión. Puedes conservar la proporción de la imagen, guardar el recurso y colocarlo individualmente o en filas con la separación de Vallas y sillas. Los pavimentos y cubiertas se eligen como materiales de sus superficies; si ya hay una superficie de esa categoría seleccionada, se aplica el material. La colisión de un edificio sigue su contorno y sus patios.

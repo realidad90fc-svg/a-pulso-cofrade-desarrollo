@@ -5,7 +5,7 @@ import {lightweightDocument,loadDocumentAssets} from './custom-assets.mjs';
 
 const el=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n};
 function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
-export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart}){
+export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true}){
  let project=readCityProject(localStorage,catalog),tab='maps',selectedZone=null,searchTimer;
  for(const map of project.maps)if(!catalog.some(m=>m.key===map.key))onRegisterMap(map);
  const persist=()=>persistCityProject(localStorage,project);
@@ -167,7 +167,7 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   const selected=(getSelection?.()||[]).filter(s=>s.type==='checkpoints'),cp=selected.length===1?getData()?.checkpoints[selected[0].index]:null;
   $('city-cp-fields').disabled=!cp;if(cp){$('city-cp-name').value=cp.name||cp.id;$('city-cp-mandatory').checked=!!cp.mandatory;$('city-cp-finish').checked=!!cp.finish}
  }
- $('city-cp-save').onclick=guard(()=>{const selected=(getSelection?.()||[]).find(s=>s.type==='checkpoints'),cp=selected&&getData()?.checkpoints[selected.index];if(!cp)return;snapshot();cp.name=$('city-cp-name').value.trim()||cp.id;cp.mandatory=$('city-cp-mandatory').checked;cp.finish=$('city-cp-finish').checked;changed();notice('Checkpoint actualizado. Las presentaciones y llegadas de los mapas propios exigen arriar.');});
+ $('city-cp-save').onclick=guard(()=>{const selected=(getSelection?.()||[]).find(s=>s.type==='checkpoints'),cp=selected&&getData()?.checkpoints[selected.index];if(!cp||!canEdit([selected]))return;snapshot();cp.name=$('city-cp-name').value.trim()||cp.id;cp.mandatory=$('city-cp-mandatory').checked;cp.finish=$('city-cp-finish').checked;changed();notice('Checkpoint actualizado. Las presentaciones y llegadas de los mapas propios exigen arriar.');});
  function refreshLinks(){
   const list=$('city-linked-list');list.replaceChildren();const refs=getData()?.zoneRefs||[];
   if(!refs.length)list.append(el('p','city-small','Busca una calle en Ciudad y enlázala aquí. Se editará siempre en su mapa de origen.'));

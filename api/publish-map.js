@@ -5,6 +5,7 @@
 import {validateResourceManifest,validateCustomObject} from '../custom-assets.mjs';
 import {validSurface,validateTextureSettings} from '../map-geometry.mjs';
 import {validateMapDocument} from '../city-project.mjs';
+import {itemEdit,validateItemEdit} from '../editor-item-state.mjs';
 const OWNER='realidad90fc-svg';
 const REPO='a-pulso-cofrade-desarrollo';
 const BASE='https://api.github.com';
@@ -22,6 +23,13 @@ function poly(v){
  return v.map(point);
 }
 function item(v,kind){
+ const result=cleanItem(v,kind);try{validateItemEdit(v)}catch(e){fail(e.message)}
+ const meta=itemEdit(v),keys=['groupId','groupName','groupAngle','angle','locked','resized'];
+ if(keys.some(k=>meta[k]!==undefined))Object.assign(itemEdit(result,true),Object.fromEntries(keys.filter(k=>meta[k]!==undefined).map(k=>[k,meta[k]])));
+ if(v.size!==undefined&&!Array.isArray(v)&&kind!=='customObjects'){if(!Array.isArray(v.size)||v.size.length!==2||!v.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100))fail('Medidas del objeto no válidas.');result.size=[...v.size]}
+ return result;
+}
+function cleanItem(v,kind){
  if(kind==='labels'){
   if(!Array.isArray(v)||v.length<2||v.length>3)fail('El punto de calle tiene un formato inválido.');
   const name=string(v[0],90).trim();
@@ -89,7 +97,7 @@ function item(v,kind){
  }
  if(kind==='fences'||kind==='chairs'){
   return{point:point(v.point),angle:number(v.angle,0,-360,360),
-   width:number(v.width,kind==='fences'?.95:.40,.1,3)};
+   width:number(v.width,kind==='fences'?.95:.40,.02,100),...(v.depth!==undefined?{depth:number(v.depth,kind==='fences'?.18:.43,.02,100)}:{})};
  }
  fail('Tipo de elemento desconocido.');
 }

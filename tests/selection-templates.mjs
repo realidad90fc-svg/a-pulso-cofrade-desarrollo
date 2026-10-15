@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import fs from 'node:fs';
+import {blankMapDocument,validateMapDocument} from '../city-project.mjs';
+import {allSelections,itemEdit,expandGroups,selectionLocked} from '../editor-item-state.mjs';
+import {elementBounds,elementSize} from '../editor-element-geometry.mjs';
+import {selectionFrame,transformSelection,groupSelection,ungroupSelection,lockSelection,arrangeSelection,captureBlock,placeBlock} from '../editor-selection-model.mjs';
+import {translateSelections,deleteSelections,rotateSelections,captureSelection} from '../editor-interactions.mjs';
+import {saveTemplate,removeTemplate,initializeTemplates,templateById,listTemplates,templateFromSelection,exportTemplates,importTemplates} from '../editor-template-library.mjs';
+import {saveCustomAsset,resourceManifest,lightweightDocument} from '../custom-assets.mjs';
+import {paintCityScene} from '../city-scene.mjs';
+import {RuntimeEditorDraft} from '../game-editor-bridge.mjs';
+import {makeGameDraft} from '../editor-game-draft.mjs';
+import {EDITOR_MAPS,buildEditorMap} from '../editor-map-catalog.mjs';
+import {prepareMap} from '../engine.mjs';
+const runtime=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/'),qa=createRequire((process.env.APULSO_DOM_TEST_MODULES||process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES)+'/');
+const {createCanvas,Image}=runtime('@napi-rs/canvas'),{indexedDB}=qa('fake-indexeddb');Object.assign(globalThis,{Image,indexedDB,OffscreenCanvas:class{constructor(w,h){return createCanvas(w,h)}}});
+const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],near=(a,b)=>assert(Math.abs(a-b)<.002,`${a} != ${b}`);
+const fixture=createCanvas(32,32),fc=fixture.getContext('2d');fc.fillStyle='#b78448';fc.fillRect(0,0,32,32);fc.clearRect(8,8,12,8);
+const asset={id:'asset-template-fixture',name:'Valla de prueba',category:'fences',width:1,depth:.2,angle:0,collision:{kind:'box',width:1,depth:.2},image:fixture.toDataURL('image/png')};await saveCustomAsset(asset);
+const blank=name=>blankMapDocument({name,key:'city-'+name,width:40,height:40}),doc=blank('original');
+doc.roads=[{poly:rect(0,0,30,30),material:'road-art-granite'}];doc.sidewalks=[{poly:rect(0,0,2,30),material:'sidewalk-art-caliza'}];
+doc.houses=[{poly:rect(20,20,5,5),holes:[rect(21,21,2,2)],material:'realista-mixta-tradicional',facade:{shop:'bar',awning:'canvas',bladeSign:'gambrinus',edge:0,awningDepth:.5}}];
+doc.people=[{point:[4,4],key:'person',size:[.19,.24],angle:10}];doc.trees=[{point:[7,7],radius:.4,scale:1,variant:'tree-1',rotation:20}];
+doc.signs=[{point:[8,3],type:'traffic',angle:25}];doc.checkpoints=[{id:'original-control',name:'Presentación',position:[5,8],radius:.6,mandatory:true}];
+doc.fences=[{point:[11,3],width:.95,angle:0}];doc.chairs=[{point:[13,3],width:.4,angle:0}];doc.labels=[['Arfe',[3,12],{radius:.4}]];
+doc.urban=[{type:'bench',point:[10,8],angle:15}];doc.customObjects=[{assetId:asset.id,point:[15,3],width:1,depth:.2,angle:0,collision:{kind:'box',width:1,depth:.2}}];doc.resources=resourceManifest(doc,false);validateMapDocument(doc);
+const picks=allSelections(doc);assert.equal(picks.length,12);groupSelection(doc,picks,'Bar completo');assert(!doc.metadata.precisionGeometry,'Grouping alone must preserve native scene behavior');
+assert.equal(expandGroups(doc,[{type:'houses',index:0}]).length,12);lockSelection(doc,picks,true);assert(selectionLocked(doc,[picks[0]]));
+for(const change of [()=>translateSelections(doc,picks,1,1),()=>deleteSelections(doc,picks),()=>rotateSelections(doc,picks,[0,0],10,captureSelection(doc,picks))])assert.throws(change,/bloquead/);
+const portable=captureBlock(doc,picks,{embed:true});assert(portable.resources[0].image);assert.equal(portable.layers.houses[0].holes.length,1);
+const copies=blank('copies'),first=placeBlock(copies,portable,{point:[20,20]}),second=placeBlock(copies,portable,{point:[25,25]});assert.equal(first.length,12);assert.equal(second.length,12);
+assert.notEqual(itemEdit(copies.houses[0]).groupId,itemEdit(copies.houses[1]).groupId);assert.notEqual(copies.checkpoints[0].id,copies.checkpoints[1].id);assert(!selectionLocked(copies,first));
+const before=JSON.stringify(doc);const frame=selectionFrame(copies,first);transformSelection(copies,first,{x:21,y:22,width:frame.width,depth:frame.depth,angle:36.5});assert.equal(JSON.stringify(doc),before,'A duplicate must never mutate the original');near(selectionFrame(copies,first).angle,36.5);
+const reopened=validateMapDocument(JSON.parse(JSON.stringify(lightweightDocument(copies))));assert.equal(itemEdit(reopened.houses[0]).groupName,'Bar completo');assert.equal(reopened.houses[0].holes.length,1);
+lockSelection(doc,picks,false);ungroupSelection(doc,picks);assert(!itemEdit(doc.houses[0]).groupId);
+for(const type of ['fences','chairs','people','trees','urban','signs','customObjects']){
+ const selection=[{type,index:0}],f=selectionFrame(doc,selection);transformSelection(doc,selection,{x:f.center[0],y:f.center[1],width:1.2,depth:.6,angle:37.5});const [w,d]=elementSize(type,doc[type][0]);near(w,1.2);near(d,.6);near(selectionFrame(doc,selection).angle,37.5);
+}
+const chair=doc.chairs[0];assert.equal(chair.depth,.6);const control=[{type:'checkpoints',index:0}],prior=JSON.stringify(doc);assert.throws(()=>transformSelection(doc,control,{x:2,y:2,width:9,depth:9,angle:0}),/radio/);assert.equal(JSON.stringify(doc),prior,'Rejected transformations are atomic');
+const theta=chair.angle*Math.PI/180,contact=[chair.point[0]+Math.cos(theta)*.5,chair.point[1]+Math.sin(theta)*.5],collisionDraft=new RuntimeEditorDraft(makeGameDraft(doc,null));let hit=false;
+const simulation={state:{status:'playing'},frameCount:1,prefs:{},stepColliders:[{enabled:true,entity:{name:'mesa'},world:()=>({points:rect(contact[0]-.015,contact[1]-.015,.03,.03)})}],send(){hit=true}};collisionDraft.collision(simulation);assert(hit&&simulation.prefs.motivoGameOver===9,'A resized native chair must collide at its new outer edge');
+const layout=blank('layout');layout.chairs=[{point:[0,0],width:1,depth:.4},{point:[4,2],width:2,depth:.4},{point:[10,3],width:1,depth:.4}];
+arrangeSelection(layout,allSelections(layout),'bottom');assert(layout.chairs.every(c=>c.point[1]===0));arrangeSelection(layout,allSelections(layout),'distributeX');
+const bounds=layout.chairs.map(c=>elementBounds('chairs',c));near(bounds[1][0]-bounds[0][2],bounds[2][0]-bounds[1][2]);
+await initializeTemplates();const template=await saveTemplate(templateFromSelection(doc,allSelections(doc),'Bar con toldo y banderola'));const exported=exportTemplates();assert.equal(exported.resources.length,1);assert(exported.resources[0].image);assert(!template.block.resources[0].image,'Saved templates only reference raster bytes');
+await removeTemplate(template.id);assert.equal(listTemplates().length,0);await importTemplates(JSON.parse(JSON.stringify(exported)));assert.equal(templateById(template.id).name,template.name);
+await assert.rejects(()=>importTemplates({...exported,templates:[...exported.templates,...exported.templates]}),/mismo identificador/);assert.equal(listTemplates().length,1);
+const placed=blank('placed');placeBlock(placed,templateById(template.id).block,{point:[18,18],angle:45,group:true,name:template.name});assert.equal(new Set(allSelections(placed).map(s=>itemEdit(placed[s.type][s.index]).groupId)).size,1);near(itemEdit(placed.houses[0]).groupAngle,45);
+const gameData=JSON.parse(fs.readFileSync(new URL('../assets/game-data.json',import.meta.url))),animation=JSON.parse(fs.readFileSync(new URL('../assets/original-animation.json',import.meta.url)));
+for(const meta of EDITOR_MAPS){const legacy=buildEditorMap(meta.key,animation,gameData.maps,prepareMap),items=allSelections(legacy);validateMapDocument(legacy);if(items.length>1)groupSelection(legacy,items,'Conjunto original');const block=captureBlock(legacy,items);assert(EDITABLE_COUNT(block)>0,meta.key);}
+function EDITABLE_COUNT(block){return Object.values(block.layers).reduce((n,items)=>n+items.length,0)}
+// Render resized objects with both shared scenery and the live patch painter.
+const renderDoc={...structuredClone(doc),houses:[],checkpoints:[],labels:[]},editor=createCanvas(900,900),game=createCanvas(900,900),pixel=(x,y)=>[x*30,900-y*30];
+const im=new Image();await new Promise((resolve,reject)=>{im.onload=resolve;im.onerror=reject;im.src=asset.image});const images=new Map([['person',im],['sharedassets2.assets:563',im]]);
+paintCityScene(editor.getContext('2d'),renderDoc,pixel,30,k=>images.get(k));new RuntimeEditorDraft(makeGameDraft(renderDoc,null)).draw(game.getContext('2d'),[30,0,0,-30,0,900],images,game);
+const a=editor.getContext('2d').getImageData(0,0,900,900).data,b=game.getContext('2d').getImageData(0,0,900,900).data;let delta=0;for(let i=0;i<a.length;i++)delta+=Math.abs(a[i]-b[i]);
+fs.mkdirSync(new URL('../../qa-renders/',import.meta.url),{recursive:true});fs.writeFileSync(new URL('../../qa-renders/selection-templates.png',import.meta.url),editor.toBuffer('image/png'));fs.writeFileSync(new URL('../../qa-renders/selection-templates-game.png',import.meta.url),game.toBuffer('image/png'));
+assert(delta/a.length<.01,'Resized editor objects must match live game rendering, delta '+delta/a.length);
+console.log('PASS selection/templates: 12 types, independent copies and control IDs, exact sizes/angles, groups, locks, atomic transforms, alignment/distribution, portable templates with images and resized editor/game parity.');

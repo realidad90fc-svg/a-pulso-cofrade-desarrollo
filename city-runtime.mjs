@@ -79,7 +79,7 @@ export class CityRoute{
  }
  drawMarkers(ctx,project){
   ctx.save();ctx.setTransform(...multiply(project,[1,0,0,-1,0,0]));
-  for(const cp of this.checkpoints){ctx.strokeStyle=this.checkpointIds.includes(cp.id)?'#9dd36c':cp.mandatory?'#e9bc63':'#71d9d0';ctx.lineWidth=.045;ctx.strokeRect(cp.position[0]-.55,-cp.position[1]-1.1,1.1,2.2)}ctx.restore();
+  for(const cp of this.checkpoints){ctx.save();ctx.translate(cp.position[0],-cp.position[1]);ctx.rotate(-(cp.angle||0)*Math.PI/180);ctx.strokeStyle=this.checkpointIds.includes(cp.id)?'#9dd36c':cp.mandatory?'#e9bc63':'#71d9d0';ctx.lineWidth=.045;ctx.strokeRect(-.55,-1.1,1.1,2.2);ctx.restore()}ctx.restore();
  }
 }
 export async function loadCityImages(route,load,images){if(route?.document)await loadEditorDraftImages({layers:route.document},load,images)}

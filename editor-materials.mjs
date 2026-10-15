@@ -232,6 +232,7 @@ export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visibl
 // The editor zoom is pixels/world-unit, but the game draws in world units
 // through its camera transform. Never impose a screen-pixel minimum on world units.
 export function treeDrawRadius(tree,zoom=1){
+ if(tree?.size)return Math.max(...tree.size)/2*Math.max(.00001,zoom);
  const radius=Number.isFinite(tree?.radius)?tree.radius:.35;
  const scale=Number.isFinite(tree?.scale)?tree.scale:1;
  return Math.max(.125,radius*scale)*Math.max(.00001,Number.isFinite(zoom)?zoom:1);
@@ -246,7 +247,7 @@ export function drawTree(ctx,tree,pixel,zoom,getImage){
  // while a texture loads. Existing map IDs, positions and collision radii stay valid.
  if(image&&(image.naturalWidth||image.width)>0){
   ctx.imageSmoothingEnabled=variant.id!=='tree-0';ctx.imageSmoothingQuality='high';
-  ctx.drawImage(image,-r,-r,r*2,r*2);
+  const w=tree.size?tree.size[0]*zoom:r*2,d=tree.size?tree.size[1]*zoom:r*2;ctx.drawImage(image,-w/2,-d/2,w,d);
  }
  ctx.restore();
 }
@@ -256,15 +257,15 @@ export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
   drawFurniture(ctx,item,type,(x,y)=>pixel(x,y).map(v=>v*96),zoom*96,selected);ctx.restore();return;
  }
  const [x,y]=pixel(...item.point),angle=(item.angle||0)*Math.PI/180;
- const w=Math.max(5,zoom*(item.width|| (type==='fence'?.95:.40))),d=Math.max(3,zoom*(type==='fence'?.18:.43));
+ const w=Math.max(.0001,zoom*(item.width|| (type==='fence'?.95:.40))),d=Math.max(.0001,zoom*(item.depth||(type==='fence'?.18:.43)));
  ctx.save();ctx.translate(x,y);ctx.rotate(-angle);
- ctx.lineWidth=Math.max(1,zoom*.028);
+ ctx.lineWidth=Math.max(.0001,zoom*.028);
  if(type==='fence'){
   // Small red Sevilla crowd-control barrier viewed from above: segmented crossbar and feet.
   ctx.fillStyle='#ba2726';ctx.strokeStyle='#791b18';
   ctx.fillRect(-w/2,-d*.30,w,d*.60);ctx.strokeRect(-w/2,-d*.30,w,d*.60);
   ctx.fillStyle='#de4841';
-  for(let i=1;i<Math.max(2,Math.floor(w/12));i++){const xx=-w/2+i*w/Math.max(2,Math.floor(w/12));ctx.fillRect(xx-1,-d*.34,2,d*.68)}
+  const bars=Math.max(2,Math.floor((item.width||.95)/.25));for(let i=1;i<bars;i++){const xx=-w/2+i*w/bars;ctx.fillRect(xx-zoom*.011,-d*.34,zoom*.022,d*.68)}
   ctx.fillStyle='#912524';ctx.fillRect(-w/2,-d,w*.06,d*2);ctx.fillRect(w/2-w*.06,-d,w*.06,d*2);
  }else{
   // Folding wooden Carrera Oficial chair. Keep the saved .40 x .43 m footprint
@@ -273,7 +274,7 @@ export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
   if(iw>0&&ih>0){
    const fit=Math.min(w/iw,d/ih);
    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-   ctx.drawImage(image,-iw*fit/2,-ih*fit/2,iw*fit,ih*fit);
+   if(item.edit?.resized)ctx.drawImage(image,-w/2,-d/2,w,d);else ctx.drawImage(image,-iw*fit/2,-ih*fit/2,iw*fit,ih*fit);
   }else{
    // A recognisable slatted wooden chair also remains visible while loading.
    ctx.save();ctx.scale(w,d);ctx.lineWidth=.018;ctx.strokeStyle='#71401d';

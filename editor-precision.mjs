@@ -3,6 +3,7 @@ import {customAssetMaterial} from './custom-assets.mjs';
 import {surfaceById,roofById} from './editor-materials.mjs';
 import {surfaceTextureDefaults} from './surface-renderer.mjs';
 import {textureMetresFor} from './editor-roof-raster.mjs';
+import {assertEditable} from './editor-item-state.mjs';
 export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,show,setSelection,configureTool,pixel,getZoom}){
  const panel=document.createElement('details');panel.id='precision-panel';panel.open=true;
  panel.innerHTML=`<summary>Dibujo preciso · medidas y superficies</summary><div class="stack">
@@ -31,7 +32,7 @@ export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,
  let measure=[],cut=[],snap=null;
  const guard=fn=>(...args)=>{try{return fn(...args)}catch(error){show(error.message,'error');return true}};
  const selected=()=>state.selectedItems.filter(s=>['roads','sidewalks','houses'].includes(s.type)&&getData()?.[s.type]?.[s.index]);
- const one=()=>{const items=selected();if(items.length!==1)throw Error('Selecciona una sola calzada, acera o edificio.');const s=items[0];return{s,item:getData()[s.type][s.index]}};
+ const one=()=>{const items=selected();assertEditable(getData(),items);if(items.length!==1)throw Error('Selecciona una sola calzada, acera o edificio.');const s=items[0];return{s,item:getData()[s.type][s.index]}};
  function markGeometry(){getData().metadata.precisionGeometry=true}
  function applyParts(s,parts){snapshot();markGeometry();getData()[s.type].splice(s.index,1,...parts);setSelection(parts.map((_,i)=>({type:s.type,index:s.index+i,vertex:-1})));changed()}
  function textureDefaults(s){
@@ -69,7 +70,7 @@ export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,
  $('precision-add-vertex').onclick=guard(()=>activate('vertex-add'));$('precision-remove-vertex').onclick=guard(()=>{const {s}=one();if(s.vertex>=0)removeVertex(s);else activate('vertex-remove')});
  $('precision-split').onclick=guard(()=>activate('split'));$('precision-hole').onclick=guard(()=>activate('hole'));
  $('precision-union').onclick=guard(()=>{
-  const items=selected();if(items.length<2||new Set(items.map(s=>s.type)).size!==1)throw Error('Selecciona dos o más superficies de la misma capa.');
+  const items=selected();assertEditable(getData(),items);if(items.length<2||new Set(items.map(s=>s.type)).size!==1)throw Error('Selecciona dos o más superficies de la misma capa.');
   const kind=items[0].type,parts=mergeSurfaces(items.map(s=>getData()[kind][s.index]));snapshot();markGeometry();for(const s of [...items].sort((a,b)=>b.index-a.index))getData()[kind].splice(s.index,1);
   const start=getData()[kind].length;getData()[kind].push(...parts);setSelection(parts.map((_,i)=>({type:kind,index:start+i,vertex:-1})));changed();refresh();show('Unión aplicada. Se conserva el material de la primera superficie.','good');
  });
@@ -78,8 +79,8 @@ export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,
   else{const {s}=one();updateVertex(s,p)}
  });
  const readTexture=()=>validateTextureSettings({width:+$('precision-texture-width').value,depth:+$('precision-texture-depth').value,angle:+$('precision-texture-angle').value,mode:$('precision-texture-mode').value});
- $('precision-texture-apply').onclick=guard(()=>{const t=readTexture(),items=selected();if(items.length){snapshot();for(const s of items)getData()[s.type][s.index].texture={...t};changed()}else state.pendingTexture=t;show(items.length?'Textura ajustada en '+items.length+' superficies.':'Textura preparada para el próximo polígono.','good');requestDraw()});
- $('precision-texture-reset').onclick=guard(()=>{const items=selected();if(items.length){snapshot();for(const s of items)delete getData()[s.type][s.index].texture;changed()}delete state.pendingTexture;refresh();show('Tamaño y giro originales de la textura restaurados.','good')});
+ $('precision-texture-apply').onclick=guard(()=>{const t=readTexture(),items=selected();assertEditable(getData(),items);if(items.length){snapshot();for(const s of items)getData()[s.type][s.index].texture={...t};changed()}else state.pendingTexture=t;show(items.length?'Textura ajustada en '+items.length+' superficies.':'Textura preparada para el próximo polígono.','good');requestDraw()});
+ $('precision-texture-reset').onclick=guard(()=>{const items=selected();assertEditable(getData(),items);if(items.length){snapshot();for(const s of items)delete getData()[s.type][s.index].texture;changed()}delete state.pendingTexture;refresh();show('Tamaño y giro originales de la textura restaurados.','good')});
  function snapped(p,event){
   const relevant=tools.has(state.tool)||['road','sidewalk','house','custom','custom-row'].includes(state.tool)||state.drag?.action==='select'&&state.drag.selection?.vertex>=0;
   if(!relevant||event?.altKey){snap=null;return p}

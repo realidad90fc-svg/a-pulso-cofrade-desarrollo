@@ -1,6 +1,7 @@
 // Pure editor operations: continuous crowd brush and Windows-style area selection.
 // Coordinates are always map-world units, independent of zoom or device pixels.
-import {customObjectBounds} from './custom-assets.mjs';
+import {assertEditable,itemEdit,allSelections} from './editor-item-state.mjs';
+import {elementCorners} from './editor-element-geometry.mjs';
 export const PICKABLE_TYPES=['customObjects','urban','labels','checkpoints','signs','trees','fences','chairs','people','houses','sidewalks','roads'];
 export const PUBLIC_MIN_DISTANCE=.135;
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
@@ -39,6 +40,7 @@ export function unifySelections(items){
 }
 export function translateSelections(map,selections,dx,dy){
  if(!dx&&!dy)return;
+ assertEditable(map,selections);
  for(const {type,index} of unifySelections(selections)){
   const item=map[type]?.[index];if(!item)continue;
   if(Array.isArray(item.poly))for(const ring of [item.poly,...(item.holes||[])])for(const p of ring){p[0]=round(p[0]+dx);p[1]=round(p[1]+dy)}
@@ -49,6 +51,7 @@ export function translateSelections(map,selections,dx,dy){
  }
 }
 export function deleteSelections(map,selections){
+ assertEditable(map,selections);
  const byType=new Map();
  for(const {type,index} of unifySelections(selections)){
   if(!byType.has(type))byType.set(type,[]);
@@ -114,11 +117,7 @@ export function selectionGeometry(map,selections){
  const points=[];
  for(const {type,index}of unifySelections(selections)){
   const item=map[type]?.[index];if(!item)continue;
-  if(type==='customObjects'){points.push(...customObjectBounds(item));continue}
-  if(Array.isArray(item.poly)){points.push(...item.poly);continue}
-  const p=editorPoint(item);if(!valid(p))continue;
-  const half=type==='fences'?(item.width||.95)*.5:type==='chairs'?.25:type==='trees'?(item.radius||.35)*(item.scale||1):type==='urban'?(['crosswalk','raised-crosswalk','stop-line'].includes(item.type)?Math.max(item.width||3,item.depth||2.6)*.5:.75):.2;
-  points.push([p[0]-half,p[1]-half],[p[0]+half,p[1]+half]);
+  points.push(...elementCorners(type,item));
  }
  if(!points.length)return null;
  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
@@ -126,6 +125,9 @@ export function selectionGeometry(map,selections){
  return {bounds,center:[(bounds[0]+bounds[2])/2,(bounds[1]+bounds[3])/2]};
 }
 export function rotateSelections(map,selections,center,degrees,originals){
+ assertEditable(map,selections);
+ const selectedKeys=new Set(selections.map(s=>s.type+':'+s.index)),wholeGroups=new Set(selections.map(s=>itemEdit(map[s.type]?.[s.index]).groupId).filter(Boolean));
+ for(const s of allSelections(map))if(!selectedKeys.has(s.type+':'+s.index))wholeGroups.delete(itemEdit(map[s.type][s.index]).groupId);
  const rad=degrees*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
  const rotate=p=>{
   const dx=p[0]-center[0],dy=p[1]-center[1];
@@ -142,6 +144,8 @@ export function rotateSelections(map,selections,center,degrees,originals){
     item[angleKey]=clampRound((((Number(origin[angleKey])||0)+degrees)%360+360)%360);
    }
   }
+  if(origin.poly)itemEdit(item,true).angle=((itemEdit(origin).angle||0)+degrees)%360;
+  if(wholeGroups.has(itemEdit(origin).groupId))itemEdit(item,true).groupAngle=((itemEdit(origin).groupAngle||0)+degrees)%360;
  }
 }
 export function captureSelection(map,selections){

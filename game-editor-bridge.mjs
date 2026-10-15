@@ -43,20 +43,20 @@ function shapePolygon(w){
 }
 function obstaclesFor(layers){
  const obstacles=[];
- for(const o of layers.fences||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.95,.18,o.angle||0),reason:9});
- for(const o of layers.chairs||[])if(valid(o.point))obstacles.push({poly:around(o.point,.40,.43,o.angle||0),reason:9});
+ for(const o of layers.fences||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.95,o.depth||.18,o.angle||0),reason:9});
+ for(const o of layers.chairs||[])if(valid(o.point))obstacles.push({poly:around(o.point,o.width||.40,o.depth||.43,o.angle||0),reason:9});
  for(const o of layers.houses||[])if(polygon(o.poly))obstacles.push({poly:o.poly,holes:o.holes||[],reason:2});
  for(const o of layers.customObjects||[]){const poly=customObjectCollider(o);if(poly)obstacles.push({poly,reason:9})}
  for(const o of layers.trees||[])if(valid(o.point)){
   const r=Math.min(.65,Math.max(.10,(o.radius||.35)*(o.scale||1)*.43));
-  obstacles.push({poly:around(o.point,r*2,r*2),reason:2});
+  obstacles.push({poly:around(o.point,o.size?Math.min(1.3,o.size[0]*.43):r*2,o.size?Math.min(1.3,o.size[1]*.43):r*2,o.rotation||0),reason:2});
  }
  for(const o of layers.urban||[])if(valid(o.point)){
    const size=urbanCollisionSize(o);
    if(size)obstacles.push({poly:around(o.point,size[0],size[1],o.angle||0),reason:9});
   }
   for(const o of layers.people||[])if(valid(o.point)&&!personBlockedByTrees(o,layers.trees)){
-  const r=.065;obstacles.push({poly:around(o.point,r*2,r*2),reason:13});
+  const r=.065;obstacles.push({poly:around(o.point,o.edit?.resized?(o.size?.[0]||.19)*.13/.19:r*2,o.edit?.resized?(o.size?.[1]||.19)*.13/.19:r*2,o.angle||0),reason:13});
  }
  return obstacles.map(o=>({...o,box:bbox(o.poly)}));
 }
@@ -257,7 +257,7 @@ export class RuntimeEditorDraft{
   const im=key=>images.get(key);
   ctx.save();ctx.setTransform(...oriented);
   ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
-  for(const [kind,materials]of [['sidewalks',SIDEWALK_MATERIALS],['roads',ROAD_MATERIALS]]){
+  for(const [kind,materials]of [['roads',ROAD_MATERIALS],['sidewalks',SIDEWALK_MATERIALS]]){
    // Only the Arenal full-scene layers, once accepted, are skipped here.
    // All other maps keep the original additive editor painter unchanged.
    if((kind==='sidewalks'&&this.baseArenalSidewalks)
