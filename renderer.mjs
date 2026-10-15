@@ -1,5 +1,6 @@
 import {drawRouteMarkers} from './route-markers.mjs';
 import {multiply} from './original-scene.mjs';
+import {drawStreetNotice} from './street-identifiers.mjs';
 export class Renderer {
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.width=1;this.height=1;this.dpr=1;}
  resize(width,height,dpr=1){this.width=width;this.height=height;this.dpr=Math.min(dpr,2);this.canvas.width=Math.round(width*this.dpr);this.canvas.height=Math.round(height*this.dpr);}
@@ -20,7 +21,7 @@ export class Renderer {
   // or draw order. Paint its 8m cached world tiles behind all actors/props.
   // This is the ONLY base-scene draw for Arenal, preventing double painting.
   if(isArenal&&sim.routeAdapter?.drawArchitecture){
-   const route=sim.routeAdapter,scene=route.scene,bounds=scene?.bounds;
+   const route=sim.routeAdapter,scene=route.scene,bounds=route.renderBounds||scene?.bounds;
    const p=scene?.ppu;
    if(Array.isArray(bounds)&&bounds.length===4&&p>0){
     const worldToTile=multiply(project,[1/p,0,0,-1/p,bounds[0],bounds[3]]);
@@ -75,6 +76,10 @@ export class Renderer {
   }
   if(!editorDrawn)sim.editorDraft?.draw(ctx,project,images,this.canvas);
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
-  if(showOverlay)sim.routeAdapter?.drawOverlay?.(ctx,w,h,d);
+  if(showOverlay){
+   const identifiers=sim.editorDraft||sim.routeAdapter?.contacts;
+   drawStreetNotice(ctx,w,h,d,sim,identifiers?.streetNoticeFor?.(sim)||sim.routeAdapter?.streetNotice);
+   sim.routeAdapter?.drawOverlay?.(ctx,w,h,d);
+  }
  }
 }

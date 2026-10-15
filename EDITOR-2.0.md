@@ -1,5 +1,13 @@
 # Taller de Sevilla 2.0
 
+## Corrección 2.0.1: suelo e identificadores
+
+La prueba de Arenal carga el documento guardado completo. Sus calles y aceras definen tanto el dibujo como el suelo transitable, también fuera de los límites del mapa original. Borrar todas las superficies elimina el suelo anterior. Una salida sin suelo o que invade un edificio se rechaza al probar, con el motivo para corregirla en el editor.
+
+Los nombres de calle se conservan como referencias visibles en el editor y aparecen en el cartel superior del juego al pasar por sus anclas. No se pintan sobre el pavimento. El cartel cambia de nombre al entrar en el siguiente tramo identificado.
+
+Regresión reproducida y verificada mediante guardado, lectura de la prueba, colisiones reales y renderizado vertical con cámara girada; incluye suelo fuera de los límites originales, borrado de suelo, edificio sobre la salida y cambio de cartel entre Arfe y Adriano. El instalador conserva el mismo perfil y los mapas existentes.
+
 El editor conserva los mapas, las fotografías privadas, los identificadores de los materiales antiguos y el perfil de Windows de la versión 1.0.4.
 
 ## Mapas y calles compartidas

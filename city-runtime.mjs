@@ -5,6 +5,7 @@ import {RuntimeEditorDraft,loadEditorDraftImages} from './game-editor-bridge.mjs
 import {paintCityScene} from './city-scene.mjs';
 import {inverse,multiply} from './original-scene.mjs';
 import {pointInPolygon} from './engine.mjs';
+import {makeArenalPreviewDraft} from './editor-game-draft.mjs';
 
 export function readCityPreview(search,storage){
  const params=new URLSearchParams(search),key=params.get('cityMap');if(!key)return null;
@@ -23,6 +24,7 @@ export function readCityPreview(search,storage){
   document.checkpoints[0]={...document.checkpoints[0],mandatory:true,name:visit.presentation||document.checkpoints[0].name||'Presentación obligatoria'};
  }
  return{key,name:document.metadata.zoneName||document.metadata.map||meta?.name||key,document,
+  draft:makeArenalPreviewDraft(document),
   isolated:meta?.type==='user'||!!zoneId||!!saved.zoneRefs?.length,
   nativeId:meta?.nativeId||meta?.route?.mapId||CAMPAIGN_DATA.routes.find(r=>r.mapKey===key)?.mapId||1};
 }

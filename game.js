@@ -12,8 +12,8 @@ import {prepareMap,prepareStep} from './engine.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
-import {Renderer} from './renderer.mjs?rev=arenal-suelo-14oc';
-import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart} from './game-editor-bridge.mjs';
+import {Renderer} from './renderer.mjs?rev=suelo-carteles-2.0.1';
+import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart,inspectEditorSpawn} from './game-editor-bridge.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
 let customMenu,modeNavigation,allowLegacyHome=false;
@@ -94,10 +94,14 @@ async function startGame(scene=2,snapshot=null){
   await loadSevilleTextures();
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
   const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':cityPreview?'practice':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
-  const publishedOrLocal=cityPreview?.isolated?null:await resolveEditorDraft(next);
+  const publishedOrLocal=cityPreview?.isolated?null:cityPreview?.draft||await resolveEditorDraft(next);
   if(run!==loading)return;
   const editorDraft=attachEditorDraft(next,publishedOrLocal);
   const spawnResult=editorDraft&&!snapshot&&editorDraft.startPose?applyEditorStart(next,editorDraft.startPose):null;
+  if(cityPreview&&!snapshot){
+   const inspection=spawnResult&&!spawnResult.ok?spawnResult:inspectEditorSpawn(next);
+   if(!inspection.ok)throw Error('La salida marcada no es transitable: '+inspection.reason+'. Recoloca el inicio sobre la calzada o la acera en el editor.');
+  }
   const startWarning=spawnResult&&!spawnResult.ok?'La salida marcada no es segura: '+spawnResult.reason+'. Se ha utilizado la salida original.':null;
   if(editorDraft){
    const customPoints=(editorDraft.layers.checkpoints||[])

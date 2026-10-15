@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.15-taller-sevilla-2.0.0",
+  "version": "dev-2026.10.15-suelo-carteles-2.0.1",
   "stage": "development",
-  "note": "Taller 2.0: mapas propios, zonas compartidas, buscador de calles, itinerarios por hermandad y pavimentos con escala común en editor y juego."
+  "note": "2.0.1: el ensayo de Arenal carga el suelo guardado completo, dibuja calles fuera de los límites originales y muestra los identificadores en el cartel superior."
 }

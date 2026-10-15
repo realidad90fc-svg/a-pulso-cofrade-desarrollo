@@ -8,6 +8,7 @@ import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban
 import {pointInPolygon} from './engine.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
+import {StreetIdentifiers} from './street-identifiers.mjs';
 
 const valid=p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]);
 const validStart=p=>p&&typeof p==='object'&&!Array.isArray(p)&&[p.x,p.y,p.angle].every(Number.isFinite)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000&&Math.abs(p.angle)<360000;
@@ -91,7 +92,7 @@ export async function resolveEditorDraft(sim){
 // new start if real physics says it would collide on the first frame.
 export function inspectEditorSpawn(sim){
  const s=sim,parts=(s.stepColliders||[]).filter(c=>c.enabled&&c.entity!==s.contraEntity);
- const route=s.routeAdapter,overlays=s.editorDraft?.obstacles||[];
+ const route=s.routeAdapter,overlays=s.editorDraft?.obstacles||route?.contacts?.obstacles||[];
  for(const c of parts){
   c._frame=-1;
   let world;try{world=c.world()}catch{return{ok:false,reason:'No se pudo calcular el volumen de la cuadrilla.'}}
@@ -159,7 +160,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
  const route=sim.routeAdapter;
  if(key==='RegresoArenal'&&route&&draft.arenalScene){
   const scene=draft.arenalScene;
-  if(Array.isArray(scene.roads)&&scene.roads.length&&scene.roads.every(o=>polygon(o.poly))){
+  if(Array.isArray(scene.roads)&&scene.roads.every(o=>polygon(o.poly))){
    route.walkable=scene.roads.map(o=>o.poly.map(p=>[...p]));
    route.roadBoxes=route.walkable.map(bbox);
    route.editorRoadSurfaces=scene.roads.map((o,i)=>({
@@ -196,6 +197,11 @@ export function attachEditorDraft(sim,draftOverride=undefined){
    route.people=scene.people.map((p,i)=>({...lookup.get(JSON.stringify(p.point)+'|'+p.key),...p,id:'editor-arenal-person-'+i,baked:true,size:p.size||[.19,.19]}));
    route.obstacles=route.obstacles.filter(o=>o.kind!=='visible-spectator'||keep.has(o.center?.map(n=>n.toFixed(3)).join(',')));
   }
+  // Tile coverage must include authored geometry, including streets added
+  // beyond the original level. Physics and painting use the same polygons.
+  const polygons=[...route.walkable,...route.sidewalks.map(o=>o.poly),...(route.buildings||[]).map(o=>o.poly)];
+  const boxes=polygons.filter(polygon).map(bbox),original=route.scene.bounds;
+  route.renderBounds=[Math.min(original[0],...boxes.map(b=>b[0])),Math.min(original[1],...boxes.map(b=>b[1])),Math.max(original[2],...boxes.map(b=>b[2])),Math.max(original[3],...boxes.map(b=>b[3]))];
   route.tileCache?.clear();
  }else if(route&&Array.isArray(route.walkable)){
   const roads=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
@@ -216,6 +222,8 @@ export function attachEditorDraft(sim,draftOverride=undefined){
  sim.editorDraft=new RuntimeEditorDraft(draft);
  sim.editorDraft.baseArenalSidewalks=key==='RegresoArenal'&&!!route?.editorSidewalkMaterialReady;
  sim.editorDraft.baseArenalRoads=key==='RegresoArenal'&&!!route?.editorRoadSurfaces;
+ sim.editorDraft.baseArenalHouses=key==='RegresoArenal'&&Array.isArray(draft.arenalScene?.houses);
+ sim.editorDraft.baseArenalPeople=key==='RegresoArenal'&&Array.isArray(draft.arenalScene?.people);
  return sim.editorDraft;
 }
 export class RuntimeEditorDraft{
@@ -224,7 +232,10 @@ export class RuntimeEditorDraft{
    // Previously discarded by the runtime wrapper: caused editor-defined starts not to load.
    this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
   this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
-  this.obstacles=obstaclesFor(this.layers);
+  this.streetIdentifiers=new StreetIdentifiers(this.labels);
+  // Replacing an Arenal scene also replaces its solid objects. Unchanged
+  // buildings and spectators must still block an edited start or road.
+  this.obstacles=obstaclesFor({...this.layers,...draft.arenalScene});
   this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
  }
  draw(ctx,project,images,canvas){
@@ -250,7 +261,7 @@ export class RuntimeEditorDraft{
   }
   for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
     drawUrbanElement(ctx,o,px,1);
-   for(const o of this.layers.houses)if(polygon(o.poly)&&hits(bbox(o.poly),bound)){
+   for(const o of this.layers.houses)if(!this.baseArenalHouses&&polygon(o.poly)&&hits(bbox(o.poly),bound)){
     drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
     if(o.facade){
      // This canvas is already transformed in world units. Work temporarily
@@ -276,7 +287,7 @@ export class RuntimeEditorDraft{
    ctx.beginPath();ctx.moveTo(x-.28,y);ctx.lineTo(x+.28,y);
    ctx.moveTo(x,y-.28);ctx.lineTo(x,y+.28);ctx.stroke();
   }
-  for(const o of this.layers.people)if(valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
+  for(const o of this.layers.people)if(!this.baseArenalPeople&&valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
    const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
    const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
    if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
@@ -285,17 +296,11 @@ export class RuntimeEditorDraft{
    else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(0,0,.095,0,2*Math.PI);ctx.fill()}
    ctx.restore();
   }
-  // Street names are readable in the game, not just editor overlays.
-  for(const label of this.labels){
-   if(!Array.isArray(label)||typeof label[0]!=='string'||!valid(label[1]))continue;
-   const [x,y]=label[1],name=label[0].slice(0,90);
-   if(x<bound[0]-2||x>bound[2]+2||y<bound[1]-2||y>bound[3]+2)continue;
-   ctx.save();ctx.translate(x,-y);ctx.scale(1,-1);
-   ctx.font='600 .24px system-ui';ctx.lineWidth=.055;ctx.strokeStyle='#1c2020';
-   ctx.strokeText(name,.11,-.05);ctx.fillStyle='#fff2dc';ctx.fillText(name,.11,-.05);
-   ctx.restore();
-  }
   ctx.restore();
+ }
+ streetNoticeFor(sim){
+  const p=sim.position(sim.stepEntity.transform);
+  return this.streetIdentifiers.at([p.x,p.y],sim.levelTime,sim.routeAdapter?.walkable||[]);
  }
  update(sim){
   if(sim.state.status!=='playing'||!sim.state.lifted||sim.controller?.martillo)return;

@@ -100,12 +100,8 @@ export class CentreRoute{
   this.streetNotice={id,moduleId:module.id,name:zone?.name||module.name,since:s.levelTime};
  }
 
- drawOverlay(ctx,width,height,dpr){
-  const notice=this.streetNotice;if(!notice||this.sim.timeScale===0||this.sim.state.status!=='playing')return;
-  const age=this.sim.levelTime-notice.since,duration=3.5;if(age<0||age>=duration)return;
-  const alpha=Math.min(1,age/.18,(duration-age)/.55),w=Math.min(260,width-40),h=34,x=(width-w)/2,y=Math.max(112,height*.145);
-  ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=alpha;ctx.fillStyle='rgba(37,19,24,.94)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#a68b55';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1);ctx.fillStyle='#eee0c5';ctx.font='17px Georgia, serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(notice.name,x+w/2,y+h/2,w-20);ctx.restore();
- }
+ // The renderer owns the screen-space street banner for every map type.
+ drawOverlay(){}
  tick(){const s=this.sim;this.updateStreet();this.follow();const shapes=s.stepColliders.filter(c=>c.enabled&&c.entity!==s.contraEntity).map(c=>({c,w:c.world()})),hull=bounds(shapes.flatMap(({w})=>samples(w))),nearby=this.obstacles.filter(o=>intersects(hull,o.rect));
   for(const {c,w}of shapes)if(!this.validShape(w,nearby)){s.prefs.motivoGameOver=c.entity.name.startsWith('manigueta')?3:c.entity.name.startsWith('candelabro')?4:2;s.send(s.stepEntity,'gameOverMet');return;}
   const pos=s.position(s.stepEntity.transform);for(const cp of this.checkpoints)if(!this.checkpointIds.includes(cp.id)&&s.state.lifted&&!s.controller.martillo&&Math.hypot(pos.x-cp.position[0],pos.y-cp.position[1])<=cp.radius){this.checkpointIds.push(cp.id);this.checkpointReached=this.checkpointIds.includes(this.scene.checkpoint?.id);s.emit('checkpoint');}
@@ -121,10 +117,10 @@ export class CentreRoute{
   // Only visible world tiles exist as canvas surfaces. An LRU cap releases
   // distant sectors while retaining the lightweight complete collision data.
   const det=m[0]*m[3]-m[1]*m[2],inv=p=>[(m[3]*(p[0]-m[4])-m[2]*(p[1]-m[5]))/det,(-m[1]*(p[0]-m[4])+m[0]*(p[1]-m[5]))/det];
-  const corners=[[0,0],[ctx.canvas.width,0],[ctx.canvas.width,ctx.canvas.height],[0,ctx.canvas.height]].map(inv),r=bounds(corners),v=this.scene,t=v.tileSize*v.ppu;
+  const corners=[[0,0],[ctx.canvas.width,0],[ctx.canvas.width,ctx.canvas.height],[0,ctx.canvas.height]].map(inv),r=bounds(corners),v=this.scene,renderBounds=this.renderBounds||v.bounds,t=v.tileSize*v.ppu;
   ctx.save();ctx.setTransform(...m);ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
   for(let iy=Math.max(0,Math.floor(r[1]/t));iy<=Math.min(Math.ceil(sprite.rectSize[1]/t)-1,Math.floor(r[3]/t));iy++)for(let ix=Math.max(0,Math.floor(r[0]/t));ix<=Math.min(Math.ceil(sprite.rectSize[0]/t)-1,Math.floor(r[2]/t));ix++){
-   const key=ix+','+iy;let canvas=this.tileCache.get(key);if(!canvas){canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(t,t):typeof document!=='undefined'?document.createElement('canvas'):new ctx.canvas.constructor(t,t);canvas.width=t;canvas.height=t;this.paintTile(canvas.getContext('2d'),images,[v.bounds[0]+ix*v.tileSize,v.bounds[3]-(iy+1)*v.tileSize,v.bounds[0]+(ix+1)*v.tileSize,v.bounds[3]-iy*v.tileSize]);}this.tileCache.delete(key);this.tileCache.set(key,canvas);while(this.tileCache.size>v.maxCachedTiles){const oldest=this.tileCache.keys().next().value;this.tileCache.delete(oldest);}// Tiny adjacent-tile bleed prevents the camera-following dark seams
+   const key=ix+','+iy;let canvas=this.tileCache.get(key);if(!canvas){canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(t,t):typeof document!=='undefined'?document.createElement('canvas'):new ctx.canvas.constructor(t,t);canvas.width=t;canvas.height=t;this.paintTile(canvas.getContext('2d'),images,[renderBounds[0]+ix*v.tileSize,renderBounds[3]-(iy+1)*v.tileSize,renderBounds[0]+(ix+1)*v.tileSize,renderBounds[3]-iy*v.tileSize]);}this.tileCache.delete(key);this.tileCache.set(key,canvas);while(this.tileCache.size>v.maxCachedTiles){const oldest=this.tileCache.keys().next().value;this.tileCache.delete(oldest);}// Tiny adjacent-tile bleed prevents the camera-following dark seams
    // seen on Arenal tile boundaries. Never alters world coordinates.
    // Do not stretch Arenal terrain tiles: even a small world-space bleed
    // shifts grout lines against the separately painted roof and road edges.

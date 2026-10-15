@@ -41,6 +41,15 @@ jobs:
         run: |
           node tests/city-project.mjs
           node tests/native-regression.mjs
+      - name: Verificar suelo editado y cartel en el motor de Windows
+        shell: pwsh
+        run: |
+          $renderQa = Join-Path $env:RUNNER_TEMP 'apulso-render-qa'
+          npm install --prefix $renderQa --no-audit --no-fund @napi-rs/canvas
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:CODEX_PRIMARY_RUNTIME_NODE_MODULES = Join-Path $renderQa 'node_modules'
+          node tests/edited-arenal-preview.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Crear instalador EXE
         working-directory: desktop
         env:
