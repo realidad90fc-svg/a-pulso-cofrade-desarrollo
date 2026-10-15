@@ -1,7 +1,7 @@
 import {setupCityManager} from './city-manager.mjs';
 import {blankMapDocument,validateMapDocument,MAP_STORAGE_PREFIX,KINDS} from './city-project.mjs';
 import {paintCityScene} from './city-scene.mjs';
-import {loadSevilleTextures} from './seville-textures.mjs';
+import {loadSevilleTextures,onTextureReady} from './seville-textures.mjs';
 import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
@@ -1150,6 +1150,7 @@ async function init(){
    getFloorImage:()=>getImage(FLOOR_KEY),applySurface:applySurfaceToSelection});
   vegetationPreview=setupVegetationPreviews({state,getImage});
   const treeImage=spriteFor('sharedassets2.assets:563');
+  onTextureReady(key=>{if(key.startsWith('tree-'))requestDraw()});
   if(treeImage&&!treeImage.complete)treeImage.addEventListener('load',()=>vegetationPreview?.redraw(),{once:true});
   // The native asphalt grain sprite may arrive after the editor UI: update
   // the thumbnails once, so the gallery matches the finished map texture.

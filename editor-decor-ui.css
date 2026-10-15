@@ -25,7 +25,7 @@
 #facade-panel .facade-gallery .decor-card{min-height:91px}
 #tree-preview,#facade-shop-preview{display:block;width:100%;height:auto;border:1px solid #6a8185;border-radius:8px;background:#b6b39f}
 .tree-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
-.tree-gallery .decor-card canvas{background:#c2bfae}
+.tree-gallery .decor-card canvas{background:#c2bfae;aspect-ratio:164 / 100;object-fit:contain}
 #tree-preview-name{min-height:32px}
 @media(max-width:850px){
  .decor-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}

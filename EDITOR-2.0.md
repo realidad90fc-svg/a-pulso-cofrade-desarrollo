@@ -1,5 +1,9 @@
 # Taller de Sevilla 2.0
 
+## Actualización 2.0.4: vegetación realista
+
+Los siete modelos alternativos de árbol utilizan texturas raster cenitales con follaje, luces, sombras internas y transparencia. El árbol original se conserva. El catálogo y la vista previa grande tienen el doble de resolución para pantallas de alta densidad. Editor y juego usan los mismos recursos; al abrir mapas anteriores se actualiza el aspecto sin cambiar sus tipos, posiciones, tamaños, giros ni colisiones. La descarga incluye las texturas para funcionar sin conexión.
+
 ## Actualización 2.0.3: vegetación y banderolas
 
 Árboles y vegetación tiene ocho miniaturas y una vista ampliada que se actualiza al elegir modelo o radio. Elegir una miniatura desactiva la alternancia para colocar ese modelo concreto; con Alternar activado se muestra el siguiente árbol. Se utiliza el mismo dibujante que en el mapa.

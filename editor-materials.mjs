@@ -1,4 +1,5 @@
 import {paintWorldSurface} from './surface-renderer.mjs';
+import {textureImage} from './seville-textures.mjs';
 import {renderInsetRoof} from './editor-roof-render.mjs';
 import {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
 export {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
@@ -170,13 +171,13 @@ const pavements=[
 export const SIDEWALK_MATERIALS=[{id:'sidewalk-art-caliza',name:'Caliza sevillana · textura ilustrada',base:'#cfbea2',light:'#ecdec4',pattern:'art-caliza'},...pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_SIDEWALK_MATERIALS];
 export const TREE_VARIANTS=[
  {id:'tree-0',name:'Árbol original · copa ancha',tone:'#426a3e',shape:'round'},
- {id:'tree-1',name:'Naranjo · copa redonda',tone:'#356646',shape:'round'},
- {id:'tree-2',name:'Plátano de sombra',tone:'#5c7846',shape:'lobed'},
- {id:'tree-3',name:'Ficus · copa densa',tone:'#28543f',shape:'cluster'},
- {id:'tree-4',name:'Palmera',tone:'#547353',shape:'palm'},
- {id:'tree-5',name:'Árbol pequeño',tone:'#769059',shape:'small'},
- {id:'tree-6',name:'Ciprés ornamental',tone:'#395341',shape:'slim'},
- {id:'tree-7',name:'Árbol de sombra claro',tone:'#688551',shape:'lobed'}
+ {id:'tree-1',name:'Naranjo · copa redonda',tone:'#356646',shape:'round',texture:'tree-naranjo'},
+ {id:'tree-2',name:'Plátano de sombra',tone:'#5c7846',shape:'lobed',texture:'tree-platano'},
+ {id:'tree-3',name:'Ficus · copa densa',tone:'#28543f',shape:'cluster',texture:'tree-ficus'},
+ {id:'tree-4',name:'Palmera',tone:'#547353',shape:'palm',texture:'tree-palmera'},
+ {id:'tree-5',name:'Árbol pequeño',tone:'#769059',shape:'small',texture:'tree-pequeno'},
+ {id:'tree-6',name:'Ciprés ornamental',tone:'#395341',shape:'slim',texture:'tree-cipres'},
+ {id:'tree-7',name:'Árbol de sombra claro',tone:'#688551',shape:'lobed',texture:'tree-sombra'}
 ];
 const asPoly=poly=>poly&&poly.length>=3;
 const polygonPath=(ctx,poly,pixel)=>{
@@ -234,21 +235,14 @@ export function drawTree(ctx,tree,pixel,zoom,getImage){
  const variant=TREE_VARIANTS.find(m=>m.id===tree.variant)||TREE_VARIANTS[0],p=pixel(...tree.point),
    r=treeDrawRadius(tree,zoom),a=(tree.rotation||0)*Math.PI/180;
  ctx.save();ctx.translate(...p);ctx.rotate(-a);
- const original=getImage('sharedassets2.assets:563');
- if(variant.id==='tree-0'&&original){ctx.imageSmoothingEnabled=false;ctx.drawImage(original,-r,-r,r*2,r*2);ctx.restore();return}
- ctx.fillStyle='#47392c';ctx.beginPath();ctx.arc(0,0,r*.2,0,Math.PI*2);ctx.fill();
- ctx.shadowColor='rgba(0,0,0,.27)';ctx.shadowBlur=Math.max(.075*zoom,r*.22);
- ctx.fillStyle=variant.tone;ctx.strokeStyle='rgba(25,42,26,.75)';ctx.lineWidth=Math.max(.04*zoom,r*.08);
- if(variant.shape==='palm'){
-  for(let i=0;i<9;i++){const t=i*Math.PI*2/9;ctx.save();ctx.rotate(t);ctx.beginPath();ctx.ellipse(r*.37,0,r*.47,r*.13,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore()}
- }else if(variant.shape==='lobed'||variant.shape==='cluster'){
-  const n=variant.shape==='cluster'?8:5;
-  for(let i=0;i<n;i++){const t=i*Math.PI*2/n;ctx.beginPath();ctx.arc(Math.cos(t)*r*.35,Math.sin(t)*r*.35,r*.52,0,Math.PI*2);ctx.fill();ctx.stroke()}
- }else{
-  ctx.beginPath();ctx.ellipse(0,0,r*(variant.shape==='slim'?.4:1),r*(variant.shape==='small'?.7:1.03),0,0,Math.PI*2);ctx.fill();ctx.stroke();
+ const original=getImage?.('sharedassets2.assets:563');
+ const image=textureImage(variant.texture)||original;
+ // Every view uses the same raster crown; the original is also the fallback
+ // while a texture loads. Existing map IDs, positions and collision radii stay valid.
+ if(image&&(image.naturalWidth||image.width)>0){
+  ctx.imageSmoothingEnabled=variant.id!=='tree-0';ctx.imageSmoothingQuality='high';
+  ctx.drawImage(image,-r,-r,r*2,r*2);
  }
- ctx.shadowBlur=0;ctx.fillStyle='rgba(188,209,151,.22)';
- ctx.beginPath();ctx.ellipse(-r*.21,-r*.23,r*.22,r*.15,-.55,0,Math.PI*2);ctx.fill();
  ctx.restore();
 }
 export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
