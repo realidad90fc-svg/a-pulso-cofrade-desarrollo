@@ -5,16 +5,23 @@ export const GAME_PATCH_PREFIX='apulso-game-draft-v1:';
 export const EDITOR_PATCH_SCHEMA='apulso-game-draft-v1';
 export const MAP_KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 const stringify=x=>JSON.stringify(x);
+// Grouping and locking are authoring state, not extra scenery. Only resized
+// collision state participates in the playable delta.
+function sceneSignature(kind,item){
+ const value=structuredClone(item);
+ if(kind==='labels'){value[2]={radius:1,...value[2]};delete value[2].edit;return stringify(value)}
+ const resized=value.edit?.resized;delete value.edit;if(resized)value.edit={resized:true};return stringify(value);
+}
 export function makeGameDraft(data,baseline){
  const layers={};let removedCount=0;
  for(const kind of MAP_KINDS){
   const existing=new Map();
   for(const item of baseline?.[kind]||[]){
-   const sig=stringify(item);existing.set(sig,(existing.get(sig)||0)+1);
+   const sig=sceneSignature(kind,item);existing.set(sig,(existing.get(sig)||0)+1);
   }
   const changes=[];
   for(const item of data?.[kind]||[]){
-   const sig=stringify(item),count=existing.get(sig)||0;
+   const sig=sceneSignature(kind,item),count=existing.get(sig)||0;
    if(count)existing.set(sig,count-1);
    else changes.push(item);
   }

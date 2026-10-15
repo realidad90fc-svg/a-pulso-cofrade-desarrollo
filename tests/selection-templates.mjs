@@ -25,8 +25,9 @@ doc.people=[{point:[4,4],key:'person',size:[.19,.24],angle:10}];doc.trees=[{poin
 doc.signs=[{point:[8,3],type:'traffic',angle:25}];doc.checkpoints=[{id:'original-control',name:'Presentación',position:[5,8],radius:.6,mandatory:true}];
 doc.fences=[{point:[11,3],width:.95,angle:0}];doc.chairs=[{point:[13,3],width:.4,angle:0}];doc.labels=[['Arfe',[3,12],{radius:.4}]];
 doc.urban=[{type:'bench',point:[10,8],angle:15}];doc.customObjects=[{assetId:asset.id,point:[15,3],width:1,depth:.2,angle:0,collision:{kind:'box',width:1,depth:.2}}];doc.resources=resourceManifest(doc,false);validateMapDocument(doc);
-const picks=allSelections(doc);assert.equal(picks.length,12);groupSelection(doc,picks,'Bar completo');assert(!doc.metadata.precisionGeometry,'Grouping alone must preserve native scene behavior');
+const picks=allSelections(doc),baseline=structuredClone(doc);assert.equal(picks.length,12);groupSelection(doc,picks,'Bar completo');assert(!doc.metadata.precisionGeometry,'Grouping alone must preserve native scene behavior');assert.equal(makeGameDraft(doc,baseline).total,0,'Grouping must not add duplicate native scenery to the game patch');
 assert.equal(expandGroups(doc,[{type:'houses',index:0}]).length,12);lockSelection(doc,picks,true);assert(selectionLocked(doc,[picks[0]]));
+assert.equal(makeGameDraft(doc,baseline).total,0,'Locking must not create a playable scene delta');
 for(const change of [()=>translateSelections(doc,picks,1,1),()=>deleteSelections(doc,picks),()=>rotateSelections(doc,picks,[0,0],10,captureSelection(doc,picks))])assert.throws(change,/bloquead/);
 const portable=captureBlock(doc,picks,{embed:true});assert(portable.resources[0].image);assert.equal(portable.layers.houses[0].holes.length,1);
 const copies=blank('copies'),first=placeBlock(copies,portable,{point:[20,20]}),second=placeBlock(copies,portable,{point:[25,25]});assert.equal(first.length,12);assert.equal(second.length,12);
