@@ -1,3 +1,5 @@
+import {setupProjectUI} from './editor-project-ui.mjs';
+import {setupReviewUI} from './editor-review-ui.mjs';
 import {setupGameplayEditor} from './editor-gameplay-ui.mjs';
 import {setupCityManager} from './city-manager.mjs';
 import {blankMapDocument,validateMapDocument,MAP_STORAGE_PREFIX,KINDS} from './city-project.mjs';
@@ -32,7 +34,7 @@ import {setupSelectionEditor} from './editor-selection-ui.mjs';
 import {setupTemplatesUI} from './editor-templates-ui.mjs';
 import {expandGroups,selectionLocked,itemEdit} from './editor-item-state.mjs';
 import {elementCorners} from './editor-element-geometry.mjs';
-let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI;
+let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI,projectUI,reviewUI;
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -124,25 +126,26 @@ function snapshot(){
  state.future.length=0;
 }
 function changed(){
- gameplayUI?.invalidate();
+ gameplayUI?.invalidate();reviewUI?.invalidate();
  if(data)data.resources=resourceManifest(data,false);
  state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();vegetationPreview?.sync();selectionEditor?.refresh();
  clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);
 }
 function saveLocal(){
- if(!data)return;
- try{const stored=lightweightDocument(data);localStorage.setItem(storageFor(activeMap),JSON.stringify(stored));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(stored,baseline)));state.unsaved=false;cityManager?.saveIndex();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
+ if(!data)return false;
+ if(projectUI&&!projectUI.canWrite()){if(!projectUI.isApplying())show('Se ha cambiado el proyecto en otra ventana. Recarga este editor antes de guardar.','error');return false}
+ try{const stored=lightweightDocument(data);localStorage.setItem(storageFor(activeMap),JSON.stringify(stored));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(stored,baseline)));state.unsaved=false;cityManager?.saveIndex();projectUI?.notifyChange();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');return true;}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
  if(!state.history.length)return;
  state.future.push(JSON.stringify(data));
- data=JSON.parse(state.history.pop());gameplayUI?.refresh();clearSelection();restorePreviewStart();changed();
+ data=JSON.parse(state.history.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
 }
 function redo(){
  if(!state.future.length)return;
  state.history.push(JSON.stringify(data));
- data=JSON.parse(state.future.pop());gameplayUI?.refresh();clearSelection();restorePreviewStart();changed();
+ data=JSON.parse(state.future.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
 }
 function world(px,py){return [view.cx+(px-view.w/2)/view.zoom,view.cy-(py-view.h/2)/view.zoom]}
 function pixel(x,y){return [(x-view.cx)*view.zoom+view.w/2,view.h/2-(y-view.cy)*view.zoom]}
@@ -366,7 +369,7 @@ function draw(){
   ctx.save();ctx.fillStyle='rgba(67,163,231,.17)';ctx.strokeStyle='#8bddff';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
   ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);ctx.restore();
  }
- gameplayUI?.overlay(ctx);
+ gameplayUI?.overlay(ctx);reviewUI?.overlay(ctx);
  if(state.tool==='reference')photoGuides?.draw('handles');
  if(state.tool==='paso'||$('paso-on').checked)drawPaso();
  if(state.tool==='people'&&state.mouseWorld){
@@ -603,6 +606,7 @@ function onRotationHandle(pos){
 }
 function pointEvent(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
 function pointerDown(e){
+ if(projectUI?.isApplying())return;
  if(e.pointerType==='mouse'&&e.button!==0)return; // primary/left button only
  e.preventDefault();
  canvas.setPointerCapture(e.pointerId);
@@ -615,6 +619,7 @@ function pointerDown(e){
   state.drag=null;return;
  }
  const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;
+ if(reviewUI?.down(q))return;
  if(gameplayUI?.down(q))return;
  if(templatesUI?.down(q))return;
  if(precisionTools?.down(q))return;
@@ -817,7 +822,7 @@ function setData(loaded){
  for(const kind of ['trees','signs','checkpoints','fences','chairs','urban'])if(!Array.isArray(data[kind]))data[kind]=structuredClone(baseline[kind]||[]);
  if(!data.bounds)data.bounds=baseline.bounds;
  state.paso={...savedStart()};updateStartStatus();state.peopleIndex=data.people.length;state.treeIndex=data.trees.length;
- if($('public-sprite').options.length)updatePeopleHint();gameplayUI?.refresh();changed();
+ if($('public-sprite').options.length)updatePeopleHint();gameplayUI?.refresh();reviewUI?.refresh();changed();
 }
 function makeSegments(){
  return ARENAL_MAP.modules.map(m=>{
@@ -1201,7 +1206,7 @@ async function init(){
    selector.appendChild(group);
   }
   photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view,
-    activateReferenceTool:()=>configureTool('reference'),
+    activateReferenceTool:()=>configureTool('reference'),onChange:()=>projectUI?.notifyChange(),canWrite:()=>!projectUI||projectUI.canWrite(),
     focusImage:photo=>{
      // Show the full calibrated photo without changing its true world-space size.
      const usableW=Math.max(150,view.w-70),usableH=Math.max(150,view.h-70);
@@ -1212,9 +1217,9 @@ async function init(){
   palette();setupUrbanPalette();bind();
   gameplayUI=setupGameplayEditor({state,getData:()=>data,getDocument:getStoredDocument,catalog:EDITOR_MAPS,snapshot,changed,show,requestDraw,configureTool,pixel,getZoom:()=>view.zoom,focus:focusAt});
   precisionTools=setupPrecisionTools({state,getData:()=>data,snapshot,changed,requestDraw,show,setSelection,configureTool,pixel,getZoom:()=>view.zoom});
-  customAssetUI=setupCustomAssetUI({choose:chooseCustomAsset,changed,show,refresh:()=>placementPreviews?.redraw()});
+  customAssetUI=setupCustomAssetUI({choose:chooseCustomAsset,changed,show,refresh:()=>placementPreviews?.redraw(),canWrite:()=>!projectUI||projectUI.canWrite()});
   selectionEditor=setupSelectionEditor({state,getData:()=>data,snapshot,changed,show,setSelection,configureTool,getCenter:()=>[view.cx,view.cy],visible:selectionVisibility});
-  templatesUI=await setupTemplatesUI({state,getData:()=>data,selectionEditor,show,requestDraw,configureTool,getImage,pixel,getZoom:()=>view.zoom});
+  templatesUI=await setupTemplatesUI({state,getData:()=>data,selectionEditor,show,requestDraw,configureTool,getImage,pixel,getZoom:()=>view.zoom,onChange:()=>projectUI?.notifyChange(),canWrite:()=>!projectUI||projectUI.canWrite()});
   document.addEventListener('editor-custom-choose',event=>{const a=assetById(event.assetId);if(a)chooseCustomAsset(a)});
   $('custom-on').onchange=requestDraw;
   const openPanel=id=>{const p=$(id);p.open=true;document.dispatchEvent(Object.assign(new Event('editor-open-panel'),{panelId:id}));p.scrollIntoView?.({block:'start',behavior:'smooth'})};
@@ -1241,7 +1246,9 @@ async function init(){
    getMapKey:()=>activeMap,getDocument:getStoredDocument,openMap:switchMap,
    onRegisterMap:registerUserMap,onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
    snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
-   getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit});
+   getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit,canWrite:()=>!projectUI||projectUI.canWrite(),onProjectChange:()=>projectUI?.notifyChange()});
+  projectUI=await setupProjectUI({getCity:()=>cityManager.project(),getDocument:key=>key===activeMap&&data?data:getStoredDocument(key),getBaseline:getBaselineDocument,getMapKey:()=>activeMap,flushPhotos:()=>photoGuides.flush(),show,saveLocal});
+  reviewUI=setupReviewUI({state,getData:()=>data,getBaseline:()=>baseline,getResolved:()=>cityManager.resolve(),getDocument:getStoredDocument,getMeta:key=>EDITOR_MAPS.find(m=>m.key===key),getMapKey:()=>activeMap,snapshot,show,configureTool,requestDraw,pixel,focus:focusAt,saveLocal});
   $('open-city').onclick=()=>cityManager.open();
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);

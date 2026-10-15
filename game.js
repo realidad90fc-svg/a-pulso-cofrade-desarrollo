@@ -1,3 +1,5 @@
+import {readEditorTest} from './editor-test-session.mjs';
+import {setupGameReview,recordReviewEvent} from './game-review.mjs';
 import {attachMapGameplay} from './map-gameplay-runtime.mjs';
 import {resolveMapConnection} from './map-connections.mjs';
 import {readCityPreview,loadCityImages} from './city-runtime.mjs';
@@ -14,12 +16,13 @@ import {prepareMap,prepareStep} from './engine.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
-import {Renderer} from './renderer.mjs?rev=colisiones-recorridos-2.3.0';
+import {Renderer} from './renderer.mjs?rev=revision-proyectos-2.4.0';
 import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart,inspectEditorSpawn} from './game-editor-bridge.mjs';
 import {withEditorStreetPoints} from './editor-game-draft.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
-let customMenu,modeNavigation,allowLegacyHome=false;
+let customMenu,modeNavigation,allowLegacyHome=false,reviewSession=null,reviewPanel=null;
+const editorTestMode=new URLSearchParams(globalThis.location?.search||'').has('editorTest');
 const $=id=>document.getElementById(id),KEY='chicotaz-original-web-v2';
 const format=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const recordFormat=t=>format(t)+'.'+String(Math.floor(t*100)%100).padStart(2,'0');
@@ -27,7 +30,7 @@ let saved={prefs:{version:2,numEstampitas:0,libre:0,pasoElegido:1,mapaElegido:1,
 try{const old=JSON.parse(localStorage.getItem(KEY)||'null');if(old)saved={...saved,...old,prefs:{...saved.prefs,...old.prefs},settings:{...saved.settings,...old.settings}};}catch{}
 saved.campaign=createProgress(CAMPAIGN_DATA,saved.campaign);
 let campaignRun=null,campaignUI,cityPreview=null;
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(saved));return true;}catch{return false;}};
+const save=()=>{if(editorTestMode)return true;try{localStorage.setItem(KEY,JSON.stringify(saved));return true;}catch{return false;}};
 function saveCampaign(){if(!save())toast('No se ha podido guardar el progreso. Comprueba el espacio del navegador.',6);}
 let r,raw,maps,steps,sim,menus,hud,overlay,screen='loader',back='menu',time=0,last=0,lastSave=0,toastUntil=0,loading=0,tutorialPage=1;
 const renderer=new Renderer($('scene')),images=new Map();
@@ -38,6 +41,7 @@ let retryLoad=boot;
 function toast(text,seconds=3){$('toast').textContent=text;$('toast').classList.add('visible');toastUntil=performance.now()+seconds*1000;}
 function resize(){const app=$('app');renderer.resize(app.clientWidth,app.clientHeight,window.devicePixelRatio||1);hud?.resize();overlay?.resize();menus?.resize();hideUnavailableCampaignCheckpoint();updateHud();}
 function setScreen(name){
+ const review=document.getElementById('game-review-panel');if(review)review.hidden=!['game','pause','result'].includes(name);
  screen=name;for(const id of ['loader','entry','menu','selection','pause','result','settings-screen','help','tutorial-screen','records-screen','credits-screen','home-screen','week-screen','brotherhood-screen','information-screen','campaign-day-screen','campaign-brotherhood-screen','campaign-step-screen','campaign-route-screen','campaign-result-screen','campaign-reset-screen'])$(id).hidden=id!==name;
  $('hud').hidden=!['game','pause','result'].includes(name);$('scene').hidden=!['game','pause','result'].includes(name);
  if(name==='game')last=performance.now();
@@ -134,6 +138,7 @@ async function startGame(scene=2,snapshot=null){
   await loadEditorDraftImages(editorDraft,loadImage,images);
   await loadCityImages(next.routeAdapter,loadImage,images);
   if(run!==loading)return;
+  if(reviewSession){reviewPanel?.remove();reviewPanel=setupGameReview({sim:next,request:reviewSession,onFrame:()=>{processEvents();updateHud()},onPause:paused=>paused?sound.pause():sound.resume(),onReturn:()=>location.assign('./editor-arenal.html?map='+encodeURIComponent(next.mapContext?.key||reviewSession.preview.key)+'&editorTest='+encodeURIComponent(reviewSession.id))});}
   sim=next;menus.destroy();hud?.destroy();hud=new OriginalLayout(r.layouts,tutorial?r.controls.tutorial.step.canvasKey:r.layouts.gameplayCanvases[step.code],$('original-hud'),{excludeButtons:true});
   buildButtons();$('now-playing').textContent='';
   document.querySelector('.hud-fallback').hidden=true;
@@ -164,7 +169,7 @@ function originalOverlay(name,target){
  overlay=new OriginalLayout(r.layouts,root.key,$(target),{onClick:n=>{unlock();const method=n.button.onClick[0]?.m_MethodName;if(/^botonContinue/.test(method))resume();else if(method==='botonReintentarCheckpoint')retry(true);else if(method==='botonReintentar')retry();else if(method==='botonNext'){saved.prefs.mapaElegido=sim.map.id+1;startGame();}else if(/^botonSalirAMenu/.test(method))mainMenu();}});return overlay;
 }
 function updateHud(){
- if(!sim)return;
+ if(!sim)return;reviewPanel?.update();
  const w=$('app').clientWidth,h=$('app').clientHeight,u=w/800,c=sim.controller,s=sim.state;
  for(let i=0;i<buttonElements.length;i++){
   const el=buttonElements[i],b=sim.buttons[i],p=b.transform.localPosition,scale=b.transform.scale||{x:1,y:1},rect=b.definition.rect;
@@ -216,6 +221,7 @@ function winMessage(e,old,earned){
 }
 function processEvents(){
  for(const e of sim.drainEvents()){
+  if(reviewSession&&['failed','won','checkpoint','route-notice'].includes(e.type))void recordReviewEvent(sim,e).catch(error=>toast(error.message,6));
   if(e.type==='audio')sound.play(e.channel,e.clip,e);
   else if(e.type==='audioStop')sound.stop(e.channel);
   else if(e.type==='audioMute')sound.mute(e.channel,e.mute);
@@ -309,7 +315,9 @@ async function boot(){
   campaignUI=createCampaignUI({document,data:CAMPAIGN_DATA,getProgress:()=>visibleCampaignProgress(CAMPAIGN_DATA,saved.campaign),onScreen:setScreen,onStart:id=>beginCampaign(id),onResume:resumeCampaign,onRetry:()=>retryCampaign(false),onCheckpoint:()=>retryCampaign(true),onNotice:toast,onReset:()=>{saved.campaign=createProgress(CAMPAIGN_DATA);if(campaignRun){campaignRun=null;sim=null;overlay?.destroy();overlay=null;hud?.destroy();hud=null;back='home-screen';}saveCampaign();}});
   campaignUI.week();
   $('development-notice').hidden=!DEVELOPMENT_UNLOCKS;
-  try{cityPreview=readCityPreview(location.search,localStorage)}catch(error){toast(error.message,12)}
+  reviewSession=await readEditorTest(location.search);
+  if(reviewSession){cityPreview=reviewSession.preview;const chosen=CONTENT_STEPS.find(s=>s.id===reviewSession.stepId);saved.prefs.pasoElegido=chosen.engineId;saved.prefs.customStep=chosen.engineVariant||'';}
+  else try{cityPreview=readCityPreview(location.search,localStorage)}catch(error){toast(error.message,12)}
   bind();resize();setScreen('entry');last=performance.now();requestAnimationFrame(frame);
  }catch(e){console.error(e);$('load-detail').textContent='No se ha podido cargar el juego. '+e.message;$('load-retry').hidden=false;}
 }

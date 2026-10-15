@@ -29,3 +29,9 @@ export async function importTemplates(input){
  const used={...Object.fromEntries(['roads','sidewalks','houses','customObjects'].map(k=>[k,staged.flatMap(t=>t.block.layers[k]||[])])),resources};
  await loadDocumentAssets(used,{persist:true});for(const t of staged)t.block.resources=(t.block.resources||[]).map(({image,...a})=>a);await write(staged);for(const t of staged)records.set(t.id,t);return staged;
 }
+// Project restoration replaces the active catalogue in one IndexedDB transaction.
+export async function replaceTemplateLibrary(items,resources=[]){
+ if(!Array.isArray(items)||items.length>100)throw Error('El catálogo supera 100 plantillas.');const staged=items.map(t=>validateTemplate(structuredClone(t))),ids=new Set();
+ for(const t of staged){if(ids.has(t.id))throw Error('Hay plantillas repetidas.');ids.add(t.id);validateBlock({...t.block,resources});t.block.resources=(t.block.resources||[]).map(({image,...a})=>a)}
+ const db=await database();await new Promise((resolve,reject)=>{const tx=db.transaction('templates','readwrite'),store=tx.objectStore('templates');store.clear();for(const t of staged)store.put(t);tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(Error('No se pudieron restaurar las plantillas.'))});records.clear();for(const t of staged)records.set(t.id,t);
+}

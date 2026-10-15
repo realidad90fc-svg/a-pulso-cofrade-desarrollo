@@ -1,3 +1,4 @@
+import {drawGameReview} from './game-review.mjs';
 import {drawRouteMarkers} from './route-markers.mjs';
 import {multiply} from './original-scene.mjs';
 import {drawStreetNotice} from './street-identifiers.mjs';
@@ -76,6 +77,7 @@ export class Renderer {
    ctx.filter='none';ctx.restore();
   }
   if(!editorDrawn)sim.editorDraft?.draw(ctx,project,images,this.canvas);
+  drawGameReview(ctx,project,sim);
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
   if(showOverlay){
    const identifiers=sim.editorDraft||sim.routeAdapter?.contacts;

@@ -40,10 +40,10 @@ function database(){
   request.onblocked=()=>reject(Error('Cierra otras pestañas del editor para abrir el catálogo.'));
  }).catch(error=>{dbJob=null;throw error});return dbJob;
 }
-async function storeRecords(items){
- if(!items.length)return;
+async function storeRecords(items,replace=false){
+ if(!items.length&&!replace)return;
  const db=await database();await new Promise((resolve,reject)=>{
-  const tx=db.transaction('resources','readwrite');for(const item of items)tx.objectStore('resources').put(item);
+  const tx=db.transaction('resources','readwrite');if(replace)tx.objectStore('resources').clear();for(const item of items)tx.objectStore('resources').put(item);
   tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(Error('No se pudo guardar la imagen. Exporta los recursos antes de cerrar.'));
  });
 }
@@ -150,4 +150,10 @@ export function drawCustomObject(ctx,item,pixel,zoom,selected=false){
  if(image)ctx.drawImage(image,-w/2,-d/2,w,d);
  else{ctx.fillStyle='rgba(153,64,122,.55)';ctx.fillRect(-w/2,-d/2,w,d);ctx.strokeStyle='#f4afcf';ctx.lineWidth=.025*zoom;ctx.strokeRect(-w/2,-d/2,w,d)}
  if(selected){ctx.strokeStyle='#51ebef';ctx.lineWidth=2;ctx.strokeRect(-w/2-3,-d/2-3,w+6,d+6)}ctx.restore();
+}
+
+export async function replaceCustomAssetLibrary(inputs){
+ const normalized=validateResourceManifest(inputs).map(a=>validateCustomAsset(a,{imageRequired:true})),decoded=[];
+ for(const a of normalized)decoded.push(typeof Image==='undefined'?null:await decodeImage(a.image,{resource:true}));
+ await storeRecords(normalized,true);records.clear();imageJobs.clear();for(const [i,a]of normalized.entries()){records.set(a.id,a);if(decoded[i]){registerTexture(a.id,decoded[i]);imageJobs.set(a.id,{source:a.image,promise:Promise.resolve()})}}return normalized;
 }

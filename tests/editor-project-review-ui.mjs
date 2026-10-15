@@ -1,0 +1,83 @@
+// DOM and Canvas integration, not a substitute for testing Safari/Chromium.
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+const runtime=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/');
+const require=createRequire((process.env.APULSO_DOM_TEST_MODULES||'/workspace/scratch/068044d9504c/qa-env/node_modules')+'/');
+const {parseHTML}=require('linkedom'),{indexedDB}=require('fake-indexeddb');
+const {createCanvas,Image:NativeImage}=runtime('@napi-rs/canvas');
+const root=fileURLToPath(new URL('../',import.meta.url));
+const {window}=parseHTML(fs.readFileSync(path.join(root,'editor-arenal.html'),'utf8')),document=window.document;
+const canvases=new WeakMap(),frames=[],storage=new Map();
+function adaptCanvas(node){
+ if(node.localName!=='canvas'||canvases.has(node))return node;
+ const native=createCanvas(Number(node.getAttribute('width'))||300,Number(node.getAttribute('height'))||150);canvases.set(node,native);
+ for(const key of ['width','height'])Object.defineProperty(node,key,{get:()=>native[key],set:v=>{native[key]=v},configurable:true});
+ const context=native.getContext('2d'),draw=context.drawImage.bind(context);context.drawImage=(image,...args)=>draw(canvases.get(image)||image,...args);
+ node.setPointerCapture=()=>{};
+ node.getContext=()=>context;node.toDataURL=(...args)=>native.toDataURL(...args);node.getBoundingClientRect=()=>({left:0,top:0,width:1050,height:700,right:1050,bottom:700});return node;
+}
+const create=document.createElement.bind(document);document.createElement=(name,...args)=>adaptCanvas(create(name,...args));for(const c of document.querySelectorAll('canvas'))adaptCanvas(c);
+const inputProto=window.HTMLInputElement.prototype;
+Object.defineProperty(inputProto,'checked',{get(){return this.hasAttribute('checked')},set(v){v?this.setAttribute('checked',''):this.removeAttribute('checked')},configurable:true});
+Object.defineProperty(inputProto,'disabled',{get(){return this.hasAttribute('disabled')},set(v){v?this.setAttribute('disabled',''):this.removeAttribute('disabled')},configurable:true});
+Object.defineProperty(window.HTMLSelectElement.prototype,'value',{get(){return this.querySelector('option[selected]')?.getAttribute('value')||this.querySelector('option')?.getAttribute('value')||''},set(value){for(const o of this.querySelectorAll('option'))o.toggleAttribute('selected',o.getAttribute('value')===String(value))},configurable:true});
+for(const dialog of document.querySelectorAll('dialog')){dialog.showModal=function(){this.open=true};dialog.close=function(){this.open=false}}
+const baseCreate=document.createElement;document.createElement=(name,...args)=>{const n=baseCreate(name,...args);if(name==='dialog'){n.showModal=function(){this.open=true};n.close=function(){this.open=false}}return n};
+class Image extends NativeImage{set src(v){super.src=String(v).startsWith('data:')?v:String(v).startsWith('file:')?fileURLToPath(new URL(v)):path.join(root,String(v).replace(/^\.\//,''))}get src(){return super.src}addEventListener(type,fn){if(type==='load'){const old=this.onload;this.onload=()=>{old?.();fn()}}}}
+const localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
+window.matchMedia=()=>({matches:false,addEventListener(){}});window.indexedDB=indexedDB;window.open=()=>({});window.requestAnimationFrame=fn=>frames.push(fn);
+Object.assign(globalThis,{window,document,Image,Event:window.Event,localStorage,indexedDB,location:{search:'',protocol:'https:'},devicePixelRatio:1,requestAnimationFrame:window.requestAnimationFrame,confirm:()=>true});
+Object.defineProperty(globalThis,'FormData',{value:class{constructor(form){this.values=new Map([...form.querySelectorAll('[name]')].map(n=>[n.name,n.value]))}get(name){return this.values.get(name)}},configurable:true});
+globalThis.fetch=async url=>({ok:true,json:async()=>JSON.parse(fs.readFileSync(fileURLToPath(new URL(String(url),pathToFileURL(root))),'utf8'))});
+// Worker-native canvas fallback is exercised too; browser UI canvases remain DOM nodes.
+globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
+await import('../editor-arenal.mjs');
+const flush=async()=>{for(let i=0;i<25;i++){await new Promise(r=>setTimeout(r,10));let n=0;while(frames.length&&n++<100)frames.shift()(performance.now())}};
+await flush();
+
+const $=id=>document.getElementById(id);
+assert($('loading').hidden,'Complete editor initializes with project and review panels');
+assert($('project-history-panel')&&$('engine-review-panel'));
+assert.equal($('engine-review-step').querySelectorAll('option').length,8);
+assert(!$('project-export-photos').checked,'Private photographs require an explicit export choice');
+$('project-auto').checked=false;$('project-auto').onchange();
+$('open-city').onclick();await flush();
+const form=$('city-form').querySelector('form');form.querySelector('[name=name]').value='Proyecto Arfe de revisión';await form.onsubmit({preventDefault(){}});await flush();
+const key=$('map-select').value,docKey='apulso-universal-editor-v2:'+key;
+const saved=()=>JSON.parse(storage.get(docKey));
+const source=saved();source.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]]}];source.startPose={x:20,y:20,angle:0};
+const mapInput=$('import');Object.defineProperty(mapInput,'files',{value:[{text:async()=>JSON.stringify(source)}],configurable:true});await mapInput.onchange({target:mapInput});$('save').onclick();await flush();
+const savedStart=structuredClone(saved().startPose);
+$('engine-review-all').checked=true;
+await $('engine-review-run').onclick();assert($('engine-review-status').textContent.includes('0 errores'),$('engine-review-status').textContent);
+assert($('engine-review-status').textContent.includes('8 posiciones'));
+$('engine-review-x').value=60;$('engine-review-y').value=60;$('engine-review-x').dispatchEvent(new window.Event('change'));
+await $('engine-review-run').onclick();assert($('engine-review-results').querySelector('[data-severity="error"]'),'Outside ground is diagnosed with each real paso');
+const reviewIssue=$('engine-review-results').querySelector('button');assert(!reviewIssue.disabled);reviewIssue.onclick();await flush();
+$('engine-review-x').value=18;$('engine-review-y').value=18;$('engine-review-angle').value=15;$('engine-review-x').dispatchEvent(new window.Event('change'));
+let prevented=false;await $('engine-review-play').onclick({preventDefault(){prevented=true}});assert(prevented);
+assert.equal($('engine-review-play').dataset.ready,'true');
+const testLink=$('engine-review-play').href;assert(testLink.includes('?editorTest='));
+const {readEditorTest,writeTestResult}=await import('../editor-test-session.mjs');
+const request=await readEditorTest(testLink.slice(testLink.indexOf('?')));
+assert.deepEqual(request.pose,{x:18,y:18,angle:15});assert.deepEqual(saved().startPose,savedStart,'Temporary testing preserves the saved start');
+await writeTestResult(request.id,{position:[17,19],angle:15,status:'failed',reason:'Manigueta contra una valla',footprints:[{poly:[[16,18],[18,18],[18,20]]}]});
+await $('engine-review-result').onclick();assert($('engine-review-status').textContent.includes('Manigueta contra una valla'));
+$('engine-review-angle').value=45;$('engine-review-angle').dispatchEvent(new window.Event('change'));assert.equal($('engine-review-play').dataset.ready,'false');
+$('project-name').value='Sevilla de primavera';await $('project-rename').onclick();assert($('project-history-status').textContent.includes('renombrado'));
+$('project-version-name').value='Arfe antes de editar';await $('project-checkpoint').onclick();
+const version=[...$('project-versions').querySelectorAll('option')].find(o=>o.textContent.includes('Arfe antes de editar'))?.value;assert(version);
+const moved=saved();moved.startPose={x:22,y:23,angle:35};Object.defineProperty(mapInput,'files',{value:[{text:async()=>JSON.stringify(moved)}],configurable:true});await mapInput.onchange({target:mapInput});$('save').onclick();
+$('project-version-name').value='Arfe después de editar';await $('project-checkpoint').onclick();assert.equal($('project-versions').querySelectorAll('option').length,3);
+let download;const createURL=URL.createObjectURL;URL.createObjectURL=blob=>{download=blob;return createURL(blob)};
+await $('project-export').onclick();const exported=JSON.parse(await download.text());assert.equal(exported.schema,'apulso-editor-project-v1');assert(!('privatePhotos'in exported));assert.equal(exported.city.project.maps.length,18);assert.deepEqual(exported.city.documents[key].startPose,moved.startPose);
+const importInput=$('project-import');Object.defineProperty(importInput,'files',{value:[{size:12,text:async()=>'{"schema":"broken"}'}],configurable:true});await importInput.onchange();assert.equal($('project-history-status').dataset.error,'true');assert.deepEqual(saved().startPose,moved.startPose);
+$('project-versions').value=version;await $('project-versions').onchange();assert(!$('project-restore').disabled);assert($('project-preview').textContent.includes('Arfe antes de editar'));
+let navigation;location.assign=url=>navigation=url;await $('project-restore').onclick();assert(navigation.includes(key));assert.deepEqual(saved().startPose,savedStart,'Dated history restores the earlier complete scene');
+assert(document.body.classList.contains('project-restoring'),'The previous editor cannot write over restored data before reload');
+URL.createObjectURL=createURL;
+console.log('Editor DOM/Canvas: eight-step real-engine diagnostics, temporary start, IDB test handoff and failure return; complete project export with private-photo opt-in, versions, invalid import and restore passed. Browser/EXE interaction remains manual QA.');
+process.exit(0);

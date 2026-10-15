@@ -5,18 +5,18 @@ import {lightweightDocument,loadDocumentAssets} from './custom-assets.mjs';
 
 const el=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n};
 function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
-export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true}){
+export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true,canWrite=()=>true,onProjectChange=()=>{}}){
  let project=readCityProject(localStorage,catalog),tab='maps',selectedZone=null,searchTimer;
  for(const map of project.maps)if(!catalog.some(m=>m.key===map.key))onRegisterMap(map);
- const persist=()=>persistCityProject(localStorage,project);
- const transaction=fn=>{const before=structuredClone(project);try{const value=fn();persist();return value}catch(error){project=before;throw error}};
+ const persist=()=>{if(!canWrite())throw Error('El proyecto ha cambiado en otra ventana. Recarga el editor.');const value=persistCityProject(localStorage,project);onProjectChange();return value};
+ const transaction=fn=>{if(!canWrite())throw Error('Recarga el proyecto antes de modificarlo.');const before=structuredClone(project);try{const value=fn();persist();return value}catch(error){project=before;throw error}};
  const modal=el('dialog','city-dialog');modal.id='city-dialog';modal.setAttribute('aria-labelledby','city-title');
  modal.innerHTML=`<header class="city-head"><div><span class="city-eyebrow">A PULSO · TALLER 2.0</span><h1 id="city-title">Construir Sevilla, calle a calle.</h1><p id="city-summary"></p></div><button type="button" id="city-close" aria-label="Cerrar biblioteca">Cerrar ×</button></header>
  <nav class="city-tabs" aria-label="Biblioteca de ciudad"><button data-city-tab="maps">Mapas y zonas</button><button data-city-tab="streets">Buscar calles</button><button data-city-tab="brotherhoods">Hermandades</button></nav>
  <div class="city-content"><section class="city-main"><div id="city-context"></div><div id="city-results"></div></section><aside class="city-aside"><h2>Tu ciudad compartida</h2><p>Un mapa puede servir a varias hermandades. Sus calles se mantienen en un único lugar.</p><div id="city-form"></div><hr><button id="city-export-project">Exportar ciudad completa</button><label class="city-file">Restaurar ciudad<input id="city-import-project" type="file" accept="application/json,.json"></label><p class="city-small">Incluye mapas, zonas e itinerarios. Las fotografías guía se conservan aparte.</p><p id="city-notice" role="status"></p></aside></div>`;
  document.body.append(modal);
  const $=id=>document.getElementById(id),notice=(message,error=false)=>{const n=$('city-notice');n.textContent=message;n.dataset.error=String(error);show(message,error?'error':'good')};
- const guard=fn=>async(...args)=>{try{await fn(...args)}catch(error){notice(error.message||String(error),true)}};
+ const guard=fn=>async(...args)=>{try{if(!canWrite())throw Error('El proyecto se ha cambiado o se está restaurando. Recarga el editor.');await fn(...args)}catch(error){notice(error.message||String(error),true)}};
  const button=(text,fn,primary=false)=>{const b=el('button',primary?'city-primary':'',text);b.type='button';b.onclick=guard(fn);return b};
  const mapsName=key=>project.maps.find(m=>m.key===key)?.name||key;
  const brotherhoodName=id=>BROTHERHOODS.find(b=>b.id===id)?.name||id;

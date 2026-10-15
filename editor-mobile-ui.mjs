@@ -30,7 +30,7 @@ function openRelevantSettings(){
  details=[...sidebar.querySelectorAll('details')];
  const current=canvas.dataset.tool;
  const choose={
-  'collision-draw':'collision-panel','collision-select':'collision-panel','route-event':'route-config-panel','route-select':'route-config-panel',house:'Tejados',road:'Pavimentos',sidewalk:'Pavimentos',tree:'Árboles',
+  'review-start':'engine-review-panel','collision-draw':'collision-panel','collision-select':'collision-panel','route-event':'route-config-panel','route-select':'route-config-panel',house:'Tejados',road:'Pavimentos',sidewalk:'Pavimentos',tree:'Árboles',
   people:'Público', 'people-row':'Público',erase:'Público',
   fence:'Vallas', 'fence-row':'Vallas',chair:'Vallas','chair-row':'Vallas',
   urban:'urban-panel',reference:'photo-guides-panel',paso:'start-panel',

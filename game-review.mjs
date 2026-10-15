@@ -1,0 +1,22 @@
+import {writeTestResult} from './editor-test-session.mjs';
+const ring=w=>w.circle?Array.from({length:24},(_,i)=>[w.center[0]+Math.cos(i*Math.PI/12)*w.radius,w.center[1]+Math.sin(i*Math.PI/12)*w.radius]):w.points||[];
+export function drawGameReview(ctx,project,sim){
+ if(!sim.review?.overlay)return;const pos=sim.position(sim.stepEntity.transform);ctx.save();ctx.setTransform(...project);ctx.lineWidth=1.5/Math.max(1,Math.hypot(project[0],project[1]));
+ const draw=(points,color)=>{if(!points.length||points.every(p=>Math.hypot(p[0]-pos.x,p[1]-pos.y)>15))return;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.strokeStyle=color;ctx.stroke()};
+ for(const c of sim.stepColliders.filter(c=>c.enabled))draw(ring(c.world()),'#53ecff');
+ if(sim.gameplay?.replacesCollisions){for(const o of sim.gameplay.ground)draw(o.poly,'#59db87');for(const o of [...sim.gameplay.obstacles,...sim.gameplay.blocked,...sim.gameplay.boundaries])draw(o.poly,'#ff777f')}
+ else if(sim.routeAdapter){for(const p of sim.routeAdapter.walkable||[])draw(p,'#59db87');for(const o of sim.routeAdapter.obstacles||[])draw(o.poly||o.polygon||(o.rect?[[o.rect[0],o.rect[1]],[o.rect[2],o.rect[1]],[o.rect[2],o.rect[3]],[o.rect[0],o.rect[3]]]:[]),'#ff777f')}
+ else for(const c of sim.mapColliders.filter(c=>c.enabled&&!['zonaInter','zonaParada'].includes(c.entity.tag)))draw(ring(c.world()),'#ff777f');
+ for(const o of sim.editorDraft?.obstacles||[])draw(o.poly,'#ff777f');ctx.restore();
+}
+export function captureReviewResult(sim,event={type:'inspection'}){const p=sim.position(sim.stepEntity.transform);return{mapKey:sim.mapContext?.key||sim.map.variant?.key||'native-'+sim.map.id,step:sim.step.name,status:sim.state.status,event:event.type,reason:event.reason||event.message||'',position:[p.x,p.y],angle:sim.angle(sim.stepEntity.transform),time:sim.controller.tiempo||0,footprints:sim.stepColliders.filter(c=>c.enabled&&c.entity!==sim.contraEntity).map(c=>({name:c.entity.name,poly:ring(c.world())})),completed:sim.gameplay?[...sim.gameplay.completed]:sim.routeAdapter?.checkpointIds||[]}}
+export function recordReviewEvent(sim,event){if(!sim.review?.id)return Promise.resolve();const value=captureReviewResult(sim,event);sim.review.lastResult=value;sim.review.pendingResult=(sim.review.pendingResult||Promise.resolve()).catch(()=>{}).then(()=>writeTestResult(sim.review.id,value));return sim.review.pendingResult}
+export function setupGameReview({sim,request,onFrame,onReturn,onPause=()=>{}}){
+ sim.review={id:request.id,overlay:true};document.getElementById('game-review-panel')?.remove();const panel=document.createElement('aside');panel.id='game-review-panel';panel.setAttribute('aria-label','Prueba del editor');panel.innerHTML='<strong>PRUEBA DEL EDITOR · sin récords</strong><label><input type="checkbox" id="review-live-overlay" checked> Ver colisiones reales</label><div><button id="review-live-pause" type="button">Pausar prueba</button><button id="review-live-frame" type="button">Avanzar un fotograma</button><button id="review-live-capture" type="button">Marcar posición</button><button id="review-live-return" type="button">Volver al editor</button></div><output id="review-live-position" aria-live="off"></output>';document.body.append(panel);const $=id=>document.getElementById(id);
+ $('review-live-overlay').onchange=()=>sim.review.overlay=$('review-live-overlay').checked;
+ $('review-live-pause').onclick=()=>{sim.timeScale=sim.timeScale===0?1:0;$('review-live-pause').textContent=sim.timeScale===0?'Reanudar prueba':'Pausar prueba';onPause(sim.timeScale===0)};
+ $('review-live-frame').onclick=()=>{if(sim.state.status!=='playing')return;sim.timeScale=1;sim.tick(1/60);sim.editorDraft?.collision(sim);sim.editorDraft?.update(sim);sim.timeScale=0;$('review-live-pause').textContent='Reanudar prueba';onPause(true);onFrame()};
+ $('review-live-capture').onclick=()=>void recordReviewEvent(sim,{type:'marked',message:'Posición marcada durante la prueba.'}).then(()=>$('review-live-position').textContent='Posición enviada a la revisión del editor.');
+ $('review-live-return').onclick=()=>{const write=['failed','won'].includes(sim.state.status)&&sim.review.lastResult?sim.review.pendingResult:recordReviewEvent(sim);void Promise.resolve(write).catch(()=>{}).finally(onReturn)};
+ return{update(){const p=sim.position(sim.stepEntity.transform);$('review-live-position').textContent='X '+p.x.toFixed(2)+' · Y '+p.y.toFixed(2)+' · '+sim.angle(sim.stepEntity.transform).toFixed(1)+'° · '+sim.state.status},remove:()=>panel.remove()};
+}

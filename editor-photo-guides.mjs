@@ -1,13 +1,15 @@
+import {readProjectMeta,DEFAULT_PROJECT_ID,projectId as newPhotoId} from './editor-project-session.mjs';
+import {validatePrivatePhoto,PHOTO_PACKAGE_LIMIT} from './editor-project-package.mjs';
 // Private photo guides for the A Pulso map workshop.
 import {parseEarthAltitude,estimateEarthPhotoSize} from './editor-earth-scale.mjs';
-// Photos never leave this browser: binary data and transforms use IndexedDB,
-// outside the game model and outside exported JSON.
+// Photos use local IndexedDB, outside map/game JSON. A complete project can
+// optionally carry them only when its export explicitly requests private photos.
 const DATABASE='apulso-private-map-photos-v1';
 const MAX_PHOTOS=12;
 const MAX_SIZE=25*1024*1024;
 const round=n=>Math.round(n*1000)/1000;
 const strip=photo=>({
- id:photo.id,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
+ id:photo.id,projectId:photo.projectId||DEFAULT_PROJECT_ID,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
  width:photo.width,height:photo.height,scale:photo.scale,rotation:photo.rotation,
  opacity:photo.opacity,locked:photo.locked,visible:photo.visible,order:photo.order,
   cameraHeightM:photo.cameraHeightM??null,calibration:photo.calibration||'manual',scaleVersion:photo.scaleVersion??null
@@ -54,7 +56,7 @@ async function decode(blob){
 }
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const selectedText=p=>p?.name||'';
-export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool}){
+export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool,onChange=()=>{},canWrite=()=>true}){
  const el=id=>document.getElementById(id);
  let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
  let storageAvailable=true;
@@ -64,10 +66,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   return dbPromise;
  }
  async function persist(photo,blob){
+  if(!canWrite())throw Error('Recarga el editor antes de guardar fotos en el proyecto que se ha abierto.');
   const db=await database();
   const names=blob?['meta','blobs']:['meta'];
   const tx=db.transaction(names,'readwrite'),completion=done(tx);
-  tx.objectStore('meta').put(strip(photo));
+  tx.objectStore('meta').put(strip({...photo,projectId:photo.projectId||readProjectMeta().id}));
   if(blob)tx.objectStore('blobs').put({id:photo.id,blob});
   await completion;
  }
@@ -81,7 +84,8 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  async function readMap(key){
   const db=await database();
   const metadataTx=db.transaction('meta','readonly');
-  const rows=await read(metadataTx.objectStore('meta').index('mapKey').getAll(key));
+  const allRows=await read(metadataTx.objectStore('meta').index('mapKey').getAll(key));
+  const rows=allRows.filter(p=>(p.projectId||DEFAULT_PROJECT_ID)===readProjectMeta().id);
   // Open a fresh transaction after the async metadata read (important on iOS Safari).
   const blobTx=db.transaction('blobs','readonly'),blobs=blobTx.objectStore('blobs');
   const records=await Promise.all(rows.map(async p=>({...p,blob:await read(blobs.get(p.id))})));
@@ -121,13 +125,13 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    'Atención: no se pueden guardar fotos de forma persistente en este navegador. Exportar el mapa NO incluye las fotografías.';
  }
  function markDirty(){
-  requestDraw();
+  requestDraw();onChange();
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{void flush()},450);
  }
  async function flush(items=photos){
   clearTimeout(saveTimer);saveTimer=null;
-  if(!storageAvailable)return;
+  if(!storageAvailable||!canWrite())return;
   try{
    // Saving metadata alone does not repeatedly rewrite the original photo bytes.
    await Promise.all(items.map(p=>persist(p)));
@@ -147,7 +151,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
     let migrated=false;
    for(const record of records){
     try{const converted=await decode(record.blob.blob);
-     const photo={...record,...converted,blob:undefined};
+     const photo={...record,projectId:record.projectId||DEFAULT_PROJECT_ID,...converted,blob:undefined};
       if(photo.calibration==='earth'&&photo.cameraHeightM&&photo.scaleVersion!==4){
        const dims=estimateEarthPhotoSize(photo.image.naturalWidth,photo.image.naturalHeight,photo.cameraHeightM);
        if(dims){photo.width=round(dims.width);photo.height=round(dims.height);photo.scaleVersion=4;migrated=true;}
@@ -163,6 +167,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   }
  }
  async function addFiles(files){
+  if(!canWrite()){show('Recarga el editor antes de añadir fotografías.','error');return}
   const startMap=mapKey,epoch=generation;
   let added=0;
   for(const file of Array.from(files)){
@@ -185,12 +190,12 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
      if(cameraHeightM===null){show('Altura inválida. Indica entre 5 y 3000 metros (por ejemplo, 106). No se ha añadido «'+file.name+'».','error');continue}
     }
     const converted=await decode(file);
-    if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
+    if(epoch!==generation||!canWrite()){URL.revokeObjectURL(converted.url);break}
     const estimated=cameraHeightM?estimateEarthPhotoSize(converted.image.naturalWidth,converted.image.naturalHeight,cameraHeightM):null;
     const width=estimated?.width||12;
     const height=estimated?.height||12*converted.image.naturalHeight/converted.image.naturalWidth;
     const view=getView();
-    const p={id:crypto.randomUUID?.()||('photo-'+Date.now()+'-'+Math.random()),mapKey:startMap,
+    const p={id:crypto.randomUUID?.()||('photo-'+Date.now()+'-'+Math.random()),mapKey:startMap,projectId:readProjectMeta().id,
      name:file.name,position:[round(view.cx),round(view.cy)],width:round(width),height:round(height),
      scale:1,rotation:0,opacity:.36,locked:false,visible:true,order:photos.length,
      cameraHeightM,calibration:estimated?'earth':'manual',scaleVersion:estimated?.scaleVersion??null,...converted};
@@ -199,7 +204,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
      catch(e){storageAvailable=false;show('Foto cargada, pero no se pudo conservar al cerrar el navegador: '+e.message,'error')}
     }
     if(epoch!==generation){URL.revokeObjectURL(converted.url);break}
-    photos.push(p);currentId=p.id;added++;updateUI();
+    photos.push(p);currentId=p.id;added++;onChange();updateUI();
     if(estimated&&typeof focusImage==='function')focusImage(p);
     requestDraw();
    }catch(e){show('No se pudo abrir «'+file.name+'»: '+e.message,'error')}
@@ -212,10 +217,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   p[name]=value;updateUI();markDirty();
  }
  async function deleteSelected(){
+  if(!canWrite()){show('Recarga el editor antes de modificar las fotografías.','error');return}
   const p=selected();if(!p)return;
   if(!confirm('¿Eliminar esta fotografía de referencia de este navegador? No se alterará el mapa.'))return;
   photos=photos.filter(item=>item.id!==p.id);
-  currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
+  currentId=photos.at(-1)?.id||null;updateUI();requestDraw();onChange();
   if(p.url)URL.revokeObjectURL(p.url);
   if(storageAvailable)try{await erase(p.id)}catch(e){show('No se pudo eliminar la foto guardada: '+e.message,'error')}
  }
@@ -337,4 +343,15 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush,cancelCalibration:()=>{},
   previewItems:()=>photos.map(p=>({id:p.id,name:p.name,image:p.image,rotation:p.rotation,opacity:p.opacity,selected:p.id===currentId})),
   selectPreview:id=>{if(!photos.some(p=>p.id===id))return;currentId=id;updateUI();requestDraw()}};
+}
+const blobDataURL=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=32768)text+=String.fromCharCode(...bytes.subarray(i,i+32768));return 'data:'+(blob.type||'image/jpeg')+';base64,'+btoa(text)};
+export async function exportProjectPhotos(id,mapKeys){
+ const db=await openDatabase();try{const meta=await read(db.transaction('meta').objectStore('meta').getAll()),rows=meta.filter(p=>(p.projectId||DEFAULT_PROJECT_ID)===id&&mapKeys.includes(p.mapKey));
+ const blobs=await Promise.all(rows.map(p=>read(db.transaction('blobs').objectStore('blobs').get(p.id))));let total=0;for(const b of blobs){if(!b?.blob)throw Error('Faltan los datos de una fotografía privada.');total+=b.blob.size}if(total>PHOTO_PACKAGE_LIMIT)throw Error('Las fotos privadas superan 96 MB. Exporta sin fotos o reduce su tamaño.');
+ return await Promise.all(rows.map(async(p,i)=>validatePrivatePhoto({...p,image:await blobDataURL(blobs[i].blob)})));
+ }finally{db.close()}
+}
+export async function replaceProjectPhotos(id,photos){
+ const staged=photos.map(p=>{validatePrivatePhoto(p);const [header,data]=p.image.split(','),type=header.slice(5,header.indexOf(';')),bytes=Uint8Array.from(atob(data),c=>c.charCodeAt(0));return{...p,id:'photo-'+newPhotoId(),projectId:id,blob:new Blob([bytes],{type})}});
+ const db=await openDatabase();try{const tx=db.transaction(['meta','blobs'],'readwrite'),completion=done(tx),meta=tx.objectStore('meta'),blobs=tx.objectStore('blobs'),cursor=meta.openCursor();cursor.onsuccess=()=>{const c=cursor.result;if(c){if((c.value.projectId||DEFAULT_PROJECT_ID)===id){blobs.delete(c.key);c.delete()}c.continue()}else for(const p of staged){meta.put(strip(p));blobs.put({id:p.id,blob:p.blob})}};await completion;}finally{db.close()}
 }

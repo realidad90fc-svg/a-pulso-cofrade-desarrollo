@@ -1,5 +1,5 @@
 import {ASSET_CATEGORIES,listCustomAssets,assetById,isSurfaceAsset,saveCustomAsset,saveCustomAssets,importCustomRaster,validateResourceManifest} from './custom-assets.mjs';
-export function setupCustomAssetUI({choose,changed,show,refresh}){
+export function setupCustomAssetUI({choose,changed,show,refresh,canWrite=()=>true}){
  const panel=document.createElement('details');panel.id='custom-assets-panel';
  panel.innerHTML=`<summary>Mis recursos · importar imágenes</summary><div class="stack">
  <p class="muted">Añade imágenes como contenido del juego. Sus medidas son metros reales. Las fotografías guía siguen siendo privadas y se gestionan aparte.</p>
@@ -55,7 +55,7 @@ export function setupCustomAssetUI({choose,changed,show,refresh}){
   $('custom-asset-help').textContent=surface?($('custom-asset-category').value==='houses'?'Las medidas indican cuánto ocupa una repetición de la imagen. La colisión sigue el contorno del edificio, incluidos sus patios.':'Las medidas indican cuánto ocupa una repetición de la imagen. Esta superficie será suelo transitable.'):'El rectángulo o círculo naranja muestra la colisión. El tamaño de la imagen puede ser mayor que el tronco o el poste.';
   $('custom-asset-place').disabled=!id||busy;$('custom-asset-row').disabled=!id||busy||surface;paint();
  }
- const guard=fn=>async(...args)=>{try{await fn(...args)}catch(error){$('custom-asset-status').textContent=error.message;show(error.message,'error')}};
+ const guard=fn=>async(...args)=>{try{if(!canWrite())throw Error('Recarga el proyecto antes de modificar sus recursos.');await fn(...args)}catch(error){$('custom-asset-status').textContent=error.message;show(error.message,'error')}};
  async function loadPreview(image){source=image;previewImage=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('No se pudo mostrar la imagen.'));i.src=image});aspect=(previewImage.naturalWidth||previewImage.width)/(previewImage.naturalHeight||previewImage.height);update()}
  $('custom-asset-file').onchange=guard(async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;const imported=await importCustomRaster(file);if(!$('custom-asset-name').value.trim())$('custom-asset-name').value=file.name.replace(/\.[^.]+$/,'');await loadPreview(imported.image);if($('custom-asset-aspect').checked)$('custom-asset-depth').value=(+$('custom-asset-width').value/aspect).toFixed(3);update();status('Imagen preparada. Revisa medidas y colisión y pulsa Guardar recurso.');});
  async function select(saved){
@@ -88,7 +88,7 @@ export function setupCustomAssetUI({choose,changed,show,refresh}){
   if(resources.some(a=>!a.image))throw Error('El catálogo debe incluir las imágenes.');
   // Decode and persist every entry before exposing the imported catalogue.
   await saveCustomAssets(resources);
-  catalogue();refresh();status(resources.length+' recursos importados.');
+  catalogue();changed();refresh();status(resources.length+' recursos importados.');
  });
  catalogue();update();return{refresh:catalogue,async selectById(key){if(id!==key){const a=assetById(key);if(a)await select(a)}},open(){panel.open=true;panel.scrollIntoView?.({block:'start',behavior:'smooth'})}};
 }

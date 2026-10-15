@@ -1,0 +1,11 @@
+#project-history-panel .stack,#engine-review-panel .stack{display:flex;flex-direction:column;gap:9px}
+#project-history-panel input:not([type=checkbox]),#engine-review-panel input:not([type=checkbox]),#project-history-panel select,#engine-review-panel select{box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:9px;border:1px solid var(--line,#566776);border-radius:8px;color:var(--text,#eef4ed);background:#15232c;font:inherit}
+#project-history-panel .actions,#engine-review-panel .actions{display:flex;gap:6px;flex-wrap:wrap}
+#project-history-panel .actions>button,#engine-review-panel .actions>button{flex:1;min-width:95px;white-space:normal}
+#project-history-panel .precision-two,#engine-review-panel .precision-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#engine-review-results{display:flex;flex-direction:column;gap:7px;max-height:260px;overflow:auto}
+.review-issue{text-align:left;white-space:normal}.review-issue[data-severity=error],#project-history-status[data-error=true]{color:#ffc3bf}
+.project-restoring .sidebar,.project-restoring #editor-canvas,.project-restoring .titlebar,.project-restoring .toolbar,.project-restoring .mobile-quick{pointer-events:none;opacity:.6}
+#game-review-panel{position:fixed;z-index:150;left:8px;right:8px;top:7px;max-width:520px;margin:auto;background:#101c2bf0;color:#e7f4e8;border:1px solid #7ae4b7;border-radius:10px;padding:9px;font:12px/1.35 system-ui;box-shadow:0 5px 20px #0008}
+#game-review-panel strong{display:block;font-size:11px}#game-review-panel label{display:block}#game-review-panel div{display:flex;gap:5px;flex-wrap:wrap}#game-review-panel button{padding:6px 7px;border:1px solid #799c9e;border-radius:6px;background:#253b46;color:#fff;font:inherit;min-height:32px}#game-review-panel output{display:block;font-variant-numeric:tabular-nums}
+@media(max-width:600px){#game-review-panel{max-width:none;top:1px;padding:5px 7px}#game-review-panel div{gap:3px}#game-review-panel button{font-size:10px;min-height:29px}}
