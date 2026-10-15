@@ -10,7 +10,7 @@ export function createProjectController({storage=localStorage,getCity,getDocumen
  let session=readProjectMeta(storage),applying=false;
  if(!storage.getItem(PROJECT_META_KEY))session=writeProjectMeta(session,storage);
  const assets=adapters.replaceAssets||replaceCustomAssetLibrary,templates=adapters.replaceTemplates||replaceTemplateLibrary,photos=adapters.replacePhotos||replaceProjectPhotos,photoExport=adapters.exportPhotos||exportProjectPhotos,record=adapters.recordVersion||recordProjectVersion;
- const canWrite=()=>!applying&&sameProjectSession(session,storage);
+ const canWrite=()=>!applying&&!String(session.generation).startsWith('restoring-')&&sameProjectSession(session,storage);
  const assert=()=>{if(!canWrite())throw Error('Se ha abierto o restaurado otro proyecto. Recarga el editor para continuar sin sobrescribirlo.')};
  async function capture({includePhotos=false,name}={}){
   assert();const meta={...session,...(name?{name}:{})},city=structuredClone(getCity()),documents=Object.fromEntries(city.maps.map(m=>[m.key,structuredClone(getDocument(m.key))])),resources=structuredClone(listCustomAssets()),items=structuredClone(listTemplates());
@@ -27,12 +27,15 @@ export function createProjectController({storage=localStorage,getCity,getDocumen
   const beforeStorage=new Map([...writes.keys(),PROJECT_META_KEY].map(k=>[k,storage.getItem(k)]));let assetsDone=false,templatesDone=false,photosDone=false;
   applying=true;onApplying(true);
   try{
+   // Invalidate other editor windows before asynchronous catalog/photo writes.
+   storage.setItem(PROJECT_META_KEY,JSON.stringify({...previousMeta,generation:'restoring-'+projectId()}));
    await assets(pkg.resources);assetsDone=true;await templates(pkg.templates.templates,pkg.resources);templatesDone=true;
    if(targetPhotoBackup!==null){await photos(pkg.projectMeta.id,pkg.privatePhotos);photosDone=true}
    for(const [key,value]of writes)storage.setItem(key,value);session=writeProjectMeta({...pkg.projectMeta,createdAt:pkg.projectMeta.createdAt||new Date().toISOString()},storage);
   }catch(error){
-   const failures=[];for(const [key,value]of [...beforeStorage].reverse())try{value===null?storage.removeItem(key):storage.setItem(key,value)}catch(e){failures.push(e.message)}
+   const failures=[];for(const [key,value]of [...beforeStorage].reverse())if(key!==PROJECT_META_KEY)try{value===null?storage.removeItem(key):storage.setItem(key,value)}catch(e){failures.push(e.message)}
    try{if(assetsDone)await assets(before.resources);if(templatesDone)await templates(before.templates.templates,before.resources);if(photosDone)await photos(pkg.projectMeta.id,targetPhotoBackup)}catch(e){failures.push(e.message)}
+   try{const value=beforeStorage.get(PROJECT_META_KEY);value===null?storage.removeItem(PROJECT_META_KEY):storage.setItem(PROJECT_META_KEY,value)}catch(e){failures.push(e.message)}
    session=previousMeta;applying=false;onApplying(false);throw Error(failures.length?'La restauración falló. Hay una copia «Antes de…» en el historial para recuperar el proyecto.':'No se ha aplicado el proyecto: '+error.message+' Los datos anteriores se han conservado.');
   }
   const key=pkg.city.documents[getMapKey()]?getMapKey():pkg.city.project.maps[0]?.key;onRestored({meta:session,key,package:pkg});return{meta:session,key};
