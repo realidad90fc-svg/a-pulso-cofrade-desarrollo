@@ -28,7 +28,7 @@ export function readCityPreview(search,storage){
  }
  return{key,name:document.metadata.zoneName||document.metadata.map||meta?.name||key,document,
   draft:makeArenalPreviewDraft(document),
-  isolated:meta?.type==='user'||!!zoneId||!!saved.zoneRefs?.length||(meta?.type==='native'&&!!saved.metadata?.precisionGeometry),
+  isolated:meta?.type==='user'||saved.metadata?.sourceType==='user'||!!zoneId||!!saved.zoneRefs?.length||(meta?.type==='native'&&!!saved.metadata?.precisionGeometry),
   nativeId:meta?.nativeId||meta?.route?.mapId||CAMPAIGN_DATA.routes.find(r=>r.mapKey===key)?.mapId||1};
 }
 function samples(shape){

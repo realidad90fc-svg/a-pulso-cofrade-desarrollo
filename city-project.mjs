@@ -24,7 +24,7 @@ export function validateMapDocument(doc){
   const list=doc[kind]||[];if(list.length>20000)throw Error('La capa '+kind+' supera el límite de elementos.');
   for(const o of list){
    validateItemEdit(o);
-   if(o.collision!==undefined&&typeof o.collision!=='boolean')throw Error('Estado de colisión no válido.');
+   if(o.solid!==undefined&&typeof o.solid!=='boolean')throw Error('Estado de colisión no válido.');
    if(o?.size!==undefined&&(!Array.isArray(o.size)||o.size.length!==2||!o.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100)))throw Error('Las medidas de un elemento deben estar entre 0,01 y 100 m.');
    if(['fences','chairs'].includes(kind))for(const key of ['width','depth'])if(o[key]!==undefined&&(!Number.isFinite(o[key])||o[key]<.02||o[key]>100))throw Error('Medidas de mobiliario no válidas.');
    if(kind==='checkpoints'&&o.radius!==undefined&&(!Number.isFinite(o.radius)||o.radius<.2||o.radius>3))throw Error('El radio del control debe estar entre 0,2 y 3 m.');

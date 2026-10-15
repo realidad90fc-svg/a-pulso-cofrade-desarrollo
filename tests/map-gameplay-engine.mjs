@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './resources.mjs';
+import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './gameplay-resources.mjs';
 import {customStep} from '../custom-steps.mjs';
 import {customMap} from '../custom-routes.mjs';
 import {EDITOR_MAPS} from '../editor-map-catalog.mjs';

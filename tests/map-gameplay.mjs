@@ -4,13 +4,17 @@ import {defaultGameplay,newRouteEvent,validateGameplay} from '../map-gameplay.mj
 import {MapGameplayRuntime,attachMapGameplay} from '../map-gameplay-runtime.mjs';
 import {makeGameDraft} from '../editor-game-draft.mjs';
 import {applyMapEntry,resolveMapConnection} from '../map-connections.mjs';
-import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './resources.mjs';
+import {registerCustomAssets,newCustomObject} from '../custom-assets.mjs';
+import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './gameplay-resources.mjs';
 const rect=(x,y,xx,yy)=>[[x,y],[xx,y],[xx,yy],[x,yy]],shape=(x,y,r=.1)=>({circle:true,center:[x,y],radius:r});
 const doc=blankMapDocument({key:'city-test',name:'Prueba',width:30,height:30});doc.roads=[{poly:rect(0,0,20,20),holes:[rect(8,8,10,10)]}];doc.gameplay=defaultGameplay();doc.gameplay.collision.mode='replace';
 let rt=new MapGameplayRuntime(doc);assert.equal(rt.collisionReason(shape(3,3)),null);assert.equal(rt.collisionReason(shape(21,3)),1);assert.equal(rt.collisionReason(shape(9,9)),1);
 doc.gameplay.collision.zones.push({id:'block',name:'Obstáculo',kind:'blocked',poly:rect(3,3,4,4),enabled:true},{id:'edge',name:'Límite',kind:'boundary',poly:rect(0,0,15,15),enabled:true});
 rt=new MapGameplayRuntime(doc);assert.equal(rt.collisionReason(shape(3.5,3.5)),9);assert.equal(rt.collisionReason(shape(16,3)),1);
-doc.houses=[{poly:rect(5,5,6,6),collision:false}];rt=new MapGameplayRuntime(doc);assert.equal(rt.collisionReason(shape(5.5,5.5)),null);doc.houses[0].collision=true;assert.equal(new MapGameplayRuntime(doc).collisionReason(shape(5.5,5.5)),2);
+doc.houses=[{poly:rect(5,5,6,6),solid:false}];rt=new MapGameplayRuntime(doc);assert.equal(rt.collisionReason(shape(5.5,5.5)),null);doc.houses[0].solid=true;assert.equal(new MapGameplayRuntime(doc).collisionReason(shape(5.5,5.5)),2);
+// Existing imported collision shapes remain valid; the solid override is independent.
+const asset={id:'asset-solid-test',name:'Silla propia',category:'chairs',width:.4,depth:.4,angle:0,collision:{kind:'box',width:.4,depth:.4}};registerCustomAssets([asset]);
+const imported=structuredClone(doc);imported.resources=[asset];imported.customObjects=[newCustomObject(asset,[6.5,6.5])];validateMapDocument(imported);assert.equal(new MapGameplayRuntime(imported).collisionReason(shape(6.5,6.5)),9);imported.customObjects[0].solid=false;validateMapDocument(imported);assert.equal(new MapGameplayRuntime(imported).collisionReason(shape(6.5,6.5)),null);assert.equal(imported.customObjects[0].collision.kind,'box');
 // A crossing that only clips the edge of a block is still a collision.
 assert.equal(new MapGameplayRuntime(doc).collisionReason({points:rect(2,3.4,5,3.6)}),9);
 const inherited=structuredClone(doc);inherited.gameplay.collision.mode='inherit';assert.equal(new MapGameplayRuntime(inherited).collisionReason(shape(6.5,6.5)),null);

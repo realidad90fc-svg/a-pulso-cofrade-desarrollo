@@ -24,7 +24,7 @@ function poly(v){
  return v.map(point);
 }
 function item(v,kind){
- const result=cleanItem(v,kind);if(v.collision!==undefined){if(typeof v.collision!=='boolean')fail('Estado de colisión no válido.');result.collision=v.collision;}if(['roads','sidewalks'].includes(kind)&&v.walkable!==undefined){if(typeof v.walkable!=='boolean')fail('Estado del suelo no válido.');result.walkable=v.walkable;}try{validateItemEdit(v)}catch(e){fail(e.message)}
+ const result=cleanItem(v,kind);if(v.solid!==undefined){if(typeof v.solid!=='boolean')fail('Estado de colisión no válido.');result.solid=v.solid;}if(['roads','sidewalks'].includes(kind)&&v.walkable!==undefined){if(typeof v.walkable!=='boolean')fail('Estado del suelo no válido.');result.walkable=v.walkable;}try{validateItemEdit(v)}catch(e){fail(e.message)}
  const meta=itemEdit(v),keys=['groupId','groupName','groupAngle','angle','locked','resized'];
  if(keys.some(k=>meta[k]!==undefined))Object.assign(itemEdit(result,true),Object.fromEntries(keys.filter(k=>meta[k]!==undefined).map(k=>[k,meta[k]])));
  if(v.size!==undefined&&!Array.isArray(v)&&kind!=='customObjects'){if(!Array.isArray(v.size)||v.size.length!==2||!v.size.every(n=>Number.isFinite(n)&&n>=.01&&n<=100))fail('Medidas del objeto no válidas.');result.size=[...v.size]}
