@@ -1,3 +1,4 @@
+import {blankMapDocument} from './city-project.mjs';
 // Shared map catalogue for the standalone manual editor.
 // Edits are working copies exported as JSON; native gameplay assets are not mutated.
 import {PUREZA_SCENE} from './pureza-data.mjs';
@@ -8,6 +9,12 @@ import {CATHEDRAL_MAP,CATHEDRAL_ROUTE,cathedralPoint,postigoPoint} from './cathe
 import {ARENAL_MAP,ARENAL_ROUTE,BARATILLO,ADRIANO_URBAN_DETAIL,adrianoPoint,MODULO_ADRIANO} from './arenal-data.mjs';
 import {NEW_ROUTE} from './custom-routes.mjs';
 
+export const NATIVE_STREET_NAMES=[
+ ['Alfonso XII','Santa Vicenta María'],['G. Tassara','Amor de Dios','San Miguel'],
+ ['Virgen de la Victoria','Asunción'],['Catedral','Alemanes'],['Almirantazgo','Postigo','Arfe'],
+ ['Pureza','Capilla de los Marineros'],['O’Donnell','Campana','Sierpes'],
+ ['Cardenal Cisneros','San Vicente'],['Odreros','Boteros','Sales y Ferré'],['Dormitorio','Alhóndiga']
+];
 export const EDITOR_MAPS=[
  {key:PUREZA_SCENE.key,name:'Salida por Pureza',type:'modular',scene:PUREZA_SCENE},
  {key:BRIDGE_MAP.key,name:'Altozano y Puente',type:'modular',scene:BRIDGE_MAP,route:BRIDGE_ROUTE},
@@ -16,7 +23,7 @@ export const EDITOR_MAPS=[
  {key:CATHEDRAL_MAP.key,name:'Catedral y Postigo',type:'mixed',scene:CATHEDRAL_MAP,route:CATHEDRAL_ROUTE},
  {key:ARENAL_MAP.key,name:'Regreso por el Arenal',type:'arenal',scene:ARENAL_MAP,route:ARENAL_ROUTE},
  {key:NEW_ROUTE.key,name:NEW_ROUTE.name,type:'custom'},
- ...Array.from({length:10},(_,i)=>({key:'native-'+(i+1),name:'Original · Mapa '+(i+1),type:'native',nativeId:i+1}))
+ ...Array.from({length:10},(_,i)=>({key:'native-'+(i+1),name:'Original · '+NATIVE_STREET_NAMES[i].join(' · '),type:'native',nativeId:i+1}))
 ];
 export const DEFAULT_MAP=ARENAL_MAP.key;
 export const SCHEMA='apulso-universal-editor-v2';
@@ -113,7 +120,7 @@ function nativeGeometry(key,nativeMaps){
  }
  const b=map.bounds||[-10,-10,10,10],pos=roads[0]?middle(roads[0].poly):[(b[0]+b[2])/2,(b[1]+b[3])/2];
  const start=valid(pos)?short(pos):[0,0],checkpoints=[{id:'native-preview',name:'Referencia (sin modificar checkpoint original)',position:[...start]}];
- labels.push(['Mapa original '+id,[b[0],b[3]]]);
+ for(const [i,name]of NATIVE_STREET_NAMES[id-1].entries())labels.push([name,[start[0],start[1]+i*.5]]);
  return{roads,sidewalks,houses,people,trees,signs,labels,checkpoints,checkpoint:[...start],paso:{x:start[0],y:start[1],angle:90},bounds:b};
 }
 function specialized(scene,map,geometry,nativeMaps){
@@ -131,6 +138,7 @@ function specialized(scene,map,geometry,nativeMaps){
 }
 export function buildEditorMap(key,animation,nativeMaps,prepareArenal){
  const map=EDITOR_MAPS.find(x=>x.key===key);if(!map)throw Error('Mapa desconocido: '+key);
+ if(map.type==='user')return blankMapDocument(map);
  let geometry;
  if(map.type==='arenal'){
   const a=prepareArenal(animation);
@@ -143,6 +151,7 @@ export function buildEditorMap(key,animation,nativeMaps,prepareArenal){
  else if(map.type==='custom'){
   const pts=NEW_ROUTE.points.map(([x,y])=>[(x-NEW_ROUTE.start[0])/NEW_ROUTE.ppu,(NEW_ROUTE.start[1]-y)/NEW_ROUTE.ppu]);
   geometry=buildGeometry({modules:[{id:'Alemanes',name:NEW_ROUTE.name,points:pts,halfWidth:.79}],path:pts,bounds:null},map);
+  geometry.labels=['Alemanes','Placentines','Francos'].map((name,i)=>[name,pts[Math.min(pts.length-1,Math.floor((i+.5)*pts.length/3))]]);
  }else geometry=specialized(map.scene,map,buildGeometry(map.scene,map),nativeMaps);
  // Each map receives isolated storage and an explicit origin identifier.
  return{...geometry,fences:[],chairs:[],urban:[],schema:SCHEMA,metadata:{map:map.name,mapKey:key,sourceType:map.type,

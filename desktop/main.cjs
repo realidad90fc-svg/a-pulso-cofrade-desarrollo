@@ -188,7 +188,7 @@ function menu(){
    {label:'Página del editor en Internet',click:()=>shell.openExternal(BASE_URL+'/editor-arenal.html')},
    {label:'Cómo guardar trabajos anteriores',click:()=>dialog.showMessageBox(mainWindow,{
     type:'info',message:'Importar tus mapas del navegador',
-    detail:'Los datos de Chrome/Edge no se transfieren automáticamente. En el editor web, abre cada recorrido y pulsa «Exportar mapa». Después selecciona el mismo recorrido en Windows e importa su archivo JSON. Las fotografías deben añadirse desde tus imágenes originales. Una vez dentro de esta aplicación, quedan protegidas por copias de seguridad en Documentos.'
+    detail:'Los datos de Chrome/Edge no se transfieren automáticamente. En el editor web, abre Ciudad y pulsa «Exportar ciudad completa». En Windows utiliza Ciudad → Restaurar ciudad. También puedes importar mapas JSON individualmente. Las fotografías deben añadirse desde tus imágenes originales. Una vez dentro de esta aplicación, quedan protegidas por copias de seguridad en Documentos.'
    })}
   ]}
  ];
@@ -197,10 +197,11 @@ function menu(){
 function createWindow(){
  mainWindow=new BrowserWindow({
   width:1500,height:950,minWidth:900,minHeight:640,
-  title:'A Pulso Cofrade · Editor de Mapas',backgroundColor:'#15202a',
+  title:'A Pulso Cofrade · Taller de Sevilla 2.0',backgroundColor:'#15202a',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}
  });
  mainWindow.webContents.setWindowOpenHandler(({url})=>{
+  if(url.startsWith('apulso://app/'))return{action:'allow',overrideBrowserWindowOptions:{width:1200,height:800,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}}};
   if(/^https:\/\//i.test(url))void shell.openExternal(url);
   return{action:'deny'};
  });

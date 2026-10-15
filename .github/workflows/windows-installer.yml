@@ -4,6 +4,12 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
+      - '*.mjs'
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'assets/**'
+      - 'tests/**'
       - '.github/workflows/windows-installer.yml'
   workflow_dispatch:
 permissions:
@@ -31,6 +37,10 @@ jobs:
           node --check desktop/web/editor-arenal.mjs
       - name: 'Verificar orden de capas - aceras bajo tejados'
         run: node tests/roof-layer-order.cjs
+      - name: Verificar ciudad compartida y compatibilidad de pasos
+        run: |
+          node tests/city-project.mjs
+          node tests/native-regression.mjs
       - name: Crear instalador EXE
         working-directory: desktop
         env:

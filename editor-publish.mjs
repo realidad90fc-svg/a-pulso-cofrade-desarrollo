@@ -22,7 +22,9 @@ export function setupMapPublishing({getMapKey,getData,getBaseline,saveLocal,show
  }
  button.onclick=()=>{
   try{
+   if(location.hostname?.endsWith('.chatgpt.site'))throw Error('Para probar el mapa aquí basta con Guardar. Para trasladar mapas y hermandades usa Ciudad → Exportar ciudad completa. La publicación en GitHub está disponible en el editor de desarrollo.');
    const data=getData(),base=getBaseline(),key=getMapKey();
+   if(key.startsWith('city-')||data?.zoneRefs?.length)throw Error('Este diseño utiliza mapas o zonas compartidas. Guárdalo con Ciudad → Exportar ciudad completa para conservar sus vínculos. La publicación individual se mantiene para los mapas existentes.');
    if(!data||!base||data.metadata?.mapKey!==key)throw Error('No hay un mapa válido seleccionado.');
    const draft=makeGameDraft(data,base);
    if(draft.total<1)throw Error('Este mapa todavía no tiene modificaciones para publicar.');

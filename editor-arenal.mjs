@@ -1,3 +1,7 @@
+import {setupCityManager} from './city-manager.mjs';
+import {blankMapDocument,validateMapDocument,MAP_STORAGE_PREFIX,KINDS} from './city-project.mjs';
+import {paintCityScene} from './city-scene.mjs';
+import {loadSevilleTextures} from './seville-textures.mjs';
 import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
@@ -27,7 +31,8 @@ const images=new Map();
 const roofPreviewCache=new Map(); // Reuse drawings when switching roofs or adding many houses.
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
 const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
-let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null,visualPanels=null;
+let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null,visualPanels=null,cityManager=null;
+const baselineCache=new Map();
 
 function show(message,type='info'){
  const el=$('status');el.textContent=message;
@@ -49,7 +54,7 @@ function setSelection(items){
   $('roof-inset-value').textContent=inset.toFixed(3).replace('.',',')+' m';
   previewRoofDetail();
  }
- updateCounts();visualPanels?.refreshSelected();requestDraw();
+ updateCounts();visualPanels?.refreshSelected();cityManager?.refreshSelected();requestDraw();
 }
 function clearSelection(){setSelection([])}
 function savedStart(){return data?.startPose||data?.paso}
@@ -88,12 +93,12 @@ function snapshot(){
  state.future.length=0;
 }
 function changed(){
- state.unsaved=true;updateCounts();requestDraw();
+ state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();
  clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);
 }
 function saveLocal(){
  if(!data)return;
- try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(data,baseline)));state.unsaved=false;show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
+ try{localStorage.setItem(storageFor(activeMap),JSON.stringify(data));localStorage.setItem(GAME_PATCH_PREFIX+activeMap,JSON.stringify(makeGameDraft(data,baseline)));state.unsaved=false;cityManager?.saveIndex();updatePlayLink();show('Diseño guardado. Abre Juego ↗ en este mismo dominio para probar los cambios.','good');}
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
@@ -205,9 +210,13 @@ function renderStaticScene(){
  // Existing Arenal polygons often have no material ID. Use the SAME
  // default in editor and playable map, never an index-dependent legacy
  // material that can randomly display flat asphalt or wrong paving.
+ if(data.zoneRefs?.length&&cityManager){
+  try{paintCityScene(ctx,cityManager.linkedScene(),pixel,view.zoom,getImage,visualBounds(),{labels:$('labels-on').checked})}
+  catch(error){show(error.message,'error')}
+ }
  const isArenal=data.metadata?.mapKey==='RegresoArenal';
- const roadDefault=isArenal?'road-sev-gerena-dark':null;
- const curbDefault=isArenal?'sidewalk-sev-quintana':null;
+ const roadDefault=isArenal?'road-art-granite':'road-art-granite';
+ const curbDefault=isArenal?'sidewalk-art-caliza':'sidewalk-art-caliza';
  if($('roads-on').checked)for(let i=0;i<data.roads.length;i++){
   const o=data.roads[i];
   drawFloor(o.poly,'roads',o.material||roadDefault||ROAD_MATERIALS[i%12].id);
@@ -728,6 +737,7 @@ function setData(loaded){
  if(loaded.metadata?.mapKey!==activeMap)throw new Error('Este archivo corresponde a otro mapa. Selecciónalo antes de importar.');
  for(const type of ['roads','houses','sidewalks'])
   if(loaded[type].some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.some(x=>!Array.isArray(x)||!Number.isFinite(x[0])||!Number.isFinite(x[1]))))throw new Error('Hay polígonos inválidos en '+type);
+ validateMapDocument(loaded);
  data=loaded;clearSelection();state.history=[];state.future=[];
  if(!data.paso)data.paso={...baseline.paso};
  if(!data.checkpoint)data.checkpoint=[...baseline.checkpoint];
@@ -1063,7 +1073,7 @@ function switchMap(key){
  activeMap=key;clearSelection();state.working=[];state.mouseWorld=null;
  void photoGuides?.switchMap(key);
  state.history=[];state.future=[];state.pinch=null;state.drag=null;state.pointers.clear();
- baseline=buildEditorMap(key,animationData,nativeMaps,prepareMap);
+ baseline=getBaselineDocument(key);
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem(storageFor(key))||'null')}catch{}
  if(!saved&&key===DEFAULT_MAP){
@@ -1077,9 +1087,29 @@ function switchMap(key){
  catch(error){setData(structuredClone(baseline));show('La edición guardada era incompatible: '+error.message,'error')}
  $('map-select').value=key;
  const chosen=EDITOR_MAPS.find(m=>m.key===key);
- $('map-kind').textContent=chosen.type==='native'?'Mapa clásico del APK: geometría guía de colisiones; no es una reproducción visual exacta.':chosen.type==='mixed'?'Recorrido combinado: se conserva el mapa original junto a las ampliaciones.':chosen.type==='arenal'?'Arenal: taller con geometría detallada.':'Recorrido modular: aceras y público orientativos que puedes ajustar.';
+ cityManager?.refresh();updatePlayLink();
+ $('map-kind').textContent=chosen.type==='user'?'Mapa propio: enlaza calles existentes o construye nuevos tramos.':chosen.type==='native'?'Mapa clásico del APK: geometría guía de colisiones; no es una reproducción visual exacta.':chosen.type==='mixed'?'Recorrido combinado: se conserva el mapa original junto a las ampliaciones.':chosen.type==='arenal'?'Arenal: taller con geometría detallada.':'Recorrido modular: aceras y público orientativos que puedes ajustar.';
  configureTool('pan');fitMap();
  show(restoring?'Edición de «'+chosen.name+'» recuperada.':'«'+chosen.name+'» cargado para editar.','good');
+}
+function getBaselineDocument(key){
+ if(!baselineCache.has(key))baselineCache.set(key,buildEditorMap(key,animationData,nativeMaps,prepareMap));
+ return structuredClone(baselineCache.get(key));
+}
+function getStoredDocument(key){
+ const raw=localStorage.getItem(storageFor(key));
+ if(raw){const doc=JSON.parse(raw);validateMapDocument(doc);return doc}
+ return getBaselineDocument(key);
+}
+function registerUserMap(meta){
+ if(EDITOR_MAPS.some(m=>m.key===meta.key))return;
+ EDITOR_MAPS.push({...meta,type:'user'});
+ const selector=$('map-select');let group=selector.querySelector('[data-user-maps]');
+ if(!group){group=document.createElement('optgroup');group.label='Mis mapas de Sevilla';group.dataset.userMaps='true';selector.append(group)}
+ const option=document.createElement('option');option.value=meta.key;option.textContent=meta.name;group.append(option);
+}
+function updatePlayLink(){
+ for(const id of ['editor-play','editor-play-mobile']){const link=$(id);if(link)link.href='./index.html?cityMap='+encodeURIComponent(activeMap);}
 }
 async function init(){
  try{
@@ -1088,6 +1118,7 @@ async function init(){
   for(const response of responses)if(!response.ok)throw Error('No se pudo cargar el catálogo HTTP '+response.status);
   const values=await Promise.all(responses.map(response=>response.json()));
   animationData=values[0];nativeMaps=values[1].maps||[];sprites=animationData.sprites;
+  await loadSevilleTextures();
   for(const key of [...HOUSE_KEYS,FLOOR_KEY,'sharedassets2.assets:379','sharedassets2.assets:563'])spriteFor(key);
   const selector=$('map-select');
   for(const groupName of ['Recorridos de A Pulso','Mapas clásicos del APK']){
@@ -1116,6 +1147,12 @@ async function init(){
    floorImage.addEventListener('load',()=>visualPanels?.redrawFloorPreviews(),{once:true});
   resize();
   setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
+  cityManager=setupCityManager({catalog:EDITOR_MAPS,getData:()=>data,getBaseline:()=>baseline,
+   getMapKey:()=>activeMap,getDocument:getStoredDocument,openMap:switchMap,
+   onRegisterMap:registerUserMap,onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
+   snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
+   getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso});
+  $('open-city').onclick=()=>cityManager.open();
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
   $('loading').hidden=true;

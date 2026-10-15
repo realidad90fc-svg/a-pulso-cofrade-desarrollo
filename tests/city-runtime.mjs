@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {OriginalSimulation} from '../original-engine.mjs';
+import {Renderer} from '../renderer.mjs';
+import {prepareMap,prepareStep} from '../engine.mjs';
+import {customMap} from '../custom-routes.mjs';
+import {ARENAL_ROUTE} from '../arenal-data.mjs';
+import {createCityProject,addCityMap,CITY_KEY,MAP_STORAGE_PREFIX} from '../city-project.mjs';
+import {readCityPreview} from '../city-runtime.mjs';
+import {registerTexture} from '../seville-textures.mjs';
+const require=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/');
+const {createCanvas,loadImage}=require('@napi-rs/canvas');globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
+const read=name=>JSON.parse(fs.readFileSync(new URL('../assets/'+name+'.json',import.meta.url)));
+const data=read('game-data'),resources={code:read('original-code'),assets:read('original-assets'),animation:read('original-animation'),controls:read('runtime-controls'),random:()=>.5};
+for(const name of ['piedra','caliza','teja'])registerTexture(name,await loadImage(new URL('../assets/sevilla/'+name+'.webp',import.meta.url).pathname));
+const project=createCityProject(),{meta,document}=addCityMap(project,{name:'Prueba del motor',width:40,height:40});
+document.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]],material:'road-art-granite'}];
+document.sidewalks=[{poly:[[0,0],[3,0],[3,40],[0,40]],material:'sidewalk-art-caliza'}];
+document.paso={x:20,y:20,angle:0};
+document.houses=[{poly:[[3,3],[10,3],[10,8],[3,8]],material:'realista-teja-arabe'}];
+document.checkpoints=[{id:'presentation',position:[20,20],name:'Capilla',mandatory:true},{id:'arrival',position:[23,20],name:'Llegada',finish:true}];
+const storage=new Map([[CITY_KEY,JSON.stringify(project)],[MAP_STORAGE_PREFIX+meta.key,JSON.stringify(document)]]);
+const request=readCityPreview('?cityMap='+encodeURIComponent(meta.key),{getItem:k=>storage.get(k)});assert(request.isolated);
+const map={...prepareMap(data.maps[0]),name:request.name,variant:{kind:'city',key:meta.key,document:request.document}};
+const sim=new OriginalSimulation(map,prepareStep(data.steps[6]),resources,'practice');
+assert.equal(sim.state.x,20);assert.equal(sim.state.y,20);assert.equal(sim.buttons.length,16);
+assert(sim.routeAdapter.validShape({circle:true,center:[20,20],radius:.4}));
+assert(!sim.routeAdapter.validShape({circle:true,center:[39.9,20],radius:.4}));
+sim.controller.animator.play('mecidaPasoNormal');sim.state.lifted=true;sim.frameCount++;sim.routeAdapter.tick();assert(!sim.routeAdapter.checkpointIds.length,'Presentation cannot pass while raised');
+sim.setPosition(sim.stepEntity.transform,[23,20,0]);sim.controller.animator.play('pasoBajado');sim.frameCount++;sim.routeAdapter.tick();assert(!sim.routeAdapter.finished,'Arrival must wait for mandatory presentation');assert(!sim.routeAdapter.checkpointIds.includes('arrival'));
+sim.setPosition(sim.stepEntity.transform,[20,20,0]);sim.frameCount++;sim.routeAdapter.tick();assert(sim.routeAdapter.checkpointIds.includes('presentation'));
+const snapshot=sim.snapshot();const reopened=new OriginalSimulation(map,prepareStep(data.steps[6]),resources,'practice',snapshot);assert.deepEqual(reopened.routeAdapter.checkpointIds,['presentation']);
+sim.setPosition(sim.stepEntity.transform,[23,20,0]);sim.frameCount++;sim.routeAdapter.tick();assert(sim.routeAdapter.finished);
+const output=new URL('../../qa-renders/',import.meta.url);fs.mkdirSync(output,{recursive:true});
+async function imagesFor(s){const images=new Map();for(const g of s.renderGraphs)for(const n of g.nodes.values()){const sp=n.sprite&&g.data.sprites[n.sprite.key];if(!sp?.image||images.has(n.sprite.key))continue;images.set(n.sprite.key,await loadImage(new URL('../'+sp.image,import.meta.url).pathname))}return images}
+const arena=new OriginalSimulation(customMap(prepareMap(data.maps[4]),ARENAL_ROUTE.mapKey,ARENAL_ROUTE),prepareStep(data.steps[6]),resources,'practice'),images=await imagesFor(arena);
+for(const [name,x,y,angle]of [['arfe',...ARENAL_ROUTE.start.position,0],['adriano',42,35,.65],['baratillo',40.9,35.4,1.1],['pastor',39,45.8,-.2]]){
+ arena.camera={x,y,angle,size:3.5};const c=createCanvas(390,844),renderer=new Renderer(c);renderer.resize(390,844,1);renderer.render(arena,images,false);fs.writeFileSync(new URL('game-'+name+'.png',output),c.toBuffer('image/png'));
+ const p=c.getContext('2d').getImageData(30,200,330,450).data;let coloured=0;for(let i=0;i<p.length;i+=4)if(p[i]!==85||p[i+1]!==82||p[i+2]!==79)coloured++;assert(coloured>p.length/4*.6,'Procedural city must draw without a reference-architecture bitmap');
+}
+assert(arena.routeAdapter.tileCache.size<=arena.routeAdapter.scene.maxCachedTiles,'World tile cache stays bounded on mobile');
+console.log('PASS runtime: native 16 controls/colliders, custom map start, full footprint walkability, arriado presentation, arrival prerequisite, checkpoint snapshot/reopen; four rotated portrait Arenal renders with visible terrain and bounded cache.');

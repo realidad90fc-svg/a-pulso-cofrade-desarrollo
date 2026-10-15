@@ -1,3 +1,4 @@
+import {paintWorldSurface} from './surface-renderer.mjs';
 import {renderInsetRoof} from './editor-roof-render.mjs';
 import {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
 export {REALISTIC_ROOFS} from './editor-roof-variants.mjs';
@@ -151,7 +152,7 @@ const surfaces=[
  ['Piedra irregular','#99918a','#c1b8aa','stone'],
  ['Piedra oscura','#686664','#8d8984','stone'],
 ];
-export const ROAD_MATERIALS=[...surfaces.map((v,i)=>({id:'road-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_ROAD_MATERIALS];
+export const ROAD_MATERIALS=[{id:'road-art-granite',name:'Piedra sevillana · textura ilustrada',base:'#8b867e',light:'#b7b1a6',pattern:'art-granite'},...surfaces.map((v,i)=>({id:'road-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_ROAD_MATERIALS];
 const pavements=[
  ['Baldosa sevillana','#d0c4ad','#a59a89','tiles'],
  ['Acerado crema','#d7cbb9','#aea18e','slabs'],
@@ -166,7 +167,7 @@ const pavements=[
  ['Hormigón lavado','#b9b7b1','#93908a','concrete'],
  ['Acerado amarillo','#c7b793','#9a8a6c','tiles'],
 ];
-export const SIDEWALK_MATERIALS=[...pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_SIDEWALK_MATERIALS];
+export const SIDEWALK_MATERIALS=[{id:'sidewalk-art-caliza',name:'Caliza sevillana · textura ilustrada',base:'#cfbea2',light:'#ecdec4',pattern:'art-caliza'},...pavements.map((v,i)=>({id:'sidewalk-'+i,name:v[0],base:v[1],light:v[2],pattern:v[3]})),...SEVILLE_SIDEWALK_MATERIALS];
 export const TREE_VARIANTS=[
  {id:'tree-0',name:'Árbol original · copa ancha',tone:'#426a3e',shape:'round'},
  {id:'tree-1',name:'Naranjo · copa redonda',tone:'#356646',shape:'round'},
@@ -219,75 +220,8 @@ function lineGridWorld(ctx,pixel,box,dx,dy,alpha){
  ctx.restore();
 }
 export function drawSurface(ctx,poly,kind,materialId,pixel,zoom,baseFloor,visible=null){
- if(!asPoly(poly))return;
- const m=surfaceById(materialId,kind),b=bounds(poly);
- ctx.save();polygonPath(ctx,poly,pixel);ctx.clip();
- const p=pixel(b[0],b[3]);
- const area=visible?[Math.max(b[0],visible[0]),Math.max(b[1],visible[1]),Math.min(b[2],visible[2]),Math.min(b[3],visible[3])]:b;
- const region=area[2]>area[0]&&area[3]>area[1]?area:b;
- const top=pixel(region[0],region[3]),x0=top[0],y0=top[1],x1=x0+(region[2]-region[0])*zoom,y1=y0+(region[3]-region[1])*zoom;
- ctx.fillStyle=m.base;ctx.fillRect(x0,y0,x1-x0,y1-y0);
- const style=m.pattern,metres=style==='cobbles'?.23:style==='tiles'?.42:
-  style==='stone'?.67:style==='slabs'?.65:1.15;
- // Sevilla-specific profiles use world-space joints, repeatable across
- // large maps and matching their own preview at the exact same scale.
- if(style.startsWith('sev-')){
-  paintSevilleSurface(ctx,m,pixel,zoom,region);
-  if(kind==='sidewalks'){
-   ctx.lineWidth=.010*zoom;
-   ctx.strokeStyle='rgba(244,230,204,.40)';
-   polygonPath(ctx,poly,pixel);ctx.stroke();
-  }
-  ctx.restore();return;
- }
- // Keep the original floor sprite for asphalt, then overlay coordinated seams.
- if(kind==='roads'&&baseFloor&&(style==='asphalt'||style==='concrete')){
-  ctx.imageSmoothingEnabled=false;
-  const minX=Math.floor(region[0]),maxX=Math.ceil(region[2]),minY=Math.floor(region[1]),maxY=Math.ceil(region[3]);
-  ctx.globalAlpha=style==='asphalt'?.24:.13;
-  for(let x=minX;x<maxX;x++)for(let y=minY;y<maxY;y++){
-   const a=pixel(x,y+1);ctx.drawImage(baseFloor,322,40,110,110,a[0],a[1],zoom,zoom);
-  }
-  ctx.globalAlpha=1;
- }
- // Old asphalt/concrete materials previously became a featureless gray
- // rectangle when the extracted bitmap was not present. Use subtle
- // world-locked mineral grain, keeping their original material colour.
- if(style==='asphalt'||style==='concrete'){
-  const grain=.17;
-  const nx=Math.ceil((region[2]-region[0])/grain),
-   ny=Math.ceil((region[3]-region[1])/grain);
-  const skip=Math.max(1,Math.ceil(Math.sqrt(Math.max(1,nx*ny)/4500)));
-  let count=0;
-  for(let i=Math.floor(region[0]/grain);i<=Math.ceil(region[2]/grain);i+=skip)
-   for(let j=Math.floor(region[1]/grain);j<=Math.ceil(region[3]/grain);j+=skip){
-    if(count++>4500)break;
-    let h=Math.imul(i,374761393)^Math.imul(j,668265263);
-    h=Math.imul(h^(h>>>13),1274126177)>>>0;
-    if((h&3)!==0)continue;
-    const [x,y]=pixel((i+.25+(h%5)*.08)*grain,(j+.25+(h%7)*.06)*grain);
-    ctx.fillStyle=(h&8)?'rgba(234,224,204,.15)':'rgba(31,34,32,.18)';
-    ctx.fillRect(x,y,.025*zoom,.025*zoom);
-   }
- }
- if(style==='tiles'||style==='slabs'||style==='cobbles'||style==='stone'){
-  lineGridWorld(ctx,pixel,region,metres,style==='cobbles'?metres*.52:metres,
-   style==='cobbles'?.28:.2);
-  if(style==='cobbles'||style==='stone'){
-   ctx.strokeStyle='rgba(238,225,206,.25)';ctx.lineWidth=.010*zoom;
-   let count=0;
-   for(let y=Math.floor(region[1]/metres)*metres;y<region[3]&&count<6500;y+=metres)
-    for(let x=Math.floor(region[0]/(metres*1.5))*metres*1.5;x<region[2]&&count<6500;x+=metres*1.5){
-     const a=pixel(x+.1*metres,y),b=pixel(x+.24*metres,y+.18*metres);
-     ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();count++;
-    }
-  }
- }
- if(kind==='sidewalks'){
-  ctx.lineWidth=zoom*.012;ctx.strokeStyle='rgba(226,217,203,.42)';
-  polygonPath(ctx,poly,pixel);ctx.stroke();
- }
- ctx.restore();
+ const m=surfaceById(materialId,kind);
+ return paintWorldSurface(ctx,poly,m,pixel,visible);
 }
 // The editor zoom is pixels/world-unit, but the game draws in world units
 // through its camera transform. Never impose a screen-pixel minimum on world units.

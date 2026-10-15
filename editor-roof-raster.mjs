@@ -1,3 +1,4 @@
+import {textureImage,textureRevision} from './seville-textures.mjs';
 // True locally-rasterized tile surfaces, shared by editor and gameplay.
 // Each 240px bitmap represents a different number of metres depending
 // on material. These are purely visual UV/repetition settings: never change
@@ -51,6 +52,9 @@ function makeTile(m,variation){
  if(!g||!g.createImageData)return null;
  const seed=seedFor(String(m.id||m.surfaceStyle)+':'+variation);
  const base=rgb(m.base||'#cbbba6'),kind=m.surfaceStyle||'stone';
+ const painted=kind.startsWith('tile-')?textureImage('teja'):null;
+ if(painted){g.imageSmoothingEnabled=true;g.drawImage(painted,0,0,SIZE,SIZE);g.globalAlpha=.14;g.fillStyle=m.base;g.fillRect(0,0,SIZE,SIZE);g.globalAlpha=1;return tile;}
+
  const worn=/aged|vieja|dark|moss|antigu|patina|viejo/.test(kind);
  // Compute the fine pigment field only at 96px and upscale it before adding
  // full-resolution clay ridges and grout. This cuts the per-material grain
@@ -187,7 +191,7 @@ function makeTile(m,variation){
  return tile;
 }
 function cachedTile(m,seed){
- const key=String(m.id||m.surfaceStyle)+':'+(Math.abs(seed)%2);
+ const key=String(m.id||m.surfaceStyle)+':'+(Math.abs(seed)%2)+':'+textureRevision();
  if(cache.has(key))return cache.get(key);
  const t=makeTile(m,Math.abs(seed)%2);if(!t)return null;
  if(cache.size>=CACHE_MAX)cache.delete(cache.keys().next().value);

@@ -1,3 +1,4 @@
+import {CityRoute} from './city-runtime.mjs';
 import {ArenalRoute} from './arenal-route.mjs';
 import {CathedralRoute} from './cathedral-route.mjs';
 import {OfficialRoute} from './official-route.mjs';
@@ -56,7 +57,7 @@ export class OriginalSimulation {
     this.vm.invoke(this.mapClass+'.Start',this.mapController);
     this.vm.invoke('cameraController.Start',this.cameraController);
     if(!this.tutorial){this.controller.limiteActual=resources.code.limits[step.code]['limite'+step.code+'Mapa'+map.id];this.controller.limiteActual2=resources.code.limits[step.code]['limite2'+step.code+'Mapa'+map.id];}
-    if(map.variant&&!this.tutorial)this.routeAdapter=map.variant.kind==='arenal'?new ArenalRoute(this):map.variant.kind==='cathedral'?new CathedralRoute(this):map.variant.kind==='official'?new OfficialRoute(this):map.variant.kind==='centre'?new CentreRoute(this):map.variant.kind==='bridge'?new BridgeRoute(this):map.variant.kind==='modular'?new ModularRoute(this):new CustomRoute(this);
+    if(map.variant&&!this.tutorial)this.routeAdapter=map.variant.kind==='city'?new CityRoute(this):map.variant.kind==='arenal'?new ArenalRoute(this):map.variant.kind==='cathedral'?new CathedralRoute(this):map.variant.kind==='official'?new OfficialRoute(this):map.variant.kind==='centre'?new CentreRoute(this):map.variant.kind==='bridge'?new BridgeRoute(this):map.variant.kind==='modular'?new ModularRoute(this):new CustomRoute(this);
     if(snapshot)this.restore(snapshot);
     this.sync();
   }

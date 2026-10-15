@@ -166,13 +166,13 @@ export function attachEditorDraft(sim,draftOverride=undefined){
     // Original editor polygons often have no stored 'material'. Do not
     // silently turn those into road-0..11 (flat asphalt/grey). The explicit
     // choice always wins, including deliberately selected original asphalt.
-    poly:o.poly.map(p=>[...p]),material:o.material||'road-sev-gerena-dark'
+    poly:o.poly.map(p=>[...p]),material:o.material||'road-art-granite'
    }));
   }
   if(Array.isArray(scene.sidewalks)&&scene.sidewalks.every(o=>polygon(o.poly))){
    route.sidewalks=scene.sidewalks.map((o,i)=>({
     poly:o.poly.map(p=>[...p]),bbox:bbox(o.poly),
-    material:o.material||'sidewalk-sev-quintana'
+    material:o.material||'sidewalk-art-caliza'
    }));
    // Full Arenal sidewalks will be rendered by the base scene, beneath
    // buildings. Do not overlay them again with a generic editor floor.

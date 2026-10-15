@@ -295,7 +295,7 @@ export function paintArenalScene(route,ctx,images,r){
   // Restore the original cobbled-street impression even when there is no
   // user-defined road material. Do not paint raw grey rectangles.
   // Crucial: respect all editor-chosen materials on the same road polygon.
-  drawSurface(ctx,road,'roads',selected?.material||'road-sev-gerena-dark',
+  drawSurface(ctx,road,'roads',selected?.material||'road-art-granite',
    (x,y)=>[px(x),py(y)],p,floor,r);
  }
  // Nivel inferior: aceras de piedra, siempre bajo las cubiertas.
@@ -305,7 +305,7 @@ export function paintArenalScene(route,ctx,images,r){
   // unstyled Arenal pavement was a barely visible grey 0.22 m grid.
   // Explicit editor choices take absolute priority over this default.
   drawSurface(ctx,sw.poly,'sidewalks',
-   sw.material||'sidewalk-sev-quintana',(x,y)=>[px(x),py(y)],p,floor,r);
+   sw.material||'sidewalk-art-caliza',(x,y)=>[px(x),py(y)],p,floor,r);
  }
  // Nivel superior: los tejados se dibujan sobre cualquier acera superpuesta.
  // Los edificios quedan matemáticamente recortados fuera de la calle,

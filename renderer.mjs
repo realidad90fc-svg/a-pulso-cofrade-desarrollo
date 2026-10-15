@@ -28,6 +28,7 @@ export class Renderer {
     route.drawArchitecture(ctx,worldToTile,null,sprite,null,images);
    }
   }
+  if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas);
   const drawable=[];
   for(const graph of sim.renderGraphs||sim.graphs)for(const node of graph.nodes.values()){
    // Keep the original body animator and contacts; replace only its visible art.

@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.10.17-multitud-y-fachadas",
+  "version": "dev-2026.10.15-taller-sevilla-2.0.0",
   "stage": "development",
-  "note": "Arenal: 5782 espectadores alrededor del recorrido, público en las calles con espacio de giro calculado según el paso original, y fachadas de Maestranza, Mercado del Arenal y viviendas diferenciadas. Sin casas sobre calzada ni gente; checkpoint obligatorio intacto."
+  "note": "Taller 2.0: mapas propios, zonas compartidas, buscador de calles, itinerarios por hermandad y pavimentos con escala común en editor y juego."
 }

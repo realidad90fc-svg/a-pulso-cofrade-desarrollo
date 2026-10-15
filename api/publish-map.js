@@ -29,12 +29,21 @@ function item(v,kind){
  if(['roads','sidewalks','houses'].includes(kind)){
   const result={poly:poly(v.poly)};
   if(v.material!==undefined)result.material=string(v.material,80);
-   if(kind==='houses'&&v.roofInset!==undefined)result.roofInset=number(v.roofInset,.2,.1,.3);
+   if(kind==='houses'&&v.roofInset!==undefined)result.roofInset=number(v.roofInset,.05,.025,.3);
    if(kind==='houses'&&v.roofSimplify!==undefined)result.roofSimplify=Boolean(v.roofSimplify);
    if(kind==='houses'&&v.roofSeed!==undefined)result.roofSeed=number(v.roofSeed,0,0,4294967295);
   if(kind==='houses'){
    if(v.key!==undefined)result.key=string(v.key,100);
    if(v.kind!==undefined)result.kind=string(v.kind,80);
+   if(v.roofDetail!==undefined)result.roofDetail=string(v.roofDetail,40);
+   if(v.roofBorder!==undefined)result.roofBorder=string(v.roofBorder,60);
+   if(v.facade!==undefined){
+    if(!v.facade||typeof v.facade!=='object'||Array.isArray(v.facade))fail('Fachada inválida.');
+    const f=v.facade;result.facade={};
+    for(const key of ['shop','awning','awningColor','awningPreset','balcony'])if(f[key]!==undefined)result.facade[key]=string(f[key],80);
+    if(f.sign!==undefined)result.facade.sign=string(f.sign,100);
+    for(const key of ['edge','awningDepth','awningStart','awningWidth'])if(f[key]!==undefined)result.facade[key]=number(f[key],0,0,key==='edge'?10000:20);
+   }
   }
   return result;
  }

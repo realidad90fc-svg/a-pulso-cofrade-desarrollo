@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Editor de todos los mapas · A Pulso Cofrade</title>
+<title>Taller de Sevilla 2.0 · A Pulso Cofrade</title>
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -53,19 +53,21 @@
 </style>
 <link rel="stylesheet" href="./editor-decor-ui.css">
 <link rel="stylesheet" href="./editor-mobile.css">
+<link rel="stylesheet" href="./city-manager.css">
 </head>
 <body>
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de mapas · A Pulso Cofrade</strong><span>Editor de recorridos y mapas originales</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 2.0</strong><span>Mapas, calles compartidas y hermandades</span></div>
  </div>
  <div class="title-actions">
+  <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
   <button id="save" title="Guardar en este navegador">Guardar</button>
   <button id="mobile-header-settings" aria-expanded="false" aria-controls="mobile-settings-panel" title="Abrir opciones y materiales del mapa">☰ Opciones</button>
   <button id="export" class="primary" title="Descargar JSON del diseño">Exportar mapa</button>
   <button id="publish" class="primary" title="Publicar el mapa en el juego de desarrollo de Vercel mediante GitHub">↑ Publicar mapa</button>
-  <a href="./" title="Probar los cambios guardados en la partida de este mismo dominio" style="white-space:nowrap">Probar en juego ↗</a>
+  <a id="editor-play" target="_blank" rel="noopener" href="./index.html" title="Probar los cambios guardados en la partida de este mismo dominio" style="white-space:nowrap">Probar en juego ↗</a>
  </div>
 </header>
 <nav class="toolbar" id="mobile-tool-menu" aria-label="Herramientas de edición">
@@ -101,7 +103,7 @@
  <section class="map-container" aria-label="Plano editable del mapa elegido">
   <canvas id="editor-canvas" aria-label="Plano con calles, público y edificios editable mediante herramientas"></canvas>
   <div class="map-top">
-   <div><strong id="tool-name">Cargando mapa</strong><div id="counts">Cargando geometría…</div><div id="status" role="status">Preparando el editor…</div></div>
+   <div><strong id="tool-name">Cargando mapa</strong><div id="city-impact"></div><div id="counts">Cargando geometría…</div><div id="status" role="status">Preparando el editor…</div></div>
    <div id="coords">— · —</div>
   </div>
   <div class="bottom-hud">
@@ -122,7 +124,7 @@
    <button type="button" id="mobile-save">Guardar</button>
    <button type="button" id="mobile-export">Exportar JSON</button>
    <button type="button" id="mobile-publish" class="primary">Publicar mapa</button>
-   <a href="./">Probar en juego ↗</a>
+   <a id="editor-play-mobile" href="./index.html" target="_blank" rel="noopener">Probar en juego ↗</a>
   </div>
   <p class="mobile-local-hint">Los mapas originales son los mismos. Los borradores guardados solo en otro dispositivo se transfieren con Exportar JSON e Importar diseño.</p>
   <details open>
