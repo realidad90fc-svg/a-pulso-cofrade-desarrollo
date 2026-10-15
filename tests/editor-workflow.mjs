@@ -15,6 +15,7 @@ function adaptCanvas(node){
  const native=createCanvas(Number(node.getAttribute('width'))||300,Number(node.getAttribute('height'))||150);canvases.set(node,native);
  for(const key of ['width','height'])Object.defineProperty(node,key,{get:()=>native[key],set:v=>{native[key]=v},configurable:true});
  const context=native.getContext('2d'),draw=context.drawImage.bind(context);context.drawImage=(image,...args)=>draw(canvases.get(image)||image,...args);
+ node.setPointerCapture=()=>{};
  node.getContext=()=>context;node.getBoundingClientRect=()=>({left:0,top:0,width:1050,height:700,right:1050,bottom:700});return node;
 }
 const create=document.createElement.bind(document);document.createElement=(name,...args)=>adaptCanvas(create(name,...args));for(const c of document.querySelectorAll('canvas'))adaptCanvas(c);
@@ -46,6 +47,17 @@ assert($('map-kind').textContent.includes('Mapa propio'),'New map opens in the e
 const active=$('map-select').value;assert(active.startsWith('city-'));
 const doc=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(doc.metadata.map,'Calle de prueba');
 assert.equal(doc.roads.length,0,'New map starts empty');
+// Create, rename, move and reopen a real street point through editor controls.
+const pointer=(type,x,y)=>{const e=new window.Event(type,{bubbles:true,cancelable:true});Object.assign(e,{clientX:x,clientY:y,pointerType:'mouse',button:0,pointerId:1});$('editor-canvas').dispatchEvent(e)};
+$('street-name-text').value='Arfe de prueba';$('street-trigger-radius').value='.6';
+document.querySelector('[data-tool="street-name"]').onclick();pointer('pointerdown',500,350);pointer('pointerup',500,350);
+$('save').onclick();let pointDoc=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));
+assert.equal(pointDoc.labels[0][0],'Arfe de prueba');assert.equal(pointDoc.labels[0][2].radius,.6);
+$('street-name-text').value='Calle corregida';$('street-trigger-radius').value='1.4';$('rename-street').onclick();$('save').onclick();
+pointDoc=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.equal(pointDoc.labels[0][0],'Calle corregida');assert.equal(pointDoc.labels[0][2].radius,1.4);
+const anchor=[...pointDoc.labels[0][1]];document.querySelector('[data-tool="select"]').onclick();
+pointer('pointerdown',500,350);pointer('pointermove',540,370);pointer('pointerup',540,370);$('save').onclick();
+pointDoc=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));assert.notDeepEqual(pointDoc.labels[0][1],anchor,'Point can be moved by dragging');
 $('open-city').onclick();await flush();
 const streetTab=[...document.querySelectorAll('[data-city-tab]')].find(n=>n.dataset.cityTab==='streets');streetTab.onclick();await flush();
 const search=$('city-context').querySelector('input');search.value='adriano';search.oninput();await new Promise(r=>setTimeout(r,180));await flush();
@@ -63,6 +75,7 @@ const linked=JSON.parse(storage.get('apulso-universal-editor-v2:'+active));asser
 assert(storage.has('apulso-universal-editor-v2:RegresoArenal'),'Shared source is available to the game preview');
 const savedBefore=storage.get('apulso-universal-editor-v2:'+active);const openAgain=$('map-select');openAgain.value='RegresoArenal';openAgain.onchange();await flush();openAgain.value=active;openAgain.onchange();await flush();
 assert.equal(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).zoneRefs.length,1,'Map/zone link survives switching and reopening');
+assert.deepEqual(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).labels[0],pointDoc.labels[0],'Name, activation radius and position survive reopen');
 
 const out=new URL('../../qa-renders/',import.meta.url);fs.mkdirSync(out,{recursive:true});fs.writeFileSync(new URL('editor-canvas.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));
 clearTimeout();

@@ -20,10 +20,15 @@ function poly(v){
 }
 function item(v,kind){
  if(kind==='labels'){
-  if(!Array.isArray(v)||v.length!==2)fail('El nombre de calle tiene un formato inválido.');
+  if(!Array.isArray(v)||v.length<2||v.length>3)fail('El punto de calle tiene un formato inválido.');
   const name=string(v[0],90).trim();
   if(!name)fail('El nombre de calle no puede estar vacío.');
-  return[name,point(v[1])];
+  const result=[name,point(v[1])];
+  if(v[2]!==undefined){
+   if(!v[2]||typeof v[2]!=='object'||Array.isArray(v[2]))fail('La configuración del punto de calle no es válida.');
+   result.push({radius:number(v[2].radius,1,.2,5)});
+  }
+  return result;
  }
  if(!v||typeof v!=='object'||Array.isArray(v))fail('Elemento de mapa inválido.');
  if(['roads','sidewalks','houses'].includes(kind)){

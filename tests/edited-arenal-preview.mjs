@@ -19,7 +19,7 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
 globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
 const read=name=>JSON.parse(fs.readFileSync(new URL('../assets/'+name+'.json',import.meta.url)));
 const data=read('game-data'),resources={code:read('original-code'),assets:read('original-assets'),animation:read('original-animation'),controls:read('runtime-controls'),random:()=>.5};
-const makeSim=()=>new OriginalSimulation(customMap(prepareMap(data.maps[4]),ARENAL_ROUTE.mapKey,ARENAL_ROUTE),prepareStep(data.steps[6]),resources,'practice');
+const makeSim=snapshot=>new OriginalSimulation(customMap(prepareMap(data.maps[4]),ARENAL_ROUTE.mapKey,ARENAL_ROUTE),prepareStep(data.steps[6]),resources,'practice',snapshot);
 const baseline={metadata:{mapKey:'RegresoArenal'},roads:[],sidewalks:[],houses:[],people:[],labels:[]};
 const doc={...baseline,roads:[{poly:[[90,80],[110,80],[110,120],[90,120]],material:'road-art-granite'}],
  sidewalks:[{poly:[[90,80],[93,80],[93,120],[90,120]],material:'sidewalk-art-caliza'}],
@@ -65,4 +65,19 @@ assert(!removed.routeAdapter.walkable.length);
 assert(!inspectEditorSpawn(removed).ok,'No hidden native floor may survive deleting the saved floor');
 const blocked=makeSim();attachEditorDraft(blocked,makeGameDraft({...doc,houses:[{poly:[[99,99],[101,99],[101,101],[99,101]]}]},doc));
 assert(!applyEditorStart(blocked,doc.startPose).ok,'A building overlapping saved ground must block the start');
+// There must be no native fallback, nor a nearest-point announcement.
+const waiting=makeSim();attachEditorDraft(waiting,request.draft);assert(applyEditorStart(waiting,{x:100,y:106,angle:0}).ok);
+waiting.routeAdapter.streetNotice={id:'old',name:'Nombre antiguo ajeno al mapa',since:0};waiting.levelTime=1;
+const before=texts.length;renderer.render(waiting,new Map(),true);
+assert(!texts.slice(before).some(t=>['Arfe','Adriano','Nombre antiguo ajeno al mapa'].includes(t.value)),'No street banner until an actual point is reached');
+assert.equal(waiting.editorDraft.streetNoticeFor(waiting),null);
+waiting.setPosition(waiting.stepEntity.transform,[100,100,0]);waiting.frameCount++;waiting.levelTime=2;waiting.sync();
+assert.equal(waiting.editorDraft.streetNoticeFor(waiting).name,'Arfe');
+waiting.setPosition(waiting.stepEntity.transform,[100,106,0]);waiting.frameCount++;waiting.levelTime=3;waiting.sync();
+const savedStreet=waiting.snapshot(),reopened=makeSim(savedStreet);attachEditorDraft(reopened,request.draft);
+assert.equal(reopened.editorDraft.streetNoticeFor(reopened).name,'Arfe','Checkpoint/reopen preserves the last crossed street outside its trigger');
+const blank=makeSim();attachEditorDraft(blank,{...request.draft,labelScene:[],layers:{...request.draft.layers,labels:[]}});
+blank.routeAdapter.streetNotice={id:'old',name:'Nombre antiguo ajeno al mapa',since:0};blank.levelTime=1;
+const blankBefore=texts.length;renderer.render(blank,new Map(),true);
+assert(!texts.slice(blankBefore).some(t=>t.value==='Nombre antiguo ajeno al mapa'),'Deleting every editor point must not revive native names');
 console.log('PASS edited Arenal: saved floor beyond original bounds, real footprint, rotated portrait rendering, street banner and rejection of out-of-map starts.');

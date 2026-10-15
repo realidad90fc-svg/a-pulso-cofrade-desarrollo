@@ -21,6 +21,7 @@ export function validateMapDocument(doc){
    if(['people','trees','signs','fences','chairs','urban'].includes(kind)&&!point(o?.point))throw Error('Hay posiciones no válidas en '+kind);
    if(kind==='checkpoints'&&!point(o?.position))throw Error('Hay un checkpoint sin posición válida.');
    if(kind==='labels'&&(!Array.isArray(o)||typeof o[0]!=='string'||!point(o[1])))throw Error('Hay nombres de calle no válidos.');
+   if(kind==='labels'&&o[2]!==undefined&&(!o[2]||typeof o[2]!=='object'||Array.isArray(o[2])||!Number.isFinite(o[2].radius)||o[2].radius<.2||o[2].radius>5))throw Error('El radio de un punto de calle debe estar entre 0,2 y 5 metros.');
   }
  }
  if(doc.bounds&&(!Array.isArray(doc.bounds)||doc.bounds.length!==4||!doc.bounds.every(Number.isFinite)||doc.bounds[2]<=doc.bounds[0]||doc.bounds[3]<=doc.bounds[1]))throw Error('Los límites del mapa no son válidos.');
@@ -119,7 +120,7 @@ export function selectCityZone(p,zoneId,getDocument){
 export function transformMapDocument(doc,offset=[0,0],angle=0){
  const c=Math.cos(angle*Math.PI/180),s=Math.sin(angle*Math.PI/180),move=([x,y])=>[x*c-y*s+offset[0],x*s+y*c+offset[1]];
  const out=clone(doc);for(const k of KINDS)out[k]=(doc[k]||[]).map(o=>{
-  if(k==='labels')return[o[0],move(o[1])];
+  if(k==='labels')return[o[0],move(o[1]),...o.slice(2).map(clone)];
   const v=clone(o);if(v.poly)v.poly=v.poly.map(move);if(v.point)v.point=move(v.point);if(v.position)v.position=move(v.position);if(Number.isFinite(v.angle))v.angle+=angle;return v;
  });
  if(doc.bounds)out.bounds=polygonBounds([[doc.bounds[0],doc.bounds[1]],[doc.bounds[2],doc.bounds[1]],[doc.bounds[2],doc.bounds[3]],[doc.bounds[0],doc.bounds[3]]].map(move));

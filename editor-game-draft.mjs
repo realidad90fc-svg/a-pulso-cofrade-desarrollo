@@ -42,3 +42,11 @@ export function makeArenalPreviewDraft(document){
  const draft=makeGameDraft(document,null);
  return{...draft,total:Math.max(1,draft.total),startPose:document.startPose||document.paso||null};
 }
+
+// Every explicit editor preview owns its street points, even when the native
+// scenery has no delta. Empty points deliberately suppress native names.
+export function withEditorStreetPoints(draft,document){
+ return{...draft,schema:EDITOR_PATCH_SCHEMA,mapKey:document.metadata.mapKey,
+  layers:draft?.layers||Object.fromEntries(MAP_KINDS.map(k=>[k,[]])),
+  total:Math.max(1,draft?.total||0),labelScene:document.labels||[]};
+}

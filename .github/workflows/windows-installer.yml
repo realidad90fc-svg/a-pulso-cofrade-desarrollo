@@ -40,6 +40,8 @@ jobs:
       - name: Verificar ciudad compartida y compatibilidad de pasos
         run: |
           node tests/city-project.mjs
+          node tests/street-identifiers.mjs
+          node tests/street-publication.mjs
           node tests/native-regression.mjs
       - name: Verificar suelo editado y cartel en el motor de Windows
         shell: pwsh

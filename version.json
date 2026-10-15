@@ -1,5 +1,5 @@
 {
-  "version": "dev-2026.10.15-suelo-carteles-2.0.1",
+  "version": "dev-2026.10.15-puntos-calle-2.0.2",
   "stage": "development",
-  "note": "2.0.1: el ensayo de Arenal carga el suelo guardado completo, dibuja calles fuera de los límites originales y muestra los identificadores en el cartel superior."
+  "note": "2.0.2: anuncios de calle al cruzar puntos editables, con nombre, posición y radio configurables. Sin nombres deducidos por cercanía en los mapas editados."
 }

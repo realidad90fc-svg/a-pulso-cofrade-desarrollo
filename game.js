@@ -12,8 +12,9 @@ import {prepareMap,prepareStep} from './engine.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {OriginalMenus} from './original-menu.mjs';
 import {OriginalLayout} from './original-ui.mjs';
-import {Renderer} from './renderer.mjs?rev=suelo-carteles-2.0.1';
+import {Renderer} from './renderer.mjs?rev=puntos-calle-2.0.2';
 import {attachEditorDraft,resolveEditorDraft,loadEditorDraftImages,applyEditorStart,inspectEditorSpawn} from './game-editor-bridge.mjs';
+import {withEditorStreetPoints} from './editor-game-draft.mjs';
 import {Sound} from './audio.mjs';
 import {JESUS_PENAS,customStep,recordKey,installCustomStepMenu,installCustomInfoMenu,drawCustomStepDiagram,customProgress} from './custom-steps.mjs';
 let customMenu,modeNavigation,allowLegacyHome=false;
@@ -96,7 +97,7 @@ async function startGame(scene=2,snapshot=null){
   const next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':cityPreview?'practice':campaignRun?'career':saved.prefs.libre?'practice':'career',snapshot);
   const publishedOrLocal=cityPreview?.isolated?null:cityPreview?.draft||await resolveEditorDraft(next);
   if(run!==loading)return;
-  const editorDraft=attachEditorDraft(next,publishedOrLocal);
+  const editorDraft=attachEditorDraft(next,cityPreview&&!cityPreview.isolated?withEditorStreetPoints(publishedOrLocal,cityPreview.document):publishedOrLocal);
   const spawnResult=editorDraft&&!snapshot&&editorDraft.startPose?applyEditorStart(next,editorDraft.startPose):null;
   if(cityPreview&&!snapshot){
    const inspection=spawnResult&&!spawnResult.ok?spawnResult:inspectEditorSpawn(next);

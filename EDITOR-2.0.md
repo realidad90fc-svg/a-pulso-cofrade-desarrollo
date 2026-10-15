@@ -1,5 +1,13 @@
 # Taller de Sevilla 2.0
 
+## Corrección 2.0.2: puntos de anuncio de calle
+
+En **Anuncios de calle** escribe el nombre y el radio de activación. Selecciona **Aa Punto de calle** y colócalo donde deba anunciarse. El centro del paso debe entrar en el círculo: entonces aparece el nombre exacto en el cartel superior durante unos segundos. La calle activa se conserva hasta cruzar otro punto con otro nombre. Ni los puntos ni sus círculos se dibujan en el juego.
+
+Con **Seleccionar** puedes arrastrar el punto o su texto. Para modificar el nombre o el radio, selecciona el punto, cambia los campos y pulsa **Aplicar nombre y radio**. Puedes eliminarlo o colocar varios puntos. Los nombres ya guardados se convierten en puntos con un radio inicial de un metro. En un mapa editado no se deducen nombres por proximidad ni se recuperan los nombres automáticos del recorrido. Sin puntos no hay anuncios del editor.
+
+Los puntos conservan nombre, posición y radio al guardar, reabrir, exportar, publicar o enlazar zonas. El último punto activado también se conserva en los checkpoints y partidas guardadas. Se comprueban cruces entre fotogramas para no saltarse puntos pequeños.
+
 ## Corrección 2.0.1: suelo e identificadores
 
 La prueba de Arenal carga el documento guardado completo. Sus calles y aceras definen tanto el dibujo como el suelo transitable, también fuera de los límites del mapa original. Borrar todas las superficies elimina el suelo anterior. Una salida sin suelo o que invade un edificio se rechaza al probar, con el motivo para corregirla en el editor.

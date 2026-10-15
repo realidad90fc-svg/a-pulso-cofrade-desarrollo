@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de Sevilla 2.0.1 · A Pulso Cofrade</title>
+<title>Taller de Sevilla 2.0.2 · A Pulso Cofrade</title>
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
 :root{color-scheme:dark;--bg:#101821;--panel:#1a2530;--panel2:#24313d;--line:#3a4b5a;--text:#f3eee3;--muted:#aab9c7;--gold:#e8b766;--aqua:#58e4d5;--red:#f49286;}
@@ -39,7 +39,7 @@
 #publish-dialog .actions>button{flex:1}
 @media(max-width:620px){#publish-dialog{padding:15px}.brand img{display:none}.title-actions{gap:4px;flex-wrap:wrap;justify-content:flex-end}.title-actions button{font-size:11px;padding:5px 7px}}
 #editor-canvas[data-tool=select],#editor-canvas[data-tool=people],#editor-canvas[data-tool=people-row],#editor-canvas[data-tool=street-name],#editor-canvas[data-tool=urban]{cursor:crosshair}
-#street-name-text{width:100%;padding:10px;color:var(--text);border:1px solid var(--line);background:#15232c;border-radius:8px}
+#street-name-text,#street-trigger-radius{width:100%;padding:10px;color:var(--text);border:1px solid var(--line);background:#15232c;border-radius:8px}
 #delete-selected:disabled,#clear-selected:disabled{opacity:.4}
 @media(max-width:620px){#delete-selected,#clear-selected{font-size:12px}}
 #roof-category,#roof-mode{width:100%;margin:7px 0 11px;padding:9px;color:var(--text);background:#15232c;border:1px solid var(--line);border-radius:8px}
@@ -59,7 +59,7 @@
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de Sevilla · A Pulso 2.0.1</strong><span>Mapas, calles compartidas y hermandades</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 2.0.2</strong><span>Mapas, calles compartidas y hermandades</span></div>
  </div>
  <div class="title-actions">
   <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
@@ -75,7 +75,7 @@
  <button data-tool="pan" class="active">✋ Mover plano</button>
  <button data-tool="select" title="Selecciona un elemento o varios. Arrastra el círculo dorado ↻ para girarlos con el ratón.">▧ Seleccionar</button>
  <button data-tool="road">▰ Calle</button>
- <button data-tool="street-name" title="Colocar un nombre de calle en el punto elegido">Aa Nombre calle</button>
+ <button data-tool="street-name" title="Colocar un punto invisible que anuncia la calle al pasar">Aa Punto de calle</button>
  <button data-tool="people">♟ Público</button>
  <button data-tool="people-row" title="Arrastra entre dos puntos para poner una fila de público">↔ Fila público</button>
  <button data-tool="sidewalk">▤ Acera</button>
@@ -151,7 +151,7 @@
     <label class="flag"><input id="public-on" type="checkbox" checked> Público</label>
     <label class="flag"><input id="sidewalks-on" type="checkbox" checked> Aceras</label>
     <label class="flag"><input id="houses-on" type="checkbox" checked> Casas y tejados</label>
-    <label class="flag"><input id="labels-on" type="checkbox" checked> Nombres de calles</label>
+    <label class="flag"><input id="labels-on" type="checkbox" checked> Puntos de calle (solo editor)</label>
     <label class="flag"><input id="grid-on" type="checkbox"> Cuadrícula métrica</label>
     <label class="flag"><input id="paso-on" type="checkbox"> Mostrar huella del paso</label>
     <label class="flag"><input id="trees-on" type="checkbox" checked> Árboles</label>
@@ -176,16 +176,18 @@
  <p class="muted">Puedes definirlo antes de construir las calles. Se guarda y exporta con el mapa y no cambia los checkpoints.</p>
  </div></details>
  <details open id="street-label-panel">
-  <summary>Nombres de calles · añadir y editar</summary>
+  <summary>Anuncios de calle · puntos editables</summary>
   <div class="stack">
    <label for="street-name-text">Nombre de la calle o lugar</label>
    <input id="street-name-text" type="text" maxlength="90" placeholder="Ej.: Calle Adriano" autocomplete="off">
-   <p class="muted">Escribe el nombre, elige <strong>Aa Nombre calle</strong> y haz clic donde deba verse. Puedes colocar el mismo nombre varias veces.</p>
+   <label for="street-trigger-radius">Radio de activación (metros)</label>
+   <input id="street-trigger-radius" type="number" min="0.2" max="5" step="0.1" value="1">
+   <p class="muted">Escribe el nombre, elige <strong>Aa Punto de calle</strong> y haz clic donde deba anunciarse. Al entrar el centro del paso en el círculo saldrá ese nombre en el cartel superior. El punto y su círculo son invisibles en el juego.</p>
    <div class="actions">
-    <button id="rename-street" type="button">Renombrar seleccionado</button>
-    <button id="remove-street" type="button" class="danger">Eliminar nombre</button>
+    <button id="rename-street" type="button">Aplicar nombre y radio</button>
+    <button id="remove-street" type="button" class="danger">Eliminar punto</button>
    </div>
-   <p class="muted">En <strong>Seleccionar</strong>, haz clic sobre el texto para moverlo, o selecciónalo con un rectángulo para borrar varios.</p>
+   <p class="muted">En <strong>Seleccionar</strong>, arrastra el punto o su nombre para moverlo. Selecciónalo, cambia el nombre o el radio y pulsa <strong>Aplicar nombre y radio</strong>. El último nombre se conserva hasta cruzar otro punto; no se deduce por cercanía ni se usan nombres antiguos.</p>
   </div>
  </details>
  <details open>
@@ -455,7 +457,7 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=suelo-carteles-2.0.1"></script>
+<script type="module" src="./editor-arenal.mjs?rev=puntos-calle-2.0.2"></script>
 <script type="module" src="./editor-mobile-ui.mjs"></script>
 </body>
 </html>

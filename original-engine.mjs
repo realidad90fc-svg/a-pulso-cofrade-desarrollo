@@ -358,6 +358,7 @@ export class OriginalSimulation {
     this.vm.invoke('cameraController.Update',this.cameraController);
     for(const g of this.graphs)g.advance(this.dt);
     this.vm.invoke(this.className+'.LateUpdate',this.controller);
+    (this.editorDraft||this.routeAdapter?.contacts)?.streetNoticeFor?.(this);
     if(this.routeAdapter)this.routeAdapter.tick();
     this.vm.invoke('cameraController.LateUpdate',this.cameraController);
     this.sync();
@@ -372,7 +373,8 @@ export class OriginalSimulation {
   }
   snapshot(){
     const serialize=s=>Object.fromEntries(Object.entries(s).filter(([k,v])=>!k.startsWith('__')&&(['number','boolean','string'].includes(typeof v))));
-    return {route:this.routeAdapter?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
+    const editor=this.editorDraft||this.routeAdapter?.contacts;editor?.streetNoticeFor?.(this);
+    return {route:this.routeAdapter?.snapshot(),editorStreet:editor?.streetIdentifiers?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
   }
   restore(snapshot){
     if(!snapshot.controller)return;
@@ -388,6 +390,9 @@ export class OriginalSimulation {
     this.controller.musicaPaso.clip=this.controller.murmullo;this.native({name:'AudioSource.Play'},this.controller.musicaPaso,[]);
     this.state.status='playing';
     this.routeAdapter?.restore(snapshot.route);
+    const editor=this.editorDraft||this.routeAdapter?.contacts;
+    if(editor?.streetIdentifiers)editor.streetIdentifiers.restore(snapshot.editorStreet);
+    else this._editorStreetState=snapshot.editorStreet||null;
   }
   drainEvents(){const e=this.events;this.events=[];return e;}
 }

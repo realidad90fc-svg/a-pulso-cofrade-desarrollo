@@ -78,7 +78,9 @@ export class Renderer {
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
   if(showOverlay){
    const identifiers=sim.editorDraft||sim.routeAdapter?.contacts;
-   drawStreetNotice(ctx,w,h,d,sim,identifiers?.streetNoticeFor?.(sim)||sim.routeAdapter?.streetNotice);
+   // An edited map owns its announcements, including having no active one.
+   // Never substitute a hardcoded route name before its first trigger.
+   drawStreetNotice(ctx,w,h,d,sim,identifiers?identifiers.streetNoticeFor(sim):sim.routeAdapter?.streetNotice);
    sim.routeAdapter?.drawOverlay?.(ctx,w,h,d);
   }
  }

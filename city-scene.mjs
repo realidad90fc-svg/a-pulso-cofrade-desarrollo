@@ -2,6 +2,7 @@ import {drawSurface,drawRoof,drawTree,drawFurniture} from './editor-materials.mj
 import {drawFacadeDecor} from './editor-facades.mjs';
 import {drawUrbanElement,urbanIsMarking} from './editor-urban-elements.mjs';
 import {polygonBounds} from './city-project.mjs';
+import {drawStreetTriggerGuide} from './street-identifiers.mjs';
 const hits=(a,b)=>!b||a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 // Shared scenery painter for map cards, linked zones and new playable maps.
 // Guides/selection handles are intentionally owned by the editor only.
@@ -19,5 +20,5 @@ export function paintCityScene(ctx,doc,pixel,zoom,getImage=()=>null,visible=null
   if(image)ctx.drawImage(image,-w/2,-h/2,w,h);else{ctx.fillStyle='#b9a18a';ctx.beginPath();ctx.arc(0,0,w*.42,0,2*Math.PI);ctx.fill()}
   ctx.restore();
  }
- if(labels)for(const [name,position]of doc.labels||[]){const q=pixel(...position);ctx.save();ctx.font='600 '+(.19*zoom)+'px system-ui';ctx.lineWidth=.04*zoom;ctx.strokeStyle='#343c37';ctx.fillStyle='#fff4d6';ctx.strokeText(name,...q);ctx.fillText(name,...q);ctx.restore()}
+ if(labels)for(const label of doc.labels||[])drawStreetTriggerGuide(ctx,label,pixel,zoom);
 }

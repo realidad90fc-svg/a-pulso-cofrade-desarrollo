@@ -220,6 +220,7 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   route.tileCache?.clear();
  }
  sim.editorDraft=new RuntimeEditorDraft(draft);
+ if(sim._editorStreetState){sim.editorDraft.streetIdentifiers.restore(sim._editorStreetState);sim._editorStreetState=null}
  sim.editorDraft.baseArenalSidewalks=key==='RegresoArenal'&&!!route?.editorSidewalkMaterialReady;
  sim.editorDraft.baseArenalRoads=key==='RegresoArenal'&&!!route?.editorRoadSurfaces;
  sim.editorDraft.baseArenalHouses=key==='RegresoArenal'&&Array.isArray(draft.arenalScene?.houses);
@@ -300,7 +301,8 @@ export class RuntimeEditorDraft{
  }
  streetNoticeFor(sim){
   const p=sim.position(sim.stepEntity.transform);
-  return this.streetIdentifiers.at([p.x,p.y],sim.levelTime,sim.routeAdapter?.walkable||[]);
+  if(sim.state.status==='playing'&&sim.timeScale!==0)return this.streetIdentifiers.at([p.x,p.y],sim.levelTime);
+  return this.streetIdentifiers.notice;
  }
  update(sim){
   if(sim.state.status!=='playing'||!sim.state.lifted||sim.controller?.martillo)return;

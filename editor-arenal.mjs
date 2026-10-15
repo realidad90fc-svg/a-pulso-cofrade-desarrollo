@@ -18,6 +18,7 @@ import {drawFacadeDecor} from './editor-facades.mjs';
 import {ROOF_BORDERS} from './editor-roof-borders.mjs';
 import {setupVisualPanels} from './editor-visual-panels.mjs';
 import {paintArenalGround} from './editor-arenal-ground.mjs';
+import {streetTriggerRadius,drawStreetTriggerGuide} from './street-identifiers.mjs';
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -43,7 +44,10 @@ function selectionContains(type,index){return state.selectedItems.some(o=>o.type
 function setSelection(items){
  state.selectedItems=unifySelections(items).filter(o=>data?.[o.type]?.[o.index]);
  state.selected=state.selectedItems.at(-1)||null;
- if(state.selected?.type==='labels')$('street-name-text').value=data.labels[state.selected.index]?.[0]||'';
+ if(state.selected?.type==='labels'){
+  const label=data.labels[state.selected.index];$('street-name-text').value=label?.[0]||'';
+  $('street-trigger-radius').value=String(streetTriggerRadius(label));
+ }
  if(state.selected?.type==='houses'&&state.selectedItems.length===1){
   const house=data.houses[state.selected.index];
   const savedDetail=['auto','none','patio','castillete','claraboya','instalaciones','terraza','lavadero'].includes(house.roofDetail)?house.roofDetail:'auto';
@@ -255,11 +259,7 @@ function renderStaticScene(){
   ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]+9,p[1]);ctx.moveTo(p[0],p[1]-9);ctx.lineTo(p[0],p[1]+9);ctx.stroke();
   ctx.fillStyle='#a6fff0';ctx.font='11px system-ui';ctx.fillText(cp.name||cp.id||'Control',p[0]+12,p[1]-5);
  }
- if($('labels-on').checked){
-  for(const [name,p]of data.labels){
-   const xy=pixel(...p);ctx.font='600 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#171a20';ctx.strokeText(name,xy[0]+6,xy[1]);ctx.fillStyle='#fff5e7';ctx.fillText(name,xy[0]+6,xy[1]);
-  }
- }
+ if($('labels-on').checked)for(const label of data.labels)drawStreetTriggerGuide(ctx,label,pixel,view.zoom);
  if(data.startPose){
    const start=data.startPose,q=pixel(start.x,start.y),front=pasoPoint(start,0,.9),end=pixel(...front);
    ctx.save();ctx.strokeStyle='#f1c75b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(q[0],q[1],11,0,Math.PI*2);ctx.stroke();
@@ -439,7 +439,7 @@ function selectAt(p,px){
   for(let i=data.labels.length-1;i>=0;i--){
    const [name,loc]=data.labels[i]||[];if(!Array.isArray(loc)||!name)continue;
    const a=pixel(...loc),width=Math.max(22,ctx.measureText(name).width);
-   if(c[0]>=a[0]&&c[0]<=a[0]+width+13&&c[1]>=a[1]-19&&c[1]<=a[1]+9){ctx.restore();return{type:'labels',index:i,vertex:-1}}
+   if(Math.hypot(c[0]-a[0],c[1]-a[1])<=9||c[0]>=a[0]&&c[0]<=a[0]+width+13&&c[1]>=a[1]-19&&c[1]<=a[1]+9){ctx.restore();return{type:'labels',index:i,vertex:-1}}
   }
   ctx.restore();
  }
@@ -594,7 +594,9 @@ function pointerDown(e){
  if(state.tool==='street-name'){
   const name=$('street-name-text').value.trim();
   if(!name){show('Escribe el nombre de calle en el panel antes de colocarlo.','error');return}
-  snapshot();data.labels.push([name.slice(0,90),q.map(v=>+v.toFixed(3))]);
+  const radius=Number($('street-trigger-radius').value);
+  if(!Number.isFinite(radius)||radius<.2||radius>5){show('El radio del punto debe estar entre 0,2 y 5 metros.','error');return}
+  snapshot();data.labels.push([name.slice(0,90),q.map(v=>+v.toFixed(3)),{radius}]);
   setSelection([{type:'labels',index:data.labels.length-1,vertex:-1}]);changed();return;
  }
  if(state.tool==='people-row'){state.drag={action:'people-row',start:q,end:q};requestDraw();return}
@@ -947,8 +949,12 @@ function bind(){
   const selected=state.selectedItems.filter(x=>x.type==='labels'),name=$('street-name-text').value.trim();
   if(!selected.length){show('Selecciona antes el nombre de calle que quieres cambiar.','error');return}
   if(!name){show('Escribe el nuevo nombre antes de renombrar.','error');return}
-  snapshot();for(const sel of selected)if(data.labels[sel.index])data.labels[sel.index][0]=name.slice(0,90);
-  changed();show(selected.length+' nombres de calle actualizados.','good');
+  const radius=Number($('street-trigger-radius').value);
+  if(!Number.isFinite(radius)||radius<.2||radius>5){show('El radio del punto debe estar entre 0,2 y 5 metros.','error');return}
+  snapshot();for(const sel of selected)if(data.labels[sel.index]){
+   data.labels[sel.index][0]=name.slice(0,90);data.labels[sel.index][2]={radius};
+  }
+  changed();show(selected.length+' puntos de anuncio actualizados.','good');
  };
  $('remove-street').onclick=()=>{
   const selected=state.selectedItems.filter(x=>x.type==='labels');

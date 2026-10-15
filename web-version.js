@@ -1,7 +1,7 @@
 /* Aviso de nuevas versiones. Nunca reinicia una partida en marcha. */
 (() => {
   'use strict';
-  const INSTALLED_VERSION = 'dev-2026.10.15-suelo-carteles-2.0.1';
+  const INSTALLED_VERSION = 'dev-2026.10.15-puntos-calle-2.0.2';
   const VERSION_URL = '/version.json';
   const POLL_MS = 60000;
   let nextVersion = null;
