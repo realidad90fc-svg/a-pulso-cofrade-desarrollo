@@ -4,7 +4,7 @@ import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=navegacion-1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=transparencia-1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -1272,6 +1272,7 @@ async function init(){
    selector.appendChild(group);
   }
   photoGuides=createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey:()=>activeMap,getView:()=>view,
+    onViewChange:()=>workbenchUI?.syncPhotoTransparency(),
     activateReferenceTool:()=>configureTool('reference'),onChange:()=>projectUI?.notifyChange(),canWrite:()=>!projectUI||projectUI.canWrite(),
     focusImage:photo=>{
      // Show the full calibrated photo without changing its true world-space size.
@@ -1320,7 +1321,7 @@ async function init(){
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
   captureWorkbenchControls();
-  workbenchUI=setupWorkbench({state,getData:()=>data,getMapKey:()=>activeMap,getProjectName:()=>projectUI.controller.meta().name,configureTool,syncPreviews:()=>placementPreviews.sync(),saveLocal,requestDraw,show,openCity:tab=>cityManager.open(tab),lockLayer:(kind,locked)=>{if(!projectUI.canWrite())return;const items=(data[kind]||[]).map((_,index)=>({type:kind,index}));if(!items.length)return;snapshot();lockSelection(data,items,locked);changed();show(locked?'Elementos y grupos de la capa bloqueados.':'Elementos y grupos de la capa desbloqueados.','good');}});
+  workbenchUI=setupWorkbench({state,photoGuides,getData:()=>data,getMapKey:()=>activeMap,getProjectName:()=>projectUI.controller.meta().name,configureTool,syncPreviews:()=>placementPreviews.sync(),saveLocal,requestDraw,show,openCity:tab=>cityManager.open(tab),lockLayer:(kind,locked)=>{if(!projectUI.canWrite())return;const items=(data[kind]||[]).map((_,index)=>({type:kind,index}));if(!items.length)return;snapshot();lockSelection(data,items,locked);changed();show(locked?'Elementos y grupos de la capa bloqueados.':'Elementos y grupos de la capa desbloqueados.','good');}});
   $('loading').hidden=true;
  }catch(err){show('Error preparando el editor: '+err.message,'error');$('loading').textContent='No se ha podido cargar el editor. '+err.message;console.error(err)}
 }

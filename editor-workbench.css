@@ -42,4 +42,18 @@ body.workbench.wb-mobile .workspace{grid-row:3;position:relative;display:block;h
 .workbench.wb-mobile .wb-categories{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:7px;scroll-snap-type:x proximity;padding-bottom:5px;margin:11px 0 13px;scrollbar-width:thin}.workbench.wb-mobile .wb-categories button{flex:0 0 89px;min-height:57px;scroll-snap-align:start;font-size:11px}.workbench.wb-mobile #wb-category-title,.workbench.wb-mobile #placement-preview-note,.workbench.wb-mobile #wb-library-intro .muted{display:none}.workbench.wb-mobile #placement-category{margin-top:12px}.workbench.wb-mobile #wb-library-intro .wb-lead{font-size:13px}
 
 /* Draft editing: one vertex at a time, with persistent history controls on touch. */
+.workbench #wb-photo-transparency{flex:0 1 270px;min-width:215px;max-width:300px;color:#405b49}
+.workbench #wb-photo-transparency>label{display:block;font-size:10px;font-weight:650;line-height:1.25;white-space:nowrap}
+.workbench .wb-photo-transparency-control{display:flex;align-items:center;gap:10px;min-width:0}
+.workbench #wb-photo-transparency-input{width:100%;min-width:0;min-height:24px;margin:0;cursor:pointer}
+.workbench #wb-photo-transparency-input:disabled{cursor:default}
+.workbench #wb-photo-transparency-value{min-width:39px;text-align:right;font-size:11px;font-variant-numeric:tabular-nums}
+.workbench #wb-photo-transparency[data-empty=true]{opacity:.55}
+body.workbench.wb-mobile{grid-template-rows:var(--wb-header) 94px minmax(0,1fr) var(--wb-dock)}
+.workbench.wb-mobile .wb-stagebar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px 44px;gap:0 5px}
+.workbench.wb-mobile #wb-modes{grid-column:1;grid-row:1;min-width:0}
+.workbench.wb-mobile #wb-command-open{grid-column:2;grid-row:1}
+.workbench.wb-mobile #wb-photo-transparency{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,1fr);gap:12px;align-items:center;min-width:0;max-width:none;width:100%}
+.workbench.wb-mobile #wb-photo-transparency>label{white-space:normal;font-size:11px;line-height:1.3}
+.workbench.wb-mobile #wb-photo-transparency-input{min-height:42px}
 .workbench .wb-drawing-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(530px,calc(100% - 24px));max-width:530px;white-space:normal;gap:5px}.workbench .wb-drawing-actions button{min-width:0;font-size:12px;padding:8px 5px}.workbench .wb-drawing-actions button svg{display:none}.workbench #wb-point-count{grid-column:1/-1;text-align:center;font-size:11px;color:#4a6554;padding:1px 4px}.workbench.wb-mobile .wb-mobile-dock{grid-template-columns:repeat(6,minmax(0,1fr))}.workbench.wb-mobile .wb-mobile-dock button span{max-width:100%;overflow-wrap:anywhere;line-height:1.2}.workbench.wb-mobile .wb-drawing-actions{width:calc(100% - 18px);max-width:530px;grid-template-columns:repeat(4,minmax(0,1fr))}.workbench.wb-mobile .wb-drawing-actions button{font-size:11px;padding:6px 3px;line-height:1.2}.workbench.wb-mobile .map-container:has(#wb-drawing-actions:not([hidden])) .wb-drawing-hint{display:none}

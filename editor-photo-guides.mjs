@@ -7,6 +7,7 @@ import {parseEarthAltitude,estimateEarthPhotoSize} from './editor-earth-scale.mj
 const DATABASE='apulso-private-map-photos-v1';
 const MAX_PHOTOS=12;
 const MAX_SIZE=25*1024*1024;
+const TRANSPARENCY_PREF='apulso-editor-photo-transparency-v1';
 const round=n=>Math.round(n*1000)/1000;
 const strip=photo=>({
  id:photo.id,projectId:photo.projectId||DEFAULT_PROJECT_ID,mapKey:photo.mapKey,name:photo.name,position:photo.position.map(round),
@@ -56,11 +57,27 @@ async function decode(blob){
 }
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const selectedText=p=>p?.name||'';
-export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool,onChange=()=>{},canWrite=()=>true}){
+export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool,onChange=()=>{},onViewChange=()=>{},canWrite=()=>true}){
  const el=id=>document.getElementById(id);
  let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
  let storageAvailable=true;
+ let commonOpacity=null;
+ try{const saved=localStorage.getItem(TRANSPARENCY_PREF),value=Number(saved);if(saved!==null&&Number.isFinite(value)&&value>=0&&value<=100)commonOpacity=(100-Math.round(value))/100}catch{}
  const selected=()=>photos.find(p=>p.id===currentId)||null;
+ function viewSettings(){
+  const opacity=commonOpacity??selected()?.opacity??.36;
+  return{count:photos.length,transparency:Math.round((1-opacity)*100),mixed:new Set(photos.map(p=>Math.round(p.opacity*100))).size>1};
+ }
+ function setTransparency(value){
+  const amount=Number(value);if(!Number.isFinite(amount)||amount<0||amount>100)return false;
+  if(!canWrite()){show('Recarga el editor antes de guardar cambios en las fotografías.','error');updateUI();return false}
+  const transparency=Math.round(amount);commonOpacity=(100-transparency)/100;
+  // Position locks protect placement, rotation and scale. Transparency is
+  // a shared viewing control, including hidden and locked reference images.
+  for(const photo of photos)photo.opacity=commonOpacity;
+  try{localStorage.setItem(TRANSPARENCY_PREF,String(transparency))}catch{}
+  updateUI();markDirty();return true;
+ }
  function database(){
   if(!dbPromise)dbPromise=openDatabase().catch(e=>{dbPromise=null;throw e});
   return dbPromise;
@@ -104,13 +121,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   el('reference-controls').disabled=!p;
   el('reference-count').textContent=photos.length+'/'+MAX_PHOTOS+' fotografías en este mapa';
   if(p){
-   el('reference-opacity').value=Math.round(p.opacity*100);
    el('reference-scale').value=Math.round(p.scale*100);
    el('reference-rotation').value=p.rotation;
    el('reference-angle').value=p.rotation;
    el('reference-locked').checked=!!p.locked;
    el('reference-visible').checked=!!p.visible;
-   el('reference-opacity-value').textContent=Math.round(p.opacity*100)+'%';
    el('reference-scale-value').textContent=Math.round(p.scale*100)+'%';
    el('reference-rotation-value').textContent=Number(p.rotation).toFixed(1)+'°';
     el('reference-height').value=p.cameraHeightM??'';
@@ -120,9 +135,13 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
       'Introduce la altura de cámara para calcular el tamaño de la foto.';
    }
  
+  const settings=viewSettings();el('reference-opacity').value=settings.transparency;
+  el('reference-opacity-value').textContent=settings.mixed?'Varias':settings.transparency+'%';
+  el('reference-opacity').setAttribute('aria-valuetext',settings.mixed?'Distinta entre imágenes; ajusta para igualarlas':settings.transparency+'% de transparencia');
   el('reference-storage').textContent=storageAvailable?
    'Las fotos y su colocación se guardan solo en este navegador. No se suben ni se incluyen en el JSON.':
    'Atención: no se pueden guardar fotos de forma persistente en este navegador. Exportar el mapa NO incluye las fotografías.';
+  onViewChange();
  }
  function markDirty(){
   requestDraw();onChange();
@@ -160,7 +179,9 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
     }catch(e){show('Una foto de referencia no se pudo abrir: '+record.name,'error')}
    }
    if(epoch!==generation){release(loaded);return}
-   photos=loaded;currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
+   photos=loaded;
+   if(commonOpacity!==null)for(const photo of photos)if(photo.opacity!==commonOpacity){photo.opacity=commonOpacity;migrated=true}
+   currentId=photos.at(-1)?.id||null;updateUI();requestDraw();
     if(migrated)markDirty();
   }catch(e){
    if(epoch===generation){storageAvailable=false;updateUI();show('No se pudieron recuperar las fotos: '+e.message,'error')}
@@ -197,7 +218,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
     const view=getView();
     const p={id:crypto.randomUUID?.()||('photo-'+Date.now()+'-'+Math.random()),mapKey:startMap,projectId:readProjectMeta().id,
      name:file.name,position:[round(view.cx),round(view.cy)],width:round(width),height:round(height),
-     scale:1,rotation:0,opacity:.36,locked:false,visible:true,order:photos.length,
+     scale:1,rotation:0,opacity:commonOpacity??selected()?.opacity??.36,locked:false,visible:true,order:photos.length,
      cameraHeightM,calibration:estimated?'earth':'manual',scaleVersion:estimated?.scaleVersion??null,...converted};
     if(storageAvailable){
      try{await persist(p,file)}
@@ -312,8 +333,8 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    input.value='';await addFiles(files);
   });
   el('reference-list').addEventListener('change',event=>{currentId=event.target.value;updateUI();requestDraw()});
+  el('reference-opacity').addEventListener('input',event=>setTransparency(event.target.value));
   for(const [input,key,convert] of [
-   ['reference-opacity','opacity',v=>Number(v)/100],
    ['reference-scale','scale',v=>Number(v)/100],
    ['reference-rotation','rotation',v=>Number(v)],
    ['reference-angle','rotation',v=>clamp(Number(v),-180,180)]
@@ -344,7 +365,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   window.addEventListener('pagehide',()=>{void flush()});
   updateUI();
  }
- return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,rebaseDrag,flush,cancelCalibration:()=>{},
+ return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,rebaseDrag,flush,viewSettings,setTransparency,cancelCalibration:()=>{},
   previewItems:()=>photos.map(p=>({id:p.id,name:p.name,image:p.image,rotation:p.rotation,opacity:p.opacity,selected:p.id===currentId})),
   selectPreview:id=>{if(!photos.some(p=>p.id===id))return;currentId=id;updateUI();requestDraw()}};
 }
