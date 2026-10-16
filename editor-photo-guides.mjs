@@ -279,13 +279,13 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   const q=world(...pos);
   const active=selected();
   if(active?.visible&&!active.locked&&Math.hypot(pos[0]-rotationHandle(active)[0],pos[1]-rotationHandle(active)[1])<17){
-   drag={id:active.id,mode:'rotate',angle:angle(active.position,q)};
+   drag={id:active.id,mode:'rotate',angle:angle(active.position,q),original:{position:[...active.position],rotation:active.rotation}};
    return;
   }
   const chosen=[...photos].reverse().find(p=>p.visible&&hit(p,q));
   if(chosen){currentId=chosen.id;updateUI();requestDraw();}
   const p=chosen||selected();
-  drag=p&&!p.locked&&p.visible&&chosen?{id:p.id,pos}:null;
+  drag=p&&!p.locked&&p.visible&&chosen?{id:p.id,pos,original:{position:[...p.position],rotation:p.rotation}}:null;
   if(p?.locked)show('Esta foto está bloqueada. Desmarca el candado para moverla.','info');
  }
  function pointerMove(pos){
@@ -301,7 +301,11 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   p.position=[round(p.position[0]+dx),round(p.position[1]+dy)];
   drag.pos=pos;requestDraw();markDirty();
  }
- function pointerUp(){drag=null}
+ function pointerUp(cancel=false){
+  if(cancel&&drag){const p=photos.find(p=>p.id===drag.id);if(p){Object.assign(p,drag.original);updateUI();requestDraw();markDirty()}}
+  drag=null;
+ }
+ function rebaseDrag(dx,dy){if(drag?.pos)drag.pos=[drag.pos[0]+dx,drag.pos[1]+dy]}
  function bind(){
   el('reference-file').addEventListener('change',async event=>{
    const input=event.currentTarget,files=Array.from(input.files||[]);
@@ -340,7 +344,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
   window.addEventListener('pagehide',()=>{void flush()});
   updateUI();
  }
- return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,flush,cancelCalibration:()=>{},
+ return{bind,switchMap,draw,pointerDown,pointerMove,pointerUp,rebaseDrag,flush,cancelCalibration:()=>{},
   previewItems:()=>photos.map(p=>({id:p.id,name:p.name,image:p.image,rotation:p.rotation,opacity:p.opacity,selected:p.id===currentId})),
   selectPreview:id=>{if(!photos.some(p=>p.id===id))return;currentId=id;updateUI();requestDraw()}};
 }

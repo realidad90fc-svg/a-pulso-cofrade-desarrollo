@@ -1,1 +1,1 @@
-{"version":"dev-2026.10.16-balcones-puntos-1","stage":"development","note":"Balcones con posición y tramo conservados al publicar; deshacer/rehacer puntos del trazado y botón Rehacer visible en móvil."}
+{"version":"dev-2026.10.16-navegacion-1","stage":"development","note":"Arrastrar con botón derecho mueve el mapa con cualquier herramienta; dos dedos permiten desplazamiento y zoom sin colocar piezas ni alterar el trazado."}

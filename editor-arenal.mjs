@@ -1,9 +1,10 @@
 import {isDrawingTool,hasDrawingDraft,appendDrawingPoint,clearDrawing,undoDrawingPoint,redoDrawingPoint} from './editor-drawing-history.mjs';
+import {createMapNavigation} from './editor-map-navigation.mjs';
 import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy-resize.mjs';
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=balcones-puntos-1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=navegacion-1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -41,7 +42,7 @@ import {setupSelectionEditor} from './editor-selection-ui.mjs';
 import {setupTemplatesUI} from './editor-templates-ui.mjs';
 import {expandGroups,selectionLocked,itemEdit} from './editor-item-state.mjs';
 import {elementCorners} from './editor-element-geometry.mjs';
-let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI,projectUI,reviewUI,workbenchUI;
+let customAssetUI,precisionTools,selectionEditor,templatesUI,gameplayUI,projectUI,reviewUI,workbenchUI,mapNavigation,touchCheckpoint=null;
 
 const $=id=>document.getElementById(id);
 const canvas=$('editor-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -137,7 +138,7 @@ function changed(){
  gameplayUI?.invalidate();reviewUI?.invalidate();
  if(data)data.resources=resourceManifest(data,false);
  state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();vegetationPreview?.sync();selectionEditor?.refresh();
- clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);
+ clearTimeout(saveTimer);if(!touchCheckpoint)saveTimer=setTimeout(saveLocal,900);
 }
 function saveLocal(){
  if(!data)return false;
@@ -460,6 +461,7 @@ $('mobile-step-left')?.addEventListener('click',()=>rotatePasoOnMobile(5));
 $('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 
 function configureTool(name){
+ mapNavigation?.toolChanged();
  cancelCanopyResize();canvas.style.cursor='';
  if(state.tool!==name)clearDrawing(state);state.tool=name;state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
@@ -638,19 +640,37 @@ function onRotationHandle(pos){
  return handle&&dist(pos,handle.handle)<17?handle:null;
 }
 function pointEvent(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+function beginTouchEdit(){
+ touchCheckpoint={mapKey:activeMap,document:JSON.stringify(data),history:[...state.history],future:[...state.future],
+  selectedItems:structuredClone(state.selectedItems),paso:structuredClone(state.paso),peopleIndex:state.peopleIndex,unsaved:state.unsaved};
+ clearTimeout(saveTimer);return touchCheckpoint;
+}
+function commitTouchEdit(){touchCheckpoint=null;if(state.unsaved)saveTimer=setTimeout(saveLocal,900)}
+function cancelTouchEdit(checkpoint){
+ cancelCanopyResize();gameplayUI?.up(true);photoGuides?.pointerUp(true);
+ state.drag=null;state.pointers.clear();
+ if(checkpoint?.mapKey===activeMap){
+  data=JSON.parse(checkpoint.document);state.history=checkpoint.history;state.future=checkpoint.future;
+  state.paso=checkpoint.paso;state.peopleIndex=checkpoint.peopleIndex;state.unsaved=checkpoint.unsaved;
+  gameplayUI?.invalidate();gameplayUI?.refresh();reviewUI?.invalidate();reviewUI?.refresh();
+  setSelection(checkpoint.selectedItems);updateStartStatus();cityManager?.refresh();updatePeopleHint();
+ }
+ touchCheckpoint=null;clearTimeout(saveTimer);if(state.unsaved)saveTimer=setTimeout(saveLocal,900);
+ requestDraw();
+}
+function panWithMouse(dx,dy){
+ view.cx-=dx/view.zoom;view.cy+=dy/view.zoom;
+ // These drag anchors are screen coordinates. Their world positions must
+ // stay fixed while right-drag temporarily moves the camera.
+ const a=state.drag,keys=a?.action==='select'?['pos','start']:a?.action==='marquee'?['start','end']:a?.action==='resize-canopy'?['screenStart']:a?.action==='pan'?['pos']:[];
+ for(const key of keys)if(a[key])a[key]=[a[key][0]+dx,a[key][1]+dy];
+ photoGuides?.rebaseDrag(dx,dy);requestDraw();
+}
 function pointerDown(e){
  if(projectUI?.isApplying())return;
- if(e.pointerType==='mouse'&&e.button!==0)return; // primary/left button only
  e.preventDefault();
- canvas.setPointerCapture(e.pointerId);
  const pos=pointEvent(e);
  state.pointers.set(e.pointerId,pos);
- if(state.pointers.size===2){
-  cancelCanopyResize();gameplayUI?.up(true);
-  const arr=[...state.pointers.values()];
-  state.pinch={gap:dist(arr[0],arr[1]),mid:[(arr[0][0]+arr[1][0])/2,(arr[0][1]+arr[1][1])/2],zoom:view.zoom};
-  state.drag=null;return;
- }
  const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;
  if(reviewUI?.down(q))return;
  if(gameplayUI?.down(q))return;
@@ -744,11 +764,6 @@ function pointerMove(e){
  const pos=pointEvent(e);
  const known=state.pointers.has(e.pointerId);
  if(known)state.pointers.set(e.pointerId,pos);
- if(state.pointers.size>=2&&state.pinch){
-  const pts=[...state.pointers.values()],gap=Math.max(1,dist(pts[0],pts[1]));
-  zoomAt(gap/state.pinch.gap,[(pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2]);
-  state.pinch.gap=gap;return;
- }
  const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
  if(known&&gameplayUI?.move(q))return;
  if(state.tool==='reference'){photoGuides?.pointerMove(pos);return}
@@ -836,7 +851,6 @@ function pointerUp(e){
   }
  }
  state.pointers.delete(e.pointerId);
- if(state.pointers.size<2)state.pinch=null;
  if(!state.pointers.size){state.drag=null;photoGuides?.pointerUp()}
  requestDraw();
 }
@@ -848,6 +862,7 @@ function downloadJSON(){
  setTimeout(()=>URL.revokeObjectURL(url),5000);show('Archivo JSON exportado. Puedes pasármelo para incorporarlo al juego.','good');
 }
 function setData(loaded){
+ mapNavigation?.cancel();
  if(!loaded||!Array.isArray(loaded.roads)||!Array.isArray(loaded.houses)||!Array.isArray(loaded.sidewalks)||!Array.isArray(loaded.people))throw new Error('El archivo no contiene un diseño de mapa válido.');
  if(loaded.metadata?.mapKey!==activeMap)throw new Error('Este archivo corresponde a otro mapa. Selecciónalo antes de importar.');
  for(const type of ['roads','houses','sidewalks'])
@@ -1136,10 +1151,16 @@ function bind(){
  // Photo guide images and positions are private browser data, separate from game geometry.
  photoGuides?.bind();
  $('check').onclick=validate;
- canvas.addEventListener('pointerdown',pointerDown);
- canvas.addEventListener('pointermove',pointerMove);
- canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',pointerUp);
- canvas.addEventListener('dblclick',e=>{if(['road','house','sidewalk','hole','collision-draw'].includes(state.tool)){e.preventDefault();finishPolygon()}});
+ mapNavigation=createMapNavigation({canvas,point:pointEvent,getView:()=>view,getTool:()=>state.tool,
+  enabled:()=>!projectUI?.isApplying(),
+  canDrag:()=>['pan','select','reference','paso','people','erase','people-row','fence-row','chair-row','custom-row','collision-select','route-select'].includes(state.tool)||state.tool==='urban'&&urbanIsMarking($('urban-type').value),
+  down:pointerDown,move:pointerMove,up:pointerUp,pan:panWithMouse,redraw:requestDraw,beginTouchEdit,commitTouchEdit,cancelTouchEdit});
+ canvas.addEventListener('pointerdown',mapNavigation.down);
+ canvas.addEventListener('pointermove',mapNavigation.move);
+ canvas.addEventListener('pointerup',mapNavigation.up);canvas.addEventListener('pointercancel',mapNavigation.up);
+ canvas.addEventListener('lostpointercapture',mapNavigation.lostCapture);
+ canvas.addEventListener('contextmenu',mapNavigation.contextMenu);
+ canvas.addEventListener('dblclick',e=>{if(e.button===0&&!mapNavigation.isNavigating()&&['road','house','sidewalk','hole','collision-draw'].includes(state.tool)){e.preventDefault();finishPolygon()}});
  canvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY>0?.85:1.15,pointEvent(e))},{passive:false});
  window.addEventListener('keydown',e=>{
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
@@ -1147,12 +1168,13 @@ function bind(){
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
   if(isDrawingTool(state.tool)&&(e.key==='Backspace'||e.key==='Delete')){e.preventDefault();const removed=undoDrawingPoint(state);requestDraw(true);show(removed?'Último punto quitado. Rehacer lo recupera.':'No quedan puntos que quitar.');return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);clearDrawing(state);precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
+  if(e.key==='Escape'){if(mapNavigation.isNavigating()){mapNavigation.cancel();requestDraw();return}if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);clearDrawing(state);precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
   if((e.key==='Delete'||e.key==='Backspace')&&!gameplayUI?.uses())deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);
  });
  window.addEventListener('resize',resize);
+ window.addEventListener('blur',mapNavigation.cancel);
 }
 function validate(){
  const warnings=[];
@@ -1188,6 +1210,7 @@ function fitMap(){
 }
 function switchMap(key){
  if(!EDITOR_MAPS.some(m=>m.key===key))return;
+ mapNavigation?.cancel();
  if(data){clearTimeout(saveTimer);saveLocal()}
  activeMap=key;clearSelection();clearDrawing(state);state.mouseWorld=null;
  void photoGuides?.switchMap(key);

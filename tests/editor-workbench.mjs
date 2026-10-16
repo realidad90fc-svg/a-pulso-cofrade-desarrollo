@@ -99,7 +99,7 @@ $('wb-reset-preferences').click();assert(!document.body.classList.contains('wb-m
 $('open-city').click();await flush();const form=$('city-form').querySelector('form');form.querySelector('[name=name]').value='Taller visual';await form.onsubmit({preventDefault(){}});await flush();
 const key=$('map-select').value,docKey='apulso-universal-editor-v2:'+key,read=()=>JSON.parse(storage.get(docKey));let doc=read();doc.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]]}];doc.trees=[{point:[8,8],radius:.35,variant:'tree-4'}];doc.startPose={x:20,y:20,angle:0};const input=$('import');Object.defineProperty(input,'files',{value:[{text:async()=>JSON.stringify(doc)}],configurable:true});await input.onchange({target:input});$('save').click();await flush();
 $('wb-nav-layers').click();$('wb-lock-trees').click();$('save').click();assert.equal(read().trees[0].edit.locked,true);$('wb-lock-trees').click();$('save').click();assert.equal(read().trees[0].edit.locked,false);
-const pointer=(type,x,y,options={})=>{const e=new window.Event(type,{bubbles:true,cancelable:true});Object.assign(e,{clientX:x,clientY:y,pointerType:'mouse',button:0,pointerId:1,...options});$('editor-canvas').dispatchEvent(e)};
+const pointer=(type,x,y,options={})=>{const e=new window.Event(type,{bubbles:true,cancelable:true});Object.assign(e,{clientX:x,clientY:y,pointerType:'mouse',button:0,buttons:type==='pointerup'||type==='pointercancel'?0:1,pointerId:1,...options});$('editor-canvas').dispatchEvent(e);return e};
 document.querySelector('[data-tool="select"]').click();const scale=670/43.6,x=525+(8-20)*scale,y=350-(8-20)*scale;pointer('pointerdown',x,y);pointer('pointerup',x,y);assert(!$('selection-editor-panel').hidden,'Selecting an actual object reveals its properties');assert(!$('wb-trees-panel').hidden);assert($('facade-panel').hidden);assert($('wb-inspector-title').textContent.includes('Vegetación'));
 $('edit-angle').value='45';$('edit-transform').click();$('save').click();assert.equal(read().trees[0].rotation,45);assert($('wb-save-state').textContent.includes('Guardado'));$('wb-category-furniture').click();assert(!$('wb-furniture-panel').hidden);assert($('selection-editor-panel').hidden,'Placement properties replace the previous selection inspector');assert($('wb-placement-row'));$('wb-placement-row').click();assert.equal($('editor-canvas').dataset.tool,'fence-row');assert.equal(read().trees[0].rotation,45,'Switching to placement never changes the previous selected object');
 $('wb-category-overhead').click();$('placement-preview-gallery').querySelector('[data-preview-item="canopy-green"]').click();assert(!$('overhead-settings').hidden);$('overhead-clearance').value='3.45';$('overhead-angle').value='30';pointer('pointerdown',525,350);pointer('pointerup',525,350);$('save').click();assert.equal(read().urban.at(-1).type,'canopy-green');assert.equal(read().urban.at(-1).clearance,3.45);assert.equal(read().urban.at(-1).angle,30);assert.equal($('editor-canvas').dataset.tool,'select','Placing a canopy selects it immediately for resizing');
@@ -140,5 +140,66 @@ $('facade-flowers').checked=true;$('facade-hangings').checked=true;assert($('fac
 // The same point buttons also work for collision contours and courtyard cuts.
 $('wb-mode-build').click();document.querySelector('[data-wb-panel="collision-panel"]').click();$('collision-draw').click();$('wb-properties-close').click();const zonesBefore=read().gameplay.collision.zones.length;for(const p of [[3,32],[5,32],[5,34]])put(p);$('wb-remove-point').click();assert.equal(pointCount(),2);$('wb-restore-point').click();$('finish-shape').click();$('save').click();assert.equal(read().gameplay.collision.zones.length,zonesBefore+1);assert.equal(pointCount(),0);
 $('wb-mode-build').click();document.querySelector('[data-tool="select"]').click();put([2,2]);$('precision-hole').click();for(const p of [[3,3],[5,3],[5,5]])put(p);$('wb-remove-point').click();assert.equal(pointCount(),2);$('wb-restore-point').click();$('finish-shape').click();$('save').click();assert(read().roads.some(r=>r.holes?.length),'Corrected courtyard contour commits normally');
-console.log('Workbench integration: all legacy panels reachable; 22 visual families, search, contextual properties, three workspaces, real layer visibility/locks, document integrity, mobile sheets/backdrop/close, touch preferences, exact edits mouse/touch canopy handles, point undo/redo on five drawing tools and balcony spans passed. DOM/Canvas only; browser and physical-device QA remain separate.');
+// Secondary-button navigation bypasses every original placement/drawing tool.
+const mapCanvas=$('editor-canvas'),rightPan=(dx=80,dy=30)=>{
+ pointer('pointerdown',420,300,{button:2,buttons:2});pointer('pointermove',420+dx,300+dy,{buttons:2});pointer('pointerup',420+dx,300+dy,{button:2});
+};
+const samePoint=(a,b,tolerance=.001)=>a.forEach((n,i)=>assert(Math.abs(n-b[i])<tolerance,`${a} != ${b}`));
+const checkCamera=expected=>{pointer('pointermove',525,350,{buttons:0});samePoint($('coords').textContent.split(' · ').map(Number),expected,.011)};
+for(const button of document.querySelectorAll('[data-tool]')){
+ button.click();$('goto-all').click();$('save').click();const before=storage.get(docKey),tool=mapCanvas.dataset.tool;
+ rightPan();assert.equal(mapCanvas.dataset.tool,tool);assert.equal(mapCanvas.style.cursor,'');
+ $('save').click();assert.equal(storage.get(docKey),before,`Right drag must not edit with ${tool}`);
+ checkCamera([20-80/scale,20+30/scale]);
+ pointer('pointerdown',450,350,{pointerType:'touch'});pointer('pointerdown',600,350,{pointerType:'touch',pointerId:2});pointer('pointerup',600,350,{pointerType:'touch',pointerId:2});pointer('pointerup',450,350,{pointerType:'touch'});$('save').click();assert.equal(storage.get(docKey),before,`Two fingers must not edit with ${tool}`);
+}
+for(const activate of [()=>$('precision-measure').click(),()=>$('collision-draw').click(),()=>$('route-place').click(),()=>$('engine-review-pick').click()]){
+ activate();$('goto-all').click();$('save').click();const before=storage.get(docKey),tool=mapCanvas.dataset.tool;rightPan();$('save').click();assert.equal(storage.get(docKey),before);assert.equal(mapCanvas.dataset.tool,tool);
+}
+assert(pointer('contextmenu',420,300,{button:2}).defaultPrevented,'Only the map replaces the browser context menu');
+// A temporary pan keeps both live vertices and the vertex redo branch.
+document.querySelector('[data-tool="road"]').click();$('goto-all').click();for(const p of [[10,25],[14,25],[14,28]])put(p);$('undo').click();assert.equal(pointCount(),2);
+rightPan(100,40);assert.equal(pointCount(),2);assert(!$('wb-restore-point').disabled);$('redo').click();assert.equal(pointCount(),3);
+const doubleRight=new window.Event('dblclick',{bubbles:true,cancelable:true});Object.assign(doubleRight,{button:2});mapCanvas.dispatchEvent(doubleRight);assert.equal(pointCount(),3,'Double right-click never closes the contour');
+const fourth=toCanvas([10,28]);pointer('pointerdown',fourth[0]+100,fourth[1]+40);pointer('pointerup',fourth[0]+100,fourth[1]+40);$('finish-shape').click();$('save').click();assert.deepEqual(read().roads.at(-1).poly,[[10,25],[14,25],[14,28],[10,28]]);
+// Mouse-button chords pause and resume an active left-button object drag.
+document.querySelector('[data-tool="select"]').click();$('goto-all').click();let tree=read().trees[0],treeScreen=toCanvas(tree.point);
+pointer('pointerdown',...treeScreen);pointer('pointermove',treeScreen[0]+10,treeScreen[1]);$('save').click();const afterLeft=read().trees[0].point;
+pointer('pointermove',treeScreen[0]+10,treeScreen[1],{button:2,buttons:3});pointer('pointermove',treeScreen[0]+100,treeScreen[1]+50,{buttons:3});$('save').click();assert.deepEqual(read().trees[0].point,afterLeft,'Panning suspends object editing');
+pointer('pointermove',treeScreen[0]+100,treeScreen[1]+50,{button:2,buttons:1});pointer('pointermove',treeScreen[0]+110,treeScreen[1]+50);pointer('pointerup',treeScreen[0]+110,treeScreen[1]+50);$('save').click();samePoint(read().trees[0].point,[tree.point[0]+20/scale,tree.point[1]]);
+// Two fingers pan together. Neither their first touch nor the remaining
+// finger may place a fence, append a point, or finish a row.
+document.querySelector('[data-tool="fence"]').click();$('goto-all').click();$('save').click();let beforeGesture=storage.get(docKey);
+const touch=(type,x,y,id=1)=>pointer(type,x,y,{pointerType:'touch',pointerId:id});
+touch('pointerdown',450,350);touch('pointerdown',600,350,2);touch('pointermove',510,380);touch('pointermove',660,380,2);touch('pointerup',660,380,2);touch('pointermove',700,400);touch('pointerup',700,400);$('save').click();assert.equal(storage.get(docKey),beforeGesture);
+checkCamera([20-60/scale,20+30/scale]);
+const fenceCount=read().fences.length;touch('pointerdown',525,350);touch('pointerup',525,350);$('save').click();assert.equal(read().fences.length,fenceCount+1,'A normal single-finger tap still places the chosen piece');samePoint(read().fences.at(-1).point,[20-60/scale,20+30/scale]);
+document.querySelector('[data-tool="road"]').click();$('goto-all').click();put([10,25]);put([14,25]);const draftCount=pointCount();touch('pointerdown',450,350);touch('pointerdown',600,350,2);touch('pointermove',470,360);touch('pointermove',620,360,2);touch('pointerup',620,360,2);touch('pointerup',470,360);assert.equal(pointCount(),draftCount);$('cancel-shape').click();
+// Pinch scales about the moving midpoint and does not place a tree.
+document.querySelector('[data-tool="tree"]').click();$('goto-all').click();const treeCount=read().trees.length;
+touch('pointerdown',425,350);touch('pointerdown',625,350,2);touch('pointermove',325,350);touch('pointermove',725,350,2);touch('pointerup',325,350);touch('pointerup',725,350,2);$('save').click();assert.equal(read().trees.length,treeCount);
+touch('pointerdown',525+4*scale,350);touch('pointerup',525+4*scale,350);$('save').click();samePoint(read().trees.at(-1).point,[22,20]);
+// Taking over after the first finger has already moved an object rolls
+// back that tentative edit, including its history entry.
+document.querySelector('[data-tool="select"]').click();$('goto-all').click();$('save').click();beforeGesture=storage.get(docKey);tree=read().trees[0];treeScreen=toCanvas(tree.point);
+touch('pointerdown',...treeScreen);touch('pointermove',treeScreen[0]+20,treeScreen[1]);touch('pointerdown',750,300,2);touch('pointerup',750,300,2);touch('pointermove',treeScreen[0]+60,treeScreen[1]);touch('pointerup',treeScreen[0]+60,treeScreen[1]);$('save').click();assert.equal(storage.get(docKey),beforeGesture,'Two-finger takeover restores document and selection drag');
+$('undo').click();$('save').click();assert.equal(read().trees.length,treeCount,'The cancelled touch drag adds no undo entry');$('redo').click();$('save').click();assert.equal(storage.get(docKey),beforeGesture,'Gesture cancellation preserves the saved edit history');
+document.querySelector('[data-tool="fence-row"]').click();$('goto-all').click();const rowCount=read().fences.length;
+touch('pointerdown',400,450);touch('pointermove',550,450);touch('pointerdown',700,350,2);touch('pointerup',700,350,2);touch('pointerup',550,450);$('save').click();assert.equal(read().fences.length,rowCount,'Navigation takeover never finishes a partial row');
+// Escape, focus loss and lost capture cannot leave navigation stuck.
+document.querySelector('[data-tool="road"]').click();put([10,25]);pointer('pointerdown',420,300,{button:2,buttons:2});keyEvent('Escape');assert.equal(pointCount(),1);assert.equal(mapCanvas.style.cursor,'');pointer('pointerup',420,300,{button:2});
+pointer('pointerdown',420,300,{button:2,buttons:2});window.dispatchEvent(new window.Event('blur'));assert.equal(mapCanvas.style.cursor,'');assert.equal(pointCount(),1);
+pointer('pointerdown',420,300,{button:2,buttons:2});pointer('lostpointercapture',420,300);assert.equal(mapCanvas.style.cursor,'');assert.equal(pointCount(),1);
+// Private reference images have their own drag state and IndexedDB storage.
+// Load an actual PNG through the file-input flow, then verify camera panning
+// and two-finger takeover do not alter the stored image transform.
+const {exportProjectPhotos}=await import('../editor-photo-guides.mjs'),{readProjectMeta}=await import('../editor-project-session.mjs');
+document.querySelector('[data-tool="reference"]').click();$('goto-all').click();const sample=createCanvas(32,32);sample.getContext('2d').fillRect(0,0,32,32);const photoFile=new Blob([sample.toBuffer('image/png')],{type:'image/png'});photoFile.name='Plano privado de prueba.png';
+const photoInput=$('reference-file');Object.defineProperty(photoInput,'files',{value:[photoFile],configurable:true});window.prompt=()=>'';
+const originalObjectURL=URL.createObjectURL;URL.createObjectURL=()=>sample.toDataURL('image/png');photoInput.dispatchEvent(new window.Event('change'));await flush();URL.createObjectURL=originalObjectURL;
+assert($('reference-count').textContent.startsWith('1/'),'Reference photo imports through its normal control');
+const photos=()=>exportProjectPhotos(readProjectMeta().id,[key]),photoBefore=(await photos())[0];rightPan(90,40);$('save').click();await flush();let photoAfter=(await photos())[0];assert.deepEqual(photoAfter.position,photoBefore.position);assert.equal(photoAfter.rotation,photoBefore.rotation);
+let photoScreen=[...toCanvas(photoBefore.position)];photoScreen=[photoScreen[0]+90,photoScreen[1]+40];pointer('pointerdown',...photoScreen);pointer('pointermove',photoScreen[0]+10,photoScreen[1]);pointer('pointermove',photoScreen[0]+10,photoScreen[1],{button:2,buttons:3});pointer('pointermove',photoScreen[0]+70,photoScreen[1]+30,{buttons:3});pointer('pointermove',photoScreen[0]+70,photoScreen[1]+30,{button:2,buttons:1});pointer('pointermove',photoScreen[0]+80,photoScreen[1]+30);pointer('pointerup',photoScreen[0]+80,photoScreen[1]+30);$('save').click();await flush();photoAfter=(await photos())[0];samePoint(photoAfter.position,[photoBefore.position[0]+20/scale,photoBefore.position[1]]);
+$('goto-all').click();photoScreen=toCanvas(photoAfter.position);touch('pointerdown',...photoScreen);touch('pointermove',photoScreen[0]+20,photoScreen[1]);touch('pointerdown',750,300,2);touch('pointerup',750,300,2);touch('pointerup',photoScreen[0]+20,photoScreen[1]);$('save').click();await flush();assert.deepEqual((await photos())[0].position,photoAfter.position,'Two-finger takeover restores the private photo transform');
+console.log('Workbench integration: legacy panels, 22 visual families, mobile sheets, exact edits, canopy handles, point history, balcony spans; right-pan with every original tool plus precision/collisions/routes, mouse chords, two-finger pan/pinch/takeover and navigation cancellation passed. DOM/Canvas only; browser and physical-device QA remain separate.');
 process.exit(0);
