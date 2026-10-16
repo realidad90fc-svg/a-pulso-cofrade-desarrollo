@@ -1,3 +1,4 @@
+import {overheadType,overheadSize} from './overhead-elements.mjs';
 import {drawRoof,drawSurface,drawTree,drawFurniture} from './editor-materials.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
 import {drawUrbanElement,urbanIsMarking,urbanCollisionSize} from './editor-urban-elements.mjs';
@@ -20,6 +21,7 @@ function extent(s){
  if(s.kind==='person')return{width:Math.max(.35,s.size?.[0]||.19)*1.2,height:Math.max(.35,s.size?.[1]||.19)*1.2};
  if(s.kind==='fence'||s.kind==='chair')return{width:s.row?Math.max(s.kind==='fence'?1.25:.65,(s.spacing||.7)*4+1.15):s.kind==='fence'?1.35:.7,height:s.row?1.2:s.kind==='fence'?.5:.7};
  if(s.kind==='urban'){
+  if(overheadType(s.type)){const [w,d]=overheadSize(s);return{width:w+.5,height:d+.5}}
   if(urbanIsMarking(s.type))return{width:(s.width||3)+.5,height:(s.depth||2.6)+.5};
   const size=urbanCollisionSize(s)||[.9,.9];return{width:Math.max(.9,size[0]+.4),height:Math.max(.9,size[1]+.3)};
  }

@@ -1,3 +1,4 @@
+import {validateHeightProfiles} from './overhead-elements.mjs';
 // Optional authoring data. An absent configuration preserves the original game.
 import {validPoint,validSurface} from './map-geometry.mjs';
 export const EVENT_TYPES={entry:'Entrada',checkpoint:'Punto de control',presentation:'Presentación',announcement:'Anuncio de calle',exit:'Salida a otro mapa',finish:'Llegada'};
@@ -8,6 +9,7 @@ const text=(s,max=150)=>typeof s==='string'&&s.length<=max;
 export function validateGameplay(g){
  if(g===undefined)return;
  if(!g||typeof g!=='object'||Array.isArray(g))throw Error('Configuración jugable no válida.');
+ validateHeightProfiles(g.heightProfiles);
  const c=g.collision;
  if(c!==undefined){
   if(!c||!['inherit','replace'].includes(c.mode)||!Array.isArray(c.zones)||c.zones.length>500)throw Error('Configuración de colisiones no válida.');
@@ -27,11 +29,11 @@ export function validateGameplay(g){
 export function defaultGameplay(){return{collision:{mode:'inherit',zones:[]},route:{enabled:false,ordered:true,threeStars:660,twoStars:840,events:[]}}}
 export function newRouteEvent(type,position){return{id:newId('event'),type,name:EVENT_TYPES[type],position:[...position],radius:.8,hold:type==='presentation'?2:0,mandatory:['presentation','checkpoint'].includes(type),lowered:['presentation','finish'].includes(type),heading:null,tolerance:20,targetMap:'',targetEntry:''}}
 export function gameplayOf(doc){return{...defaultGameplay(),...doc?.gameplay,collision:{...defaultGameplay().collision,...doc?.gameplay?.collision},route:{...defaultGameplay().route,...doc?.gameplay?.route}}}
-export function hasGameplay(g){return!!g&&(g.collision?.mode==='replace'||!!g.collision?.zones?.length||!!g.route?.enabled)}
+export function hasGameplay(g){return!!g&&(g.collision?.mode==='replace'||!!g.collision?.zones?.length||!!g.route?.enabled||!!g.heightProfiles?.length)}
 
 // Whitelist gameplay data before a public export; arbitrary imported keys are never published.
 export function cleanGameplay(g){
- if(g===undefined)return undefined;validateGameplay(g);const out={};
+ if(g===undefined)return undefined;validateGameplay(g);const out={};if(g.heightProfiles)out.heightProfiles=g.heightProfiles.map(p=>({id:p.id,standing:p.standing,crouched:p.crouched,lowered:p.lowered}));
  if(g.collision)out.collision={mode:g.collision.mode,zones:g.collision.zones.map(z=>({id:z.id,name:z.name,kind:z.kind,enabled:z.enabled,poly:z.poly.map(p=>p.slice(0,2)),...(z.holes?{holes:z.holes.map(r=>r.map(p=>p.slice(0,2)))}:{})}))};
  if(g.route)out.route={enabled:g.route.enabled,ordered:g.route.ordered,threeStars:g.route.threeStars,twoStars:g.route.twoStars,events:g.route.events.map(e=>Object.fromEntries(['id','type','name','position','radius','hold','mandatory','lowered','heading','tolerance','targetMap','targetEntry'].map(k=>[k,k==='position'?e.position.slice(0,2):e[k]])))};
  return out;

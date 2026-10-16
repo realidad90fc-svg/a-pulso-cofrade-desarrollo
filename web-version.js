@@ -1,7 +1,7 @@
 /* Aviso de nuevas versiones. Nunca reinicia una partida en marcha. */
 (() => {
   'use strict';
-  const INSTALLED_VERSION = 'dev-2026.10.16-estudio-3.0.0-mobile1';
+  const INSTALLED_VERSION = 'dev-2026.10.16-toldos-alturas-1';
   const VERSION_URL = '/version.json';
   const POLL_MS = 60000;
   let nextVersion = null;

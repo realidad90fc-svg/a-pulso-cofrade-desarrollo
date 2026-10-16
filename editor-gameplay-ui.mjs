@@ -112,7 +112,7 @@ export function setupGameplayEditor({state,getData,getDocument,catalog,snapshot,
   const paint=(o,color,selected=false)=>{traceSurface(ctx,o,pixel);ctx.fillStyle=color+'25';ctx.strokeStyle=color;ctx.lineWidth=selected?3:1.2;ctx.fill('evenodd');ctx.stroke()};
   if($('collision-visible').checked){
    for(const s of [...doc().roads,...doc().sidewalks].filter(s=>s.walkable!==false))paint(s,'#55d795');
-   obstacles??=obstaclesFor(doc());for(const o of obstacles)paint(o,'#fa7978');
+   obstacles??=obstaclesFor(doc());for(const o of obstacles){paint(o,o.clearance!==undefined?'#eab85a':'#fa7978');if(o.clearance!==undefined){const p=pixel((o.box[0]+o.box[2])/2,(o.box[1]+o.box[3])/2);ctx.fillStyle='#77501b';ctx.font='bold 12px system-ui';ctx.fillText('↕ '+o.clearance+' m',p[0],p[1])}}
    for(const z of g.collision.zones){ctx.globalAlpha=z.enabled?1:.3;paint(z,{walkable:'#55d795',blocked:'#fa7978',boundary:'#77bdff'}[z.kind],z.id===selectedZone);if(z.id===selectedZone)for(const p of z.poly){const q=pixel(...p);ctx.fillStyle='#fff';ctx.fillRect(q[0]-4,q[1]-4,8,8)}}ctx.globalAlpha=1;
   }
   if(g.route.enabled||['route-select','route-event'].includes(state.tool))for(const [i,e]of g.route.events.entries()){

@@ -1,3 +1,4 @@
+import {obstacleApplies} from './overhead-elements.mjs';
 import {gameplayOf,hasGameplay,validateGameplay} from './map-gameplay.mjs';
 import {inSurface,shapeOnSurfaces,surfacesOverlapPolygon} from './map-geometry.mjs';
 import {obstaclesFor} from './game-editor-bridge.mjs';
@@ -17,18 +18,18 @@ export class MapGameplayRuntime{
   this.completed=new Set();this.holds={};this.previous=null;this.finished=false;this.transitioning=false;this.notice=null;
   this.streetIdentifiers=new StreetIdentifiers([...(doc.labels||[]),...(this.ownsEvents?this.config.route.events.filter(e=>e.type==='announcement').map(e=>[e.name,e.position,{radius:e.radius}]):[])]);
  }
- collisionReason(shape){
+ collisionReason(shape,sim=this.sim){
   const points=samples(shape),poly=polygon(shape);if(!points.length)return null;
   if(this.replacesCollisions&&!shapeOnSurfaces(points,this.ground))return 1;
   if(this.boundaries.length&&!shapeOnSurfaces(points,this.boundaries))return 1;
   if(this.blocked.some(z=>surfacesOverlapPolygon(poly,z)))return 9;
-  const bb=box(poly),obstacle=this.obstacles.find(o=>intersects(bb,o.box)&&surfacesOverlapPolygon(poly,o));if(obstacle)return obstacle.reason;
+  const bb=box(poly),obstacle=this.obstacles.find(o=>obstacleApplies(o,sim)&&intersects(bb,o.box)&&surfacesOverlapPolygon(poly,o));if(obstacle)return obstacle.reason;
   return null;
  }
  collision(sim){
   if(sim.state.status!=='playing'||sim.timeScale===0)return;
   for(const c of sim.stepColliders.filter(c=>c.enabled&&c.entity!==sim.contraEntity)){
-   const reason=this.collisionReason(c.world());if(reason){sim.prefs.motivoGameOver=reason;sim.send(sim.stepEntity,'gameOverMet');return}
+   const reason=this.collisionReason(c.world(),sim);if(reason){sim.prefs.motivoGameOver=reason;sim.send(sim.stepEntity,'gameOverMet');return}
   }
  }
  attach(sim,snapshot=null){

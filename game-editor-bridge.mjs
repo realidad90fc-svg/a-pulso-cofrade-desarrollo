@@ -1,10 +1,11 @@
+import {overheadObstacles,obstacleApplies} from './overhead-elements.mjs';
 // Apply editor layers to real-time game preview on the SAME origin as the editor.
 // The production game retains its native source data; local drafts are opt-in
 // by existence and can be disabled via ?editor=off.
 import {multiply,inverse} from './original-scene.mjs';
 import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS} from './editor-materials.mjs';
 import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
-import {urbanIsMarking,urbanCollisionSize,drawUrbanElement} from './editor-urban-elements.mjs';
+import {urbanIsMarking,urbanCollisionSize,urbanElementSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
 import {drawFacadeDecor,facadeVisualBounds} from './editor-facades.mjs';
@@ -37,6 +38,7 @@ function around(center,width,height,angle=0){
  const c=Math.cos(angle*Math.PI/180),s=Math.sin(angle*Math.PI/180);
  return [[-width/2,-height/2],[width/2,-height/2],[width/2,height/2],[-width/2,height/2]].map(([x,y])=>[center[0]+x*c-y*s,center[1]+x*s+y*c]);
 }
+const urbanBounds=o=>bbox(around(o.point,...urbanElementSize(o),o.angle||0));
 function shapePolygon(w){
  if(w.circle)return Array.from({length:12},(_,i)=>[w.center[0]+Math.cos(i*Math.PI/6)*w.radius,w.center[1]+Math.sin(i*Math.PI/6)*w.radius]);
  return w.points||[];
@@ -53,6 +55,7 @@ export function obstaclesFor(layers){
   obstacles.push({poly:around(o.point,o.size?Math.min(1.3,o.size[0]*.43):r*2,o.size?Math.min(1.3,o.size[1]*.43):r*2,o.rotation||0),reason:2});
  }
  for(const o of layers.urban||[])if(valid(o.point)){
+   obstacles.push(...overheadObstacles(o));
    const size=urbanCollisionSize(o);
    if(size)obstacles.push({poly:around(o.point,size[0],size[1],o.angle||0),reason:9});
   }
@@ -106,7 +109,7 @@ export function inspectEditorSpawn(sim){
   c._frame=-1;
   let world;try{world=c.world()}catch{return{ok:false,reason:'No se pudo calcular el volumen de la cuadrilla.'}}
   const part=c.entity?.name?.startsWith('manigueta')?'la manigueta':c.entity?.name?.startsWith('candelabro')?'los candelabros':'el paso';
-  if(s.gameplay?.collisionReason(world))return{ok:false,reason:part+' invade una zona bloqueada o queda fuera del suelo transitable'};
+  if(s.gameplay?.collisionReason(world,s))return{ok:false,reason:part+' invade una zona bloqueada o queda fuera del suelo transitable'};
   if(!s.gameplay?.replacesCollisions&&typeof route?.validShape==='function'){
    try{if(!route.validShape(world))return{ok:false,reason:part+' queda fuera del espacio transitable o toca una pared'};}
    catch{return{ok:false,reason:'No se pudo comprobar la salida con la geometría del recorrido'}}
@@ -114,8 +117,8 @@ export function inspectEditorSpawn(sim){
   const polygonPoints=shapePolygon(world);
   if(polygon(polygonPoints)){
    const bb=bbox(polygonPoints);
-   for(const item of (s.gameplay?.replacesCollisions?[]:overlays))if(hits(bb,item.box||bbox(item.poly))&&surfacesOverlapPolygon(polygonPoints,item)){
-    return{ok:false,reason:part+' invade '+(item.reason===13?'al público':item.reason===9?'mobiliario de la calle':'un edificio')}
+   for(const item of (s.gameplay?.replacesCollisions?[]:overlays))if(obstacleApplies(item,s)&&hits(bb,item.box||bbox(item.poly))&&surfacesOverlapPolygon(polygonPoints,item)){
+    return{ok:false,reason:part+' invade '+(item.reason===6?'un elemento cuya altura libre es insuficiente':item.reason===13?'al público':item.reason===9?'mobiliario de la calle':'un edificio')}
    }
   }
  }
@@ -278,7 +281,7 @@ export class RuntimeEditorDraft{
    for(const o of this.layers.houses)if(!this.baseArenalHouses&&o.facade&&polygon(o.poly)&&hits(facadeVisualBounds(o),bound))drawFacadeDecor(ctx,o,px,1);
   for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
   for(const o of this.layers.signs)if(valid(o.point))drawTrafficSign(ctx,o,px,1);
-  for(const o of this.layers.urban||[])if(valid(o.point)&&!urbanIsMarking(o.type)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))
+  for(const o of this.layers.urban||[])if(valid(o.point)&&!urbanIsMarking(o.type)&&hits(urbanBounds(o),bound))
     drawUrbanElement(ctx,o,px,1);
    for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
   for(const cp of this.layers.checkpoints||[])if(valid(cp.position))drawCheckpointGuide(ctx,cp,px,1,{label:false});
@@ -321,7 +324,7 @@ export class RuntimeEditorDraft{
   for(const c of parts){
    const poly=shapePolygon(c.world());if(!polygon(poly))continue;
    const bounds=bbox(poly);
-   for(const o of this.obstacles)if(hits(bounds,o.box)&&surfacesOverlapPolygon(poly,o)){
+   for(const o of this.obstacles)if(obstacleApplies(o,s)&&hits(bounds,o.box)&&surfacesOverlapPolygon(poly,o)){
     s.prefs.motivoGameOver=o.reason;
     s.send(s.stepEntity,'gameOverMet');return;
    }

@@ -1,3 +1,4 @@
+import {OVERHEAD_ITEMS,overheadType,validateOverhead,overheadSize} from '../overhead-elements.mjs';
 import {cleanGameplay} from '../map-gameplay.mjs';
 // Vercel Serverless Function: publish approved map data to the GitHub-connected
 // repository. Requires a fine-grained GitHub token provided by the repository
@@ -82,9 +83,10 @@ function cleanItem(v,kind){
   return result;
  }
  if(kind==='urban'){
-  const types=new Set(['crosswalk','raised-crosswalk','stop-line','lamp-sevilla','lamp-modern','traffic-light','pedestrian-light','crossing-sign','bollard','bench','bin','planter','bike-rack','bus-shelter','tree-grille']);
+  const types=new Set([...OVERHEAD_ITEMS.map(o=>o.id),'crosswalk','raised-crosswalk','stop-line','lamp-sevilla','lamp-modern','traffic-light','pedestrian-light','crossing-sign','bollard','bench','bin','planter','bike-rack','bus-shelter','tree-grille']);
   const type=string(v.type,45);
   if(!types.has(type))fail('Tipo de mobiliario urbano no reconocido.');
+  if(overheadType(type)){const [width,depth]=overheadSize(v),o={type,point:point(v.point),angle:number(v.angle,0,-360000,360000),width:number(width,3,.05,100),depth:number(depth,1.2,.05,100),clearance:number(v.clearance,3.5,.1,20),pier:number(v.pier,.3,.05,50)};try{validateOverhead(o)}catch(e){fail(e.message)}return o;}
   return{type,point:point(v.point),angle:number(v.angle,0,-360,360),
    width:number(v.width,3,1.5,12),depth:number(v.depth,2.6,1,6)};
  }

@@ -1,3 +1,6 @@
+import {setupOverheadUI} from './editor-overhead-ui.mjs';
+import {overheadType,validateOverhead} from './overhead-elements.mjs';
+let overheadUI=null;
 import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=3.0.0-mobile1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
@@ -108,7 +111,7 @@ function updateCounts(){
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
- workbenchUI?.refresh();
+ overheadUI?.refresh();workbenchUI?.refresh();
 }
 function nameOf(type){return{customObjects:'Recurso propio',roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle',urban:'Elemento urbano'}[type]||type}
 function chooseCustomAsset(asset,row=false){
@@ -669,7 +672,7 @@ function pointerDown(e){
  if(state.tool==='urban'){
   const type=$('urban-type').value||'crosswalk';
   if(urbanIsMarking(type)){state.drag={action:'urban-mark',type,start:q,end:q};requestDraw();return}
-  snapshot();data.urban.push(newUrbanElement(type,q));
+  let item;try{item=newUrbanElement(type,q,overheadType(type)?overheadUI.options():{});validateOverhead(item)}catch(e){show(e.message,'error');return}snapshot();data.urban.push(item);
   changed();show(urbanName(type)+' colocado. Selecciónalo para moverlo o girarlo.','good');return;
  }
  if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
@@ -1219,6 +1222,7 @@ async function init(){
     }});
   palette();setupUrbanPalette();bind();
   gameplayUI=setupGameplayEditor({state,getData:()=>data,getDocument:getStoredDocument,catalog:EDITOR_MAPS,snapshot,changed,show,requestDraw,configureTool,pixel,getZoom:()=>view.zoom,focus:focusAt});
+  overheadUI=setupOverheadUI({state,getData:()=>data,snapshot,changed,show,canWrite:()=>!projectUI||projectUI.canWrite()});
   precisionTools=setupPrecisionTools({state,getData:()=>data,snapshot,changed,requestDraw,show,setSelection,configureTool,pixel,getZoom:()=>view.zoom});
   customAssetUI=setupCustomAssetUI({choose:chooseCustomAsset,changed,show,refresh:()=>placementPreviews?.redraw(),canWrite:()=>!projectUI||projectUI.canWrite()});
   selectionEditor=setupSelectionEditor({state,getData:()=>data,snapshot,changed,show,setSelection,configureTool,getCenter:()=>[view.cx,view.cy],visible:selectionVisibility});

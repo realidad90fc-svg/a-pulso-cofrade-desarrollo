@@ -1,7 +1,10 @@
+import {OVERHEAD_ITEMS,overheadType,overheadSize} from './overhead-elements.mjs';
+import {drawOverhead} from './overhead-render.mjs';
 // Urban street fixtures for Sevilla-inspired editor maps.
 // Every piece is lightweight vector artwork; map data stores only type,
 // position, heading and dimensions. All dimensions are in map units (metres).
 export const URBAN_ITEMS=[
+ ...OVERHEAD_ITEMS,
  {id:'crosswalk',name:'Paso de peatones · cebra',kind:'marking'},
  {id:'raised-crosswalk',name:'Paso de peatones elevado',kind:'marking'},
  {id:'stop-line',name:'Línea de detención',kind:'marking'},
@@ -29,6 +32,7 @@ export function newUrbanElement(type,point,options={}){
  const angle=finite(options.angle)?options.angle:0;
  const width=clamp(finite(options.width)?options.width:3,1.5,12);
  const depth=clamp(finite(options.depth)?options.depth:2.6,1,6);
+ if(overheadType(type))return{type,point:point.slice(0,2).map(round),angle,size:[options.width??3,options.depth??(overheadType(type).kind==='canopy'?1.2:.6)],clearance:options.clearance??3.5,pier:options.pier??.3};
  return{type,point:point.slice(0,2).map(round),angle:round(((angle%360)+360)%360),width:round(width),depth:round(depth)};
 }
 export function crosswalkFromDrag(type,start,end,depth=2.6){
@@ -47,9 +51,11 @@ const sizes={
  'tree-grille':[.90,.90]
 };
 export function urbanCollisionSize(item){
+ if(overheadType(item?.type))return null;
  return urbanIsMarking(item?.type)||item?.type==='tree-grille'?null:(item.size||sizes[item?.type]||[.32,.32]);
 }
 export function urbanElementSize(item,original=false){
+ if(overheadType(item.type))return overheadSize(item);
  if(!original&&item.size)return item.size;
  return urbanIsMarking(item.type)?[clamp(item.width||3,1.5,12),item.type==='stop-line'?.30:clamp(item.depth||2.6,1,6)]:(sizes[item.type]||[.32,.32]);
 }
@@ -63,6 +69,7 @@ export function urbanContains(item,point,tolerance=.18){
 }
 export function drawUrbanElement(ctx,item,pixel,zoom,selected=false){
  if(!item?.point||!ids.has(item.type))return;
+ if(overheadType(item.type)){drawOverhead(ctx,item,pixel,zoom,selected);return}
  const [x,y]=pixel(...item.point),z=Math.max(.1,zoom);
  ctx.save();ctx.translate(x,y);ctx.rotate(-(item.angle||0)*Math.PI/180);ctx.scale(z,z);
  if(item.size){const base=urbanElementSize(item,true);ctx.scale(item.size[0]/base[0],item.size[1]/base[1]);}
