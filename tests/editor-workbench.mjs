@@ -73,6 +73,7 @@ function assertTouchSheet(){
  const legacy=cascade(pane,{width:390,height:844,coarse:true},true);
  assert.equal(legacy.opacity,'0','The regression fixture reproduces the invisible legacy drawer');assert.equal(legacy['pointer-events'],'none');
  assert.equal(cascade($('wb-left'),{width:390,height:844,coarse:true}).display,'none','Only one sheet is visible');
+ document.body.classList.add('project-restoring');assert.equal(cascade(pane,{width:390,height:844,coarse:true})['pointer-events'],'none','Project recovery still blocks editing until restoration completes');document.body.classList.remove('project-restoring');
 }
 
 assert($('loading').hidden,$('loading').textContent);assert(document.body.classList.contains('workbench'));
