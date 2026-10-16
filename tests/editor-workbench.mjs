@@ -7,6 +7,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 const runtime=createRequire(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/');
 const require=createRequire((process.env.APULSO_DOM_TEST_MODULES||'/workspace/scratch/068044d9504c/qa-env/node_modules')+'/');
 const {parseHTML}=require('linkedom'),{indexedDB}=require('fake-indexeddb');
+const postcss=require('postcss'),{calculate:specificity}=require('specificity');
 const {createCanvas,Image:NativeImage}=runtime('@napi-rs/canvas');
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {window}=parseHTML(fs.readFileSync(path.join(root,'editor-arenal.html'),'utf8')),document=window.document;
@@ -39,6 +40,41 @@ const flush=async()=>{for(let i=0;i<25;i++){await new Promise(r=>setTimeout(r,10
 await flush();
 
 const $=id=>document.getElementById(id);
+
+// Evaluate the actual loaded CSS cascade, including the retired mobile sheet.
+// This catches invisible/touch-disabled panels that DOM-only checks cannot see;
+// it does not simulate browser layout or hit-testing.
+const sheets=[...document.head.querySelectorAll('style,link[rel=stylesheet]')].map(el=>postcss.parse(el.localName==='style'?el.textContent:fs.readFileSync(path.join(root,el.getAttribute('href').split('?')[0]),'utf8')));
+function mediaMatches(query,viewport){return query.split(',').some(part=>{
+ let valid=true;
+ const rest=part.replace(/\(\s*(max|min)-(width|height)\s*:\s*(\d+(?:\.\d+)?)px\s*\)/g,(_,bound,axis,n)=>{valid&&=bound==='max'?viewport[axis]<=+n:viewport[axis]>=+n;return ''}).replace(/\(\s*pointer\s*:\s*(coarse|fine)\s*\)/g,(_,pointer)=>{valid&&=viewport.coarse===(pointer==='coarse');return ''}).replace(/\b(and|screen|all)\b/g,'').trim();
+ return valid&&!rest;
+})}
+function cascade(element,viewport,skipLegacyFix=false){
+ const values=new Map();let order=0;
+ for(const css of sheets)css.walkRules(rule=>{
+  for(let p=rule.parent;p;p=p.parent)if(p.type==='atrule'&&p.name==='media'&&!mediaMatches(p.params,viewport))return;
+  // Removing these declarations reproduces the shipped legacy-drawer bug.
+  if(skipLegacyFix&&rule.nodes.some(d=>d.prop==='transition'&&d.value==='none')&&rule.selector==='.workbench.wb-mobile .wb-pane')return;
+  for(const selector of rule.selectors){let matches=false;try{matches=element.matches(selector)}catch{continue}if(!matches)continue;
+   const {A,B,C}=specificity(selector);
+   rule.walkDecls(d=>{const rank=[Number(!!d.important),A,B,C,++order],old=values.get(d.prop);if(!old||rank.some((n,i)=>n!==old.rank[i]&&rank.slice(0,i).every((v,j)=>v===old.rank[j])&&n>old.rank[i]))values.set(d.prop,{rank,value:d.value})});
+  }
+ });return Object.fromEntries([...values].map(([k,v])=>[k,v.value]));
+}
+function assertTouchSheet(){
+ const pane=$('mobile-settings-panel'),backdrop=$('mobile-backdrop');
+ for(const viewport of [{width:390,height:844,coarse:true},{width:844,height:390,coarse:true},{width:900,height:700,coarse:true},{width:1280,height:800,coarse:false}]){
+  const style=cascade(pane,viewport),shade=cascade(backdrop,viewport);
+  assert.equal(style.display,'block');assert.equal(style.opacity,'1');assert.equal(style.visibility,'visible');assert.equal(style['pointer-events'],'auto');assert.equal(style.transform,'none');
+  assert(+style['z-index']>+shade['z-index'],'The touch panel must be above its backdrop');
+  assert(style['max-height'].includes('72dvh'),'Legacy !important must not remove the scrollable sheet height');
+ }
+ const legacy=cascade(pane,{width:390,height:844,coarse:true},true);
+ assert.equal(legacy.opacity,'0','The regression fixture reproduces the invisible legacy drawer');assert.equal(legacy['pointer-events'],'none');
+ assert.equal(cascade($('wb-left'),{width:390,height:844,coarse:true}).display,'none','Only one sheet is visible');
+}
+
 assert($('loading').hidden,$('loading').textContent);assert(document.body.classList.contains('workbench'));
 assert($('wb-left').contains($('placement-preview-gallery')),'Visual library lives beside the map');assert($('mobile-settings-panel').contains($('selection-editor-panel')));assert.equal($('wb-modes').querySelectorAll('button').length,3);
 assert.equal($('wb-library-categories').querySelectorAll('button').length,10);assert.equal($('placement-category').querySelectorAll('option').length,21);
@@ -54,6 +90,7 @@ $('wb-nav-settings').click();assert.equal($('wb-settings-index').querySelectorAl
 $('wb-pref-layout').value='mobile';$('wb-pref-layout').onchange();assert(document.body.classList.contains('wb-mobile'));assert.equal($('wb-mobile-dock')?.querySelectorAll('button').length||document.querySelector('.wb-mobile-dock').querySelectorAll('button').length,5);
 $('wb-mobile-add').click();assert.equal(document.body.dataset.wbSheet,'library');assert.equal($('wb-left').getAttribute('aria-modal'),'true');assert(!$('mobile-backdrop').hidden);$('wb-category-tree').click();$('placement-preview-gallery').querySelector('[data-preview-item="tree-4"]').click();assert(!document.body.dataset.wbSheet,'Choosing a visual model returns the touch user to the map');
 $('wb-mobile-add').click();const sheetHead=$('wb-left').querySelector('.wb-pane-head');for(const [type,y]of [['pointerdown',100],['pointerup',180]]){const e=new window.Event(type,{bubbles:true});Object.assign(e,{clientX:150,clientY:y,pointerId:9});sheetHead.dispatchEvent(e)}assert(!document.body.dataset.wbSheet,'Dragging the sheet header down closes the touch panel');
+$('wb-mode-route').click();assert.equal(document.body.dataset.wbSheet,'properties');assert(!$('route-config-panel').hidden);assertTouchSheet();$('wb-mode-review').click();assert.equal(document.body.dataset.wbSheet,'properties');assert(!$('engine-review-panel').hidden);assertTouchSheet();$('wb-mode-build').click();assert(!document.body.dataset.wbSheet);assert($('mobile-backdrop').hidden);
 $('wb-mobile-properties').click();assert.equal(document.body.dataset.wbSheet,'properties');assert.equal($('mobile-settings-panel').getAttribute('aria-modal'),'true');assert.equal($('wb-left').getAttribute('aria-modal'),null);$('wb-properties-close').click();assert(!document.body.dataset.wbSheet);assert($('mobile-backdrop').hidden);
 $('wb-pref-closeOnPlace').checked=false;$('wb-pref-closeOnPlace').onchange();$('wb-mobile-add').click();$('placement-preview-gallery').querySelector('[data-preview-item="tree-4"]').click();assert.equal(document.body.dataset.wbSheet,'library');$('mobile-backdrop').click();assert(!document.body.dataset.wbSheet);
 $('wb-pref-hand').value='left';$('wb-pref-hand').onchange();$('wb-pref-touchSize').value='large';$('wb-pref-touchSize').onchange();$('wb-pref-sheetSize').value='compact';$('wb-pref-sheetSize').onchange();assert.equal(document.body.dataset.wbHand,'left');assert.equal(document.body.dataset.wbTouch,'large');assert.equal(document.body.dataset.wbSheetSize,'compact');assert.equal(JSON.parse(storage.get('apulso-workbench-preferences-v1')).hand,'left');

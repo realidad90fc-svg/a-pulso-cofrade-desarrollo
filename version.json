@@ -1,1 +1,1 @@
-{"version":"dev-2026.10.16-estudio-3.0.0","stage":"development","note":"3.0.0: nuevo estudio visual, biblioteca con búsqueda, inspector contextual, capas y distribución táctil con ajustes propios."}
+{"version":"dev-2026.10.16-estudio-3.0.0-mobile1","stage":"development","note":"Corrección móvil: Recorrido y Revisión abren controles visibles y utilizables; se elimina el bloqueo de la capa gris."}

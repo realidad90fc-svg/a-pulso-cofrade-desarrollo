@@ -47,7 +47,7 @@ jobs:
         shell: pwsh
         run: |
           $renderQa = Join-Path $env:RUNNER_TEMP 'apulso-render-qa'
-          npm install --prefix $renderQa --no-audit --no-fund @napi-rs/canvas linkedom fake-indexeddb
+          npm install --prefix $renderQa --no-audit --no-fund @napi-rs/canvas linkedom fake-indexeddb postcss specificity
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:CODEX_PRIMARY_RUNTIME_NODE_MODULES = Join-Path $renderQa 'node_modules'
           $env:APULSO_DOM_TEST_MODULES = $env:CODEX_PRIMARY_RUNTIME_NODE_MODULES

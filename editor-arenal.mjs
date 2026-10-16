@@ -1,4 +1,4 @@
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=3.0.0-mobile1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
