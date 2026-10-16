@@ -1,4 +1,5 @@
 import {overheadObstacles,obstacleApplies} from './overhead-elements.mjs';
+import {removeArenalPreset} from './arenal-manual-route.mjs';
 // Apply editor layers to real-time game preview on the SAME origin as the editor.
 // The production game retains its native source data; local drafts are opt-in
 // by existence and can be disabled via ?editor=off.
@@ -242,10 +243,10 @@ export function attachEditorDraft(sim,draftOverride=undefined){
 }
 export class RuntimeEditorDraft{
  constructor(draft){
-  this.key=draft.mapKey;this.layers=draft.layers;this.total=draft.total;this.resources=draft.resources||[];
+  this.key=draft.mapKey;this.layers=removeArenalPreset(draft.layers,this.key);this.total=draft.total;this.resources=draft.resources||[];
    // Previously discarded by the runtime wrapper: caused editor-defined starts not to load.
    this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
-  this.labels=Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[]);
+  this.labels=removeArenalPreset({labels:Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[])},this.key).labels;
   this.streetIdentifiers=new StreetIdentifiers(this.labels);
   // Replacing an Arenal scene also replaces its solid objects. Unchanged
   // buildings and spectators must still block an edited start or road.
@@ -312,7 +313,7 @@ export class RuntimeEditorDraft{
    if(Math.hypot(pos.x-cp.position[0],pos.y-cp.position[1])>Math.max(.30,Math.min(2,cp.radius||.65)))continue;
    this.reachedCheckpoints.add(cp.id);
    // The game's native checkpoint and campaign logic still validate their
-   // own prerequisites (notably the mandatory Baratillo presentation).
+   // own configured prerequisites.
    sim.emit('checkpoint');
    if(!sim.routeAdapter&&!sim.checkpointState)sim.checkpointState=sim.snapshot();
   }

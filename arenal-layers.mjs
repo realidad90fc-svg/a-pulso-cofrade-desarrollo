@@ -424,7 +424,6 @@ export function paintArenalScene(route,ctx,images,r){
   if(lot.facade&&boxhit(facadeVisualBounds(lot),r))
    drawFacadeDecor(ctx,lot,(x,y)=>[px(x),py(y)],p);
  }
- route.paintBaratillo(ctx,r,images);
  route.paintAdrianoFurniture(ctx,r,images);
  ctx.save();ctx.globalAlpha=route.scene.ambient.darkness;
  ctx.fillStyle=route.scene.ambient.tint;ctx.fillRect(0,0,(r[2]-r[0])*p,(r[3]-r[1])*p);ctx.restore();

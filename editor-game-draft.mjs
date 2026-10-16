@@ -1,4 +1,5 @@
 import {hasGameplay,cleanGameplay} from './map-gameplay.mjs';
+import {removeArenalPreset} from './arenal-manual-route.mjs';
 // Convert editor working copies to game data. Arenal owns its complete scene;
 // other original maps retain additive patches over their native environment.
 // No reference-photo bytes or positional metadata are included.
@@ -14,6 +15,7 @@ function sceneSignature(kind,item){
  const resized=value.edit?.resized;delete value.edit;if(resized)value.edit={resized:true};return stringify(value);
 }
 export function makeGameDraft(data,baseline){
+ data=removeArenalPreset(data);baseline=removeArenalPreset(baseline);
  const layers={};let removedCount=0;
  for(const kind of MAP_KINDS){
   const existing=new Map();

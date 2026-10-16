@@ -168,7 +168,6 @@ export function paintRebuiltArenal(route,ctx,images,r){
   layer.scene=old;ctx.restore();
  }
  // PHASE 3 landmark: checkpoint and actual red chapel portal.
- route.paintBaratillo(ctx,r,images);
  route.paintAdrianoFurniture(ctx,r,images);
  ctx.save();ctx.globalAlpha=scene.ambient.darkness;box(r,scene.ambient.tint);ctx.restore();
  // PHASE 2 top layer: crowds positioned on the actual visible pavement.

@@ -1,10 +1,11 @@
 import {isDrawingTool,hasDrawingDraft,appendDrawingPoint,clearDrawing,undoDrawingPoint,redoDrawingPoint} from './editor-drawing-history.mjs';
 import {createMapNavigation} from './editor-map-navigation.mjs';
+import {removeArenalPreset} from './arenal-manual-route.mjs';
 import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy-resize.mjs';
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=transparencia-1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=itinerario-manual-1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -13,7 +14,7 @@ import {setupCityManager} from './city-manager.mjs';
 import {blankMapDocument,validateMapDocument,MAP_STORAGE_PREFIX,KINDS} from './city-project.mjs';
 import {paintCityScene} from './city-scene.mjs';
 import {loadSevilleTextures,onTextureReady} from './seville-textures.mjs';
-import {ARENAL_MAP, ARENAL_ROUTE, BARATILLO} from './arenal-data.mjs';
+import {ARENAL_MAP, ARENAL_ROUTE} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
 import {EDITOR_MAPS,DEFAULT_MAP,SCHEMA,buildEditorMap} from './editor-map-catalog.mjs';
 import {createPhotoGuides} from './editor-photo-guides.mjs';
@@ -869,7 +870,7 @@ function setData(loaded){
   if(loaded[type].some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.some(x=>!Array.isArray(x)||!Number.isFinite(x[0])||!Number.isFinite(x[1]))))throw new Error('Hay polígonos inválidos en '+type);
  validateMapDocument(loaded);
  registerCustomAssets(loaded.resources||[]);
- data=loaded;clearSelection();state.history=[];state.future=[];
+ data=removeArenalPreset(loaded);clearSelection();state.history=[];state.future=[];
  data.customObjects??=[];
  void loadDocumentAssets(data,{persist:true}).then(()=>{customAssetUI?.refresh();requestDraw()}).catch(error=>show(error.message,'error'));
  if(!data.paso)data.paso={...baseline.paso};
@@ -902,10 +903,10 @@ function prepareMap(animation){
   sidewalks:route.sidewalks.map(x=>({poly:x.poly.map(p=>[...p])})),
   houses:route.buildings.map(x=>({poly:x.poly.map(p=>[...p]),key:x.key,kind:x.kind||'house'})),
   people:route.people.map(x=>({point:[...x.point],key:x.key,size:[...x.size]})),
-  checkpoint:[...BARATILLO.position],
+  checkpoint:[...ARENAL_ROUTE.start.position],
   paso:{x:ARENAL_ROUTE.start.position[0],y:ARENAL_ROUTE.start.position[1],angle:ARENAL_ROUTE.start.angle||147},
   labels:[
-   ['Arfe',[48.3,33.8]],['Adriano',[42.6,35.1]],['Capilla del Baratillo',[40.9,35.4]],
+   ['Arfe',[48.3,33.8]],['Adriano',[42.6,35.1]],
    ['Pastor y Landero',[39.0,45.8]],['Reyes Católicos',[40.0,29.6]]
   ]
  };
@@ -1240,7 +1241,7 @@ function getBaselineDocument(key){
 }
 function getStoredDocument(key){
  const raw=localStorage.getItem(storageFor(key));
- if(raw){const doc=JSON.parse(raw);validateMapDocument(doc);return doc}
+  if(raw){const doc=JSON.parse(raw);validateMapDocument(doc);return removeArenalPreset(doc)}
  return getBaselineDocument(key);
 }
 function registerUserMap(meta){

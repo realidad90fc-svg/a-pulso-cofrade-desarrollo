@@ -65,6 +65,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-workflow.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/arenal-manual-route.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/arenal-event.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/map-gameplay.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-map-navigation.mjs

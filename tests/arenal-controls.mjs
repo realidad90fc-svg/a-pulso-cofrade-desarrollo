@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import{data,resources,OriginalSimulation,prepareMap,prepareStep}from'./resources.mjs';import{customMap}from'../custom-routes.mjs';import{ARENAL_ROUTE as route,BARATILLO,MODULO_ADRIANO,MODULO_PASTOR_LANDERO,adrianoPoint}from'../arenal-data.mjs';
+const make=()=>new OriginalSimulation(customMap(prepareMap(data.maps[4]),route.mapKey,route),prepareStep(data.steps[6]),resources);
+const tick=s=>{s.tick(1/60);assert.equal(s.state.status,'playing',JSON.stringify({p:[s.state.x,s.state.y],a:s.angle(s.stepEntity.transform),reason:s.prefs.motivoGameOver}));};
+const wait=(s,fn,max=2400)=>{for(let i=0;i<max&&!fn();i++)tick(s);assert(fn(),'Native control timeout');};
+const prepare=(pos,angle)=>{const s=make();for(let i=0;i<420;i++)tick(s);if(pos){s.setPosition(s.stepEntity.transform,[...pos,0]);s.setAngle(s.stepEntity.transform,angle);}return s;};
+const delta=(a,b)=>((a-b+540)%360)-180;
+const turn=(s,target)=>{const diff=delta(target,s.angle(s.stepEntity.transform));const before=diff;assert(s.command(diff<0?11:12));let frames=0;while(Math.abs(delta(target,s.angle(s.stepEntity.transform)))>1.5&&frames++<4800)tick(s);assert(frames<4800);assert(s.command(10));wait(s,()=>s.buttons[0].interactable);return frames;};
+const progress=(s,length)=>{const start=s.position(s.stepEntity.transform);assert(s.command(0));wait(s,()=>Math.hypot(s.state.x-start.x,s.state.y-start.y)>=length,4800);assert(s.command(10));wait(s,()=>s.buttons[0].interactable);};
+const rest=s=>{assert(s.command(8));wait(s,()=>s.state.animation==='pasoBajado');wait(s,()=>s.controller.resistencia===s.controller.maxResist);wait(s,()=>s.buttons[8].interactable);assert(s.command(8));wait(s,()=>s.buttons[0].interactable);};
+const arfe=prepare();progress(arfe,1.9);turn(arfe,36.666);progress(arfe,1.4);
+const temple=prepare(adrianoPoint(5.4,-1.22),36.666);turn(temple,BARATILLO.heading);for(let i=0;i<150;i++)tick(temple);assert.equal(temple.routeAdapter.presentationIds.length,0);rest(temple);turn(temple,36.666);progress(temple,1.3);
+const corner=prepare(MODULO_PASTOR_LANDERO.points[0],36.666);turn(corner,-12.53);progress(corner,1.3);
+const reyes=prepare([39.63,48.82],-12.53);turn(reyes,90);progress(reyes,1.4);
+const resting=prepare(BARATILLO.position,36.666);resting.controller.resistencia=60;assert(resting.command(8));wait(resting,()=>resting.state.animation==='pasoBajado');wait(resting,()=>resting.controller.resistencia===resting.controller.maxResist);wait(resting,()=>resting.buttons[8].interactable);assert(resting.command(8));wait(resting,()=>resting.buttons[0].interactable);progress(resting,.4);
+console.log('Original controls: Arfe passage, first corner, free Adriano turn/hold/re-align/exit without an automatic presentation, Pastor corner, reverse Reyes turn and lower/rest/full recovery/native knock/raise/move passed. No pose changes occur inside each manoeuvre.');
