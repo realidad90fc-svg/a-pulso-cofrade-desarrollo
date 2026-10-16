@@ -4,7 +4,7 @@ import {selectionLocked} from './editor-item-state.mjs';
 import {CONTENT_STEPS} from './content-catalogue.mjs';
 export function setupOverheadUI({state,getData,snapshot,changed,show,canWrite}){
  const $=id=>document.getElementById(id),host=document.createElement('fieldset');host.id='overhead-settings';host.hidden=true;
- host.innerHTML=`<legend>Toldo, dintel o arco independiente</legend><p id="overhead-context" class="notice"></p>
+ host.innerHTML=`<legend>Toldo, dintel o arco independiente</legend><p id="overhead-context" class="notice"></p><p class="muted">Los toldos muestran cuatro esquinas y cuatro tiradores laterales en el plano. Arrastra para cambiar su ancho y fondo; arrastra el interior para moverlos. La altura libre se ajusta aquí.</p>
  <div class="precision-two"><label>Ancho total (m)<input id="overhead-width" type="number" min=".1" max="100" step=".05" value="3"></label><label>Fondo (m)<input id="overhead-depth" type="number" min=".05" max="100" step=".05" value="1.2"></label></div>
  <label>Altura libre bajo la pieza (m)<input id="overhead-clearance" type="number" min=".1" max="20" step=".05" value="3.5"></label>
  <label>Giro (°)<input id="overhead-angle" type="number" min="-360" max="360" step="1" value="0"></label>

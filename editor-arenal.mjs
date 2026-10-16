@@ -1,3 +1,4 @@
+import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy-resize.mjs';
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
@@ -144,11 +145,13 @@ function saveLocal(){
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
+ if(state.drag?.action==='resize-canopy'){state.drag=null;canvas.style.cursor=''}
  if(!state.history.length)return;
  state.future.push(JSON.stringify(data));
  data=JSON.parse(state.history.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
 }
 function redo(){
+ cancelCanopyResize();
  if(!state.future.length)return;
  state.history.push(JSON.stringify(data));
  data=JSON.parse(state.future.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
@@ -359,6 +362,7 @@ function draw(){
   }
  }
  if(state.tool==='select'&&state.selectedItems.length&&!lockedSelection){
+  const canopy=selectedCanopy();if(canopy)drawCanopyHandles(ctx,canopy.item,pixel,{touch:document.body.classList.contains('wb-mobile'),active:state.drag?.action==='resize-canopy'?state.drag.handle.id:null});
   const position=rotationHandlePosition();
   if(position){
    const [cx,hy]=position.handle,[ax,ay]=position.anchor;
@@ -453,6 +457,7 @@ $('mobile-step-left')?.addEventListener('click',()=>rotatePasoOnMobile(5));
 $('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 
 function configureTool(name){
+ cancelCanopyResize();canvas.style.cursor='';
  state.tool=name;state.working=[];state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
  $('finish-shape').disabled=!['road','house','sidewalk','hole','collision-draw'].includes(name);
@@ -597,6 +602,25 @@ function finishPolygon(){
   show('Casa terminada: '+roof.name+'. Próximo tejado: '+roofById(state.material).name+'.','good');
  }else show('Polígono añadido. Revisa si invade otra capa.','good');
 }
+function selectedCanopy(){
+ if(state.tool!=='select'||state.selectedItems.length!==1)return null;
+ const selection=state.selectedItems[0],item=selection.type==='urban'?data.urban[selection.index]:null;
+ return isCanopy(item)?{item,selection}:null;
+}
+function cancelCanopyResize(){
+ const drag=state.drag;if(drag?.action!=='resize-canopy')return false;
+ state.drag=null;canvas.style.cursor='';
+ if(drag.moved&&data.metadata.mapKey===drag.mapKey){data.urban[drag.index]=structuredClone(drag.original);state.history=drag.history;state.future=drag.future;changed();state.unsaved=drag.unsaved;if(!drag.unsaved)clearTimeout(saveTimer);updateCounts()}
+ return true;
+}
+function moveCanopyResize(drag,pos,q){
+ if(data.metadata.mapKey!==drag.mapKey)return;
+ if(projectUI&&!projectUI.canWrite()){cancelCanopyResize();show('Recarga el proyecto antes de editarlo.','error');return}
+ if(!drag.moved&&dist(pos,drag.screenStart)<2)return;
+ const next=resizeCanopy(drag.original,drag.handle,drag.start,q);if(!next)return;
+ if(!drag.moved){snapshot();drag.moved=true}
+ data.urban[drag.index]=next;canvas.style.cursor=drag.handle.cursor;changed();clearTimeout(saveTimer);
+}
 function rotationHandlePosition(){
  const geometry=selectionGeometry(data,state.selectedItems);
  if(!geometry)return null;
@@ -619,7 +643,7 @@ function pointerDown(e){
  const pos=pointEvent(e);
  state.pointers.set(e.pointerId,pos);
  if(state.pointers.size===2){
-  gameplayUI?.up(true);
+  cancelCanopyResize();gameplayUI?.up(true);
   const arr=[...state.pointers.values()];
   state.pinch={gap:dist(arr[0],arr[1]),mid:[(arr[0][0]+arr[1][0])/2,(arr[0][1]+arr[1][1])/2],zoom:view.zoom};
   state.drag=null;return;
@@ -673,12 +697,18 @@ function pointerDown(e){
   const type=$('urban-type').value||'crosswalk';
   if(urbanIsMarking(type)){state.drag={action:'urban-mark',type,start:q,end:q};requestDraw();return}
   let item;try{item=newUrbanElement(type,q,overheadType(type)?overheadUI.options():{});validateOverhead(item)}catch(e){show(e.message,'error');return}snapshot();data.urban.push(item);
-  changed();show(urbanName(type)+' colocado. Selecciónalo para moverlo o girarlo.','good');return;
+  if(isCanopy(item)){configureTool('select');setSelection([{type:'urban',index:data.urban.length-1,vertex:-1}]);changed();show('Toldo colocado. Arrastra sus esquinas o laterales para ajustar el tamaño.','good')}else{changed();show(urbanName(type)+' colocado. Selecciónalo para moverlo o girarlo.','good')}return;
  }
  if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
  if(state.tool==='checkpoint'){snapshot();const id='manual-'+Date.now();data.checkpoints.push({id,name:'Control '+(data.checkpoints.length+1),position:q.map(x=>+x.toFixed(3))});changed();return}
  if(state.tool==='erase'){snapshot();eraseAt(q);state.drag={action:'erase'};return}
  if(state.tool==='select'){
+  const canopy=selectedCanopy(),sizeHandle=canopy&&pickCanopyHandle(canopy.item,pos,pixel,e.pointerType);
+  if(sizeHandle){
+   if(!canEdit()||projectUI&&!projectUI.canWrite())return;
+   state.drag={action:'resize-canopy',index:canopy.selection.index,mapKey:data.metadata.mapKey,original:structuredClone(canopy.item),handle:sizeHandle,start:q,screenStart:pos,moved:false,history:[...state.history],future:[...state.future],unsaved:state.unsaved};
+   canvas.style.cursor=sizeHandle.cursor;requestDraw();return;
+  }
   const rotate=onRotationHandle(pos);
   if(rotate){
    if(!canEdit())return;
@@ -719,9 +749,10 @@ function pointerMove(e){
  const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;$('coords').textContent=q.map(x=>x.toFixed(2)).join(' · ');
  if(known&&gameplayUI?.move(q))return;
  if(state.tool==='reference'){photoGuides?.pointerMove(pos);return}
- if(!state.drag||!known){if(state.tool==='people'||state.tool==='template'||state.working.length||precisionTools?.uses(state.tool))requestDraw(true);return}
+ if(!state.drag||!known){const canopy=selectedCanopy(),handle=canopy&&!selectionLocked(data,state.selectedItems)&&pickCanopyHandle(canopy.item,pos,pixel,e.pointerType);canvas.style.cursor=handle?.cursor||'';if(state.tool==='people'||state.tool==='template'||state.working.length||precisionTools?.uses(state.tool))requestDraw(true);return}
  const a=state.drag,dx=(pos[0]-(a.pos?.[0]??pos[0]))/view.zoom,
   dy=-(pos[1]-(a.pos?.[1]??pos[1]))/view.zoom;
+ if(a.action==='resize-canopy'){moveCanopyResize(a,pos,q);return}
  if(a.action==='pan'){view.cx-=dx;view.cy-=dy;a.pos=pos;requestDraw();return}
  if(a.action==='people'){
   // Sample evenly along each pointer segment. Strokes are gap-free at any
@@ -767,6 +798,7 @@ function pointerMove(e){
 function pointerUp(e){
  gameplayUI?.up(e.type==='pointercancel');
  const a=state.drag,ending=e.type!=='pointercancel';
+ if(a?.action==='resize-canopy'){if(!ending)cancelCanopyResize();else{const pos=pointEvent(e),raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;moveCanopyResize(a,pos,q);canvas.style.cursor='';if(a.moved&&state.drag===a){state.drag=null;changed()}}}
  if(ending&&a?.action==='custom-row'&&a.asset){
   snapshot();const len=dist(a.start,a.end),spacing=Math.max(.05,Number($('furniture-spacing').value)||.7),n=Math.min(500,Math.floor(len/spacing)+1),angle=Math.atan2(a.end[1]-a.start[1],a.end[0]-a.start[0])*180/Math.PI;
   for(let i=0;i<n;i++){const t=n<=1?0:i/(n-1),item=newCustomObject(a.asset,[a.start[0]+(a.end[0]-a.start[0])*t,a.start[1]+(a.end[1]-a.start[1])*t]);item.angle=(item.angle+angle)%360;data.customObjects.push(item)}changed();
@@ -1110,7 +1142,7 @@ function bind(){
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){gameplayUI?.up(true);state.working=[];precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
+  if(e.key==='Escape'){if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);state.working=[];precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
   if((e.key==='Delete'||e.key==='Backspace')&&!gameplayUI?.uses())deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);

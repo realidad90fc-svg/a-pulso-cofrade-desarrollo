@@ -9,3 +9,7 @@ La altura libre se compara con la altura de simulación del paso en posición no
 Las piezas se almacenan en la capa urban, con size, clearance y pier; las calibraciones en gameplay.heightProfiles. Se conservan en exportaciones, proyectos, versiones y publicación. La API valida las nuevas piezas y elimina campos ajenos al formato público.
 
 Comprobación: pruebas con el motor original para ocho pasos y los modos de colisión heredada y sustituida, validación inicial, colisión al jugar, estados normal/agachado/arriado, medidas, plantillas, perfiles, publicación y flujo DOM/Canvas de colocación y edición. Las pruebas de CSS móvil incluyen la corrección anterior de la capa gris. Pendiente revisión manual en navegador y teléfono físico.
+
+## Redimensionado manual de toldos
+
+Al colocar un toldo independiente se activa Seleccionar y aparecen ocho tiradores: cuatro esquinas para cambiar ambas dimensiones y cuatro puntos medios para cambiar una sola. El borde opuesto permanece fijo aunque el toldo esté girado. Los blancos táctiles son de 48 píxeles; el dibujo de los tiradores conserva su tamaño en pantalla al acercar o alejar. El arrastre tiene una sola operación de Deshacer; Esc, cancelar el puntero o añadir un segundo dedo restauran la geometría previa. Las piezas bloqueadas no se pueden redimensionar. La altura libre se conserva; el volumen de colisión sigue al nuevo tamaño.

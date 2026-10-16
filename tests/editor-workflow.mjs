@@ -93,7 +93,7 @@ assert.deepEqual(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).l
 assert.equal(JSON.parse(storage.get('apulso-universal-editor-v2:'+active)).houses[0].facade.bladeSign,'pharmacy','Shop symbol survives reopen');
 
 // Every placeable tool, including decorative options, has the same visual chooser.
-const category=$('placement-category');assert.equal(category.options.length,21,'All placement families and imported resources have a visual catalogue');
+const category=$('placement-category');assert.equal(category.options.length,22,'All placement families and imported resources have a visual catalogue');
 const chooseCategory=id=>{category.value=id;category.dispatchEvent(new window.Event('change',{bubbles:true}))};
 const chooseCard=id=>{$('placement-preview-gallery').querySelector('[data-preview-item="'+id+'"]').click()};
 const catalogueBefore=storage.get('apulso-universal-editor-v2:'+active);
@@ -182,5 +182,6 @@ $('edit-members').checked=false;$('edit-members').onchange();keyEvent('c',{ctrlK
 $('export').onclick();const complete=JSON.parse(await download.text());assert(complete.chairs.some(c=>c.depth===.6));assert(complete.resources.every(a=>a.image));
 $('map-select').value='RegresoArenal';$('map-select').onchange();await flush();$('map-select').value=editKey;$('map-select').onchange();await flush();assert.equal(readEdit().houses.length,3);assert(readEdit().chairs.some(c=>c.depth===.6),'Precise measures and groups survive changing maps and reopening');
 fs.writeFileSync(new URL('editor-selection-templates.png',out),canvases.get($('editor-canvas')).toBuffer('image/png'));URL.createObjectURL=originalCreate;
-console.log('PASS editor UI: original maps, 21 catalogues, resources/precision, mixed copy/duplicate/keyboard paste, group locks, exact member sizes, portable templates with images, independent rotated placement and reopen. DOM/Canvas only; browser QA remains separate.');
+console.log('PASS editor UI: original maps, 22 catalogues, resources/precision, mixed copy/duplicate/keyboard paste, group locks, exact member sizes, portable templates with images, independent rotated placement and reopen. DOM/Canvas only; browser QA remains separate.');
 process.exit(0);
+
