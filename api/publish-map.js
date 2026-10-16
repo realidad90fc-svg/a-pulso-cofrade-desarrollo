@@ -63,6 +63,9 @@ function cleanItem(v,kind){
     for(const key of ['shop','awning','awningColor','awningPreset','balcony','bladeSign'])if(f[key]!==undefined)result.facade[key]=string(f[key],80);
     if(f.sign!==undefined)result.facade.sign=string(f.sign,100);
     for(const key of ['edge','awningDepth','awningStart','awningWidth'])if(f[key]!==undefined)result.facade[key]=number(f[key],0,0,key==='edge'?10000:20);
+    for(const key of ['balconyStart','balconyWidth'])if(f[key]!==undefined)result.facade[key]=number(f[key],key==='balconyStart'?.06:.88,key==='balconyStart'?0:.1,key==='balconyStart'?.85:1);
+    if(f.balconyCount!==undefined){result.facade.balconyCount=number(f.balconyCount,2,1,6);if(!Number.isInteger(result.facade.balconyCount))fail('Cantidad de balcones no válida.');}
+    for(const key of ['flowers','hangings'])if(f[key]!==undefined){if(typeof f[key]!=='boolean')fail('Detalle de balcón no válido.');result.facade[key]=f[key];}
     for(const key of ['bladePosition','bladeDepth','bladeSize'])if(f[key]!==undefined)result.facade[key]=number(f[key],key==='bladePosition'?.22:key==='bladeDepth'?.65:.6,key==='bladePosition'?.05:.25,key==='bladePosition'?.95:key==='bladeDepth'?1.5:1);
    }
   }

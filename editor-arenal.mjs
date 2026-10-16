@@ -1,8 +1,9 @@
+import {isDrawingTool,hasDrawingDraft,appendDrawingPoint,clearDrawing,undoDrawingPoint,redoDrawingPoint} from './editor-drawing-history.mjs';
 import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy-resize.mjs';
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=3.0.0-mobile1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=balcones-puntos-1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -53,7 +54,7 @@ const getId=(key)=>String(key).split(':').at(-1);
 const images=new Map();
 const roofPreviewCache=new Map(); // Reuse drawings when switching roofs or adding many houses.
 const view={cx:40,cy:42,zoom:24,w:900,h:650,dpr:1};
-const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
+const state={tool:'pan',layer:'house',material:SEVILLA_NEIGHBOURHOOD_ROOFS[0].id,roadMaterial:ROAD_MATERIALS[0].id,sidewalkMaterial:SIDEWALK_MATERIALS[0].id,treeVariant:TREE_VARIANTS[0].id,treeIndex:0,peopleIndex:0,audience:'sharedassets2.assets:379',selected:null,selectedItems:[],working:[],workingFuture:[],history:[],future:[],busy:false,reference:null,referenceOpacity:.36,referenceScale:1,drag:null,pointers:new Map(),pinch:null,paso:null,unsaved:false};
 let sprites={},data=null,baseline=null,frames=false,saveTimer=null,activeMap=DEFAULT_MAP,nativeMaps=[],animationData=null,photoGuides=null,visualPanels=null,cityManager=null;
 const baselineCache=new Map();
 
@@ -145,12 +146,14 @@ function saveLocal(){
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
+ if(hasDrawingDraft(state)){const removed=undoDrawingPoint(state);requestDraw(true);show(removed?'Último punto quitado. Puedes recuperarlo con Rehacer.':'No quedan puntos que quitar. Usa Rehacer para recuperarlos.');return}
  if(state.drag?.action==='resize-canopy'){state.drag=null;canvas.style.cursor=''}
  if(!state.history.length)return;
  state.future.push(JSON.stringify(data));
  data=JSON.parse(state.history.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
 }
 function redo(){
+ if(hasDrawingDraft(state)){const restored=redoDrawingPoint(state);requestDraw(true);show(restored?'Punto recuperado. Puedes continuar el trazado.':'No hay puntos pendientes de recuperar.');return}
  cancelCanopyResize();
  if(!state.future.length)return;
  state.history.push(JSON.stringify(data));
@@ -427,7 +430,7 @@ function drawPaso(){
  templatesUI?.overlay(ctx);
 }
 function requestDraw(overlayOnly=false){
- placementPreviews?.sync();
+ placementPreviews?.sync();workbenchUI?.syncHistory?.();
  if(!overlayOnly)staticMapDirty=true;
  if(!frames){frames=true;requestAnimationFrame(draw)}
 }
@@ -458,7 +461,7 @@ $('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 
 function configureTool(name){
  cancelCanopyResize();canvas.style.cursor='';
- state.tool=name;state.working=[];state.drag=null;canvas.dataset.tool=name;
+ if(state.tool!==name)clearDrawing(state);state.tool=name;state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
  $('finish-shape').disabled=!['road','house','sidewalk','hole','collision-draw'].includes(name);
  updateCounts();requestDraw();
@@ -596,7 +599,7 @@ function finishPolygon(){
  data.metadata.precisionGeometry=true;
  data[kind].push(kind==='houses'?{poly,key:roof.key,material:roof.id,kind:'manual',roofInset:Number($('roof-inset').value)||.05,roofDetail:$('roof-detail').value,roofBorder:$('roof-border').value,roofSimplify:$('roof-simplify').checked,roofSeed:residentialSeed(poly,data.houses.length)}:{poly,material:kind==='roads'?state.roadMaterial:state.sidewalkMaterial});
  if(state.pendingTexture)data[kind].at(-1).texture={...state.pendingTexture};
- state.working=[];changed();
+ clearDrawing(state);changed();
  if(kind==='houses'){
   advanceRoof();
   show('Casa terminada: '+roof.name+'. Próximo tejado: '+roofById(state.material).name+'.','good');
@@ -673,7 +676,7 @@ function pointerDown(e){
  }
  if(['road','sidewalk','house'].includes(state.tool)){
   if(state.working.length>=3&&dist(q,state.working[0])<10/view.zoom){finishPolygon();return}
-  state.working.push(q);requestDraw();return;
+  appendDrawingPoint(state,q);requestDraw();return;
  }
  if(state.tool==='people'){
   snapshot();const brush=makeCrowdStroke(visibleSpectators(data.people,data.trees));
@@ -1036,7 +1039,7 @@ function bind(){
  for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>configureTool(button.dataset.tool);
  for(const id of ['grid-on','labels-on','houses-on','roads-on','sidewalks-on','public-on','paso-on','trees-on','signs-on','checkpoints-on','fences-on','chairs-on','urban-on','surface-clear-preview'])$(id).onchange=requestDraw;
  $('finish-shape').onclick=finishPolygon;
- $('cancel-shape').onclick=()=>{state.working=[];requestDraw()};
+ $('cancel-shape').onclick=()=>{clearDrawing(state);requestDraw();show('Trazado cancelado.','info')};
  $('delete-selected').onclick=deleteSelected;
  $('clear-selected').onclick=clearSelection;
  $('road-material').onchange=e=>{state.roadMaterial=e.target.value};
@@ -1141,8 +1144,10 @@ function bind(){
  window.addEventListener('keydown',e=>{
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
+  if(isDrawingTool(state.tool)&&(e.key==='Backspace'||e.key==='Delete')){e.preventDefault();const removed=undoDrawingPoint(state);requestDraw(true);show(removed?'Último punto quitado. Rehacer lo recupera.':'No quedan puntos que quitar.');return}
   if(e.key==='Enter')finishPolygon();
-  if(e.key==='Escape'){if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);state.working=[];precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
+  if(e.key==='Escape'){if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);clearDrawing(state);precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
   if((e.key==='Delete'||e.key==='Backspace')&&!gameplayUI?.uses())deleteSelected();
   if(e.key==='+'||e.key==='=')zoomAt(1.2);
   if(e.key==='-')zoomAt(.83);
@@ -1184,7 +1189,7 @@ function fitMap(){
 function switchMap(key){
  if(!EDITOR_MAPS.some(m=>m.key===key))return;
  if(data){clearTimeout(saveTimer);saveLocal()}
- activeMap=key;clearSelection();state.working=[];state.mouseWorld=null;
+ activeMap=key;clearSelection();clearDrawing(state);state.mouseWorld=null;
  void photoGuides?.switchMap(key);
  state.history=[];state.future=[];state.pinch=null;state.drag=null;state.pointers.clear();
  baseline=getBaselineDocument(key);

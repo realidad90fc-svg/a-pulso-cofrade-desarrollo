@@ -1,3 +1,4 @@
+import {appendDrawingPoint,clearDrawing} from './editor-drawing-history.mjs';
 import {snapPoint,surfaceRings,validSurface,validRing,surfaceArea,nearestSurfaceEdge,mergeSurfaces,splitSurface,subtractSurface,validateTextureSettings} from './map-geometry.mjs';
 import {customAssetMaterial} from './custom-assets.mjs';
 import {surfaceById,roofById} from './editor-materials.mjs';
@@ -75,7 +76,7 @@ export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,
   const start=getData()[kind].length;getData()[kind].push(...parts);setSelection(parts.map((_,i)=>({type:kind,index:start+i,vertex:-1})));changed();refresh();show('Unión aplicada. Se conserva el material de la primera superficie.','good');
  });
  $('precision-point').onclick=guard(()=>{
-  const p=exactPoint();if(['road','sidewalk','house','hole'].includes(state.tool)){state.working.push(p);requestDraw(true);show('Punto exacto añadido.','good')}
+  const p=exactPoint();if(['road','sidewalk','house','hole'].includes(state.tool)){appendDrawingPoint(state,p);requestDraw(true);show('Punto exacto añadido.','good')}
   else{const {s}=one();updateVertex(s,p)}
  });
  const readTexture=()=>validateTextureSettings({width:+$('precision-texture-width').value,depth:+$('precision-texture-depth').value,angle:+$('precision-texture-angle').value,mode:$('precision-texture-mode').value});
@@ -96,13 +97,13 @@ export function setupPrecisionTools({state,getData,snapshot,changed,requestDraw,
    const {s,item}=one();let near=null;for(const [ringIndex,ring]of surfaceRings(item).entries())for(const [vertex,q]of ring.entries()){const d=Math.hypot(q[0]-p[0],q[1]-p[1]);if(!near||d<near.distance)near={ring:ringIndex,vertex,distance:d}}if(!near||near.distance>14/getZoom())throw Error('Pulsa cerca de una esquina.');removeVertex({...s,...near});return true;
   }
   if(state.tool==='split'){cut.push([...p]);if(cut.length===2){const points=cut;cut=[];requestDraw(true);const {s,item}=one(),parts=splitSurface(item,...points);applyParts(s,parts);configureTool('select');show('Superficie dividida.','good')}requestDraw(true);return true}
-  if(state.tool==='hole'){if(state.working.length>=3&&Math.hypot(p[0]-state.working[0][0],p[1]-state.working[0][1])<10/getZoom())finish();else state.working.push([...p]);requestDraw(true);return true}
+  if(state.tool==='hole'){if(state.working.length>=3&&Math.hypot(p[0]-state.working[0][0],p[1]-state.working[0][1])<10/getZoom())finish();else appendDrawingPoint(state,p);requestDraw(true);return true}
   return false;
  });
  const finish=guard(()=>{
   if(state.tool!=='hole')return false;const {s,item}=one();if(!validRing(state.working))throw Error('El patio necesita al menos tres puntos y un contorno sin cruces.');
   const parts=subtractSurface(item,state.working);if(!parts.length)throw Error('El recorte eliminaría toda la superficie.');if(Math.abs(parts.reduce((sum,p)=>sum+surfaceArea(p),0)-surfaceArea(item))<.00001)throw Error('El recorte no toca la superficie seleccionada.');
-  applyParts(s,parts);state.working=[];configureTool('select');show('Patio o hueco recortado. El suelo y las colisiones respetarán el contorno.','good');return true;
+  applyParts(s,parts);clearDrawing(state);configureTool('select');show('Patio o hueco recortado. El suelo y las colisiones respetarán el contorno.','good');return true;
  });
  function overlay(ctx){
   const line=points=>{if(points.length<2)return;ctx.beginPath();points.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.stroke()};

@@ -134,13 +134,16 @@ export function setupVisualPanels({state,getData,snapshot,changed,show,getFloorI
  };
  const updateCount=()=>{$('facade-balcony-count-value').textContent=fields.count.value};
  const updateDepth=()=>{$('facade-awning-depth-value').textContent=Number(fields.awningDepth.value).toFixed(2).replace('.',',')+' m'};
+ const balconySummary=document.createElement('p');balconySummary.id='facade-balcony-span';balconySummary.className='notice';balconySummary.setAttribute('role','status');$('facade-balcony-width').after(balconySummary);
  const updateSpans=()=>{
   for(const name of ['awningStart','awningWidth','balconyStart','balconyWidth']){
    const id='facade-'+name.replace(/[A-Z]/g,c=>'-'+c.toLowerCase());
    $(id+'-value').textContent=fields[name].value+' %';
   }
+  const selected=state.selectedItems.find(s=>s.type==='houses'),house=selected&&getData()?.houses?.[selected.index],edge=Number(fields.edge.value)||0,a=house?.poly?.[edge],b=house?.poly?.[(edge+1)%house.poly.length],length=a&&b?Math.hypot(b[0]-a[0],b[1]-a[1]):null,start=Number(fields.balconyStart.value)/100,end=Math.min(.98,start+Number(fields.balconyWidth.value)/100),span=end-start;
+  balconySummary.textContent=fields.balcony.value==='none'?'Elige un tipo de balcón. Inicio fija su posición y Tramo limita lo que ocupa en la fachada.':'Balcones: del '+Math.round(start*100)+' % al '+Math.round(end*100)+' % de la fachada'+(length?' · tramo de '+(span*length).toFixed(2).replace('.',',')+' m en el lado '+(edge+1):'')+'. Aplica la decoración al edificio para guardar el cambio.';
  };
- fields.count.addEventListener('input',updateCount);
+ fields.count.addEventListener('input',updateCount);for(const field of ['balcony','edge'])fields[field].addEventListener('change',updateSpans);
  for(const name of ['balcony','count','flowers','hangings'])for(const event of ['input','change'])fields[name].addEventListener(event,previewAwning);
  fields.awningDepth.addEventListener('input',()=>{updateDepth();previewAwning()});
  for(const field of ['awningStart','awningWidth','balconyStart','balconyWidth'])

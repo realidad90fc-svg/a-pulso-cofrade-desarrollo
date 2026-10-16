@@ -57,7 +57,7 @@
 <link rel="stylesheet" href="./city-manager.css">
 <link rel="stylesheet" href="./editor-gameplay.css">
 <link rel="stylesheet" href="./editor-project-review.css">
-<link rel="stylesheet" href="./editor-workbench.css?rev=3.0.0-mobile1">
+<link rel="stylesheet" href="./editor-workbench.css?rev=balcones-puntos-1">
 </head>
 <body>
 <header class="titlebar">
@@ -460,7 +460,7 @@
     <p><strong>Dibujar:</strong> usa las herramientas superiores. Público permite arrastrar libremente, Fila público crea hileras rectas y Nombre calle coloca textos editables.</p>
     <p><strong>Seleccionar:</strong> clic para uno, arrastrar para varios, ↻ para girar. Ctrl + clic suma o quita elementos; Mayús + arrastrar fuerza la selección por área.</p>
     <p><strong>Guardar</strong> conserva el borrador local. <strong>Exportar mapa</strong> descarga el JSON para compartirlo e integrarlo en el juego. <strong>Publicar mapa</strong> necesita GitHub y un despliegue de Vercel.</p>
-    <p class="hotkeys">En ordenador: rueda para zoom, Ctrl+Z para deshacer, Enter para cerrar un polígono y Supr para borrar la selección.</p>
+    <p class="hotkeys">En ordenador: rueda para zoom; Ctrl+Z deshace; Ctrl+Y o Ctrl+Mayús+Z rehace. Al dibujar, Retroceso o Supr quita solo el último punto. Enter termina el contorno. Fuera del trazado, Supr borra la selección.</p>
    </div>
   </details>
  </aside>
@@ -492,6 +492,6 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=toldos-tiradores-1"></script>
+<script type="module" src="./editor-arenal.mjs?rev=balcones-puntos-1"></script>
 </body>
 </html>

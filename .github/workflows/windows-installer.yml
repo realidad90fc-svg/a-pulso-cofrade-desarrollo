@@ -67,6 +67,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/map-gameplay.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/editor-drawing-history.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/canopy-resize.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/overhead-clearance.mjs
