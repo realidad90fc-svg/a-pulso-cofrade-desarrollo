@@ -4,7 +4,8 @@ import {removeArenalPreset} from './arenal-manual-route.mjs';
 // The production game retains its native source data; local drafts are opt-in
 // by existence and can be disabled via ?editor=off.
 import {multiply,inverse} from './original-scene.mjs';
-import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS} from './editor-materials.mjs';
+import {drawRoof,drawSurface,drawTree,drawFurniture,roofById,ROAD_MATERIALS,SIDEWALK_MATERIALS,TREE_VARIANTS} from './editor-materials.mjs';
+import {VEGETATION_FILES,textureImage,registerTexture} from './seville-textures.mjs';
 import {GAME_PATCH_PREFIX,EDITOR_PATCH_SCHEMA,MAP_KINDS} from './editor-game-draft.mjs';
 import {urbanIsMarking,urbanCollisionSize,urbanElementSize,drawUrbanElement} from './editor-urban-elements.mjs';
 import {pointInPolygon} from './engine.mjs';
@@ -335,10 +336,12 @@ export class RuntimeEditorDraft{
 export async function loadEditorDraftImages(layer,load,images){
  if(!layer)return;
  await loadDocumentAssets({...layer.layers,resources:layer.resources||layer.layers.resources||[]});
+ const trees=layer.layers.trees||[];
  const all=[...new Set([
   ...layer.layers.houses.map(o=>roofById(o.material||o.key).key),
   ...layer.layers.people.map(o=>o.key),
-  ...(layer.layers.roads.length?['sharedassets2.assets:373']:[])
+  ...(layer.layers.roads.length?['sharedassets2.assets:373']:[]),
+  ...(trees.length?['sharedassets2.assets:563']:[])
  ].filter(Boolean))];
  // Animation sprite identifiers use the same extracted asset paths as the base engine.
  const sprites=layer.animationSprites||null;
@@ -348,4 +351,16 @@ export async function loadEditorDraftImages(layer,load,images){
   const path='assets/original-animation/sprite-'+match[1]+'.webp';
   try{const image=await load(path);images.set(key,image)}catch(e){console.warn('No se pudo cargar sprite editado',key,e)}
  }}));
+ // The editor and the game are separate pages: the editor's in-memory
+ // vegetation cache does not carry across when starting a map preview.
+ // Load the exact selected crowns before playing, through the game's
+ // cached/retrying loader. Keep the original crown as a visible fallback.
+ const textures=[...new Set(trees.map(t=>(TREE_VARIANTS.find(v=>v.id===t.variant)||TREE_VARIANTS[0]).texture).filter(Boolean))];
+ await Promise.all(textures.map(async key=>{
+  if(textureImage(key))return;
+  const file=VEGETATION_FILES[key.replace(/^tree-/,'')];if(!file)return;
+  try{registerTexture(key,await load('assets/sevilla/'+file))}catch(e){console.warn('No se pudo cargar vegetación; se usará el árbol original',key,e)}
+ }));
+ if(trees.some(t=>!textureImage(TREE_VARIANTS.find(v=>v.id===t.variant)?.texture)&&!images.get('sharedassets2.assets:563')))
+  throw Error('No se ha podido cargar la imagen de los árboles. Vuelve a intentar abrir el mapa.');
 }

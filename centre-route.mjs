@@ -42,7 +42,7 @@ export class CentreRoute{
   for(const [x,y]of this.lamps)this.obstacles.push({kind:'lamp',center:[x,y],radius:.05,rect:[x-.05,y-.05,x+.05,y+.05]});
   const [x,y,xx,yy]=v.bounds,material={image:v.image,pixelsToUnits:v.ppu,rectSize:[Math.round((xx-x)*v.ppu),Math.round((yy-y)*v.ppu)],pivot:[.5,.5]};
   const node=(id,p,key,enabled=true)=>({id,name:id,path:id,parent:null,position:[...p,0],rotation:[0,0,0,1],scale:[1,1,1],active:true,sprite:{key,order:-50,enabled,color:[1,1,1,1]}});
-  const nodes=[node('reference-architecture',[(x+xx)/2,(y+yy)/2],'centre-architecture')];for(const key of [...NATIVE_HOUSE_KEYS,'sharedassets2.assets:373'])nodes.push(node('resource-'+key,[0,0],key,false));
+  const nodes=[node('reference-architecture',[(x+xx)/2,(y+yy)/2],'centre-architecture')];for(const key of [...NATIVE_HOUSE_KEYS,'sharedassets2.assets:373','sharedassets2.assets:563'])nodes.push(node('resource-'+key,[0,0],key,false));
   const animation={...sim.resources.animation,sprites:{...sim.resources.animation.sprites,'centre-architecture':material},graphs:{...sim.resources.animation.graphs,centreRoute:{nodes,animators:[]}}};
   // Reuse the actual base-game blue/yellow sprites, oriented in world space.
   const marker=(id,position,key,angle,height)=>{const n=node(id,position,key);const radians=angle*Math.PI/180;n.rotation=[0,0,Math.sin(radians/2),Math.cos(radians/2)];n.scale=[1,height/2.27,1];n.sprite.order=2;nodes.push(n);};
