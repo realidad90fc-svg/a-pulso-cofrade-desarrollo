@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {TemplePresentations} from '../temple-presentations.mjs';
 import {ARENAL_ROUTE as route,PRESENTACION_BARATILLO as event,BARATILLO,CHECKPOINT_BARATILLO} from '../arenal-data.mjs';
 import {CampaignAttempt,createProgress,finishCampaign} from '../campaign-progress.mjs';import {CAMPAIGN_DATA} from '../campaign-data.mjs';
-import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './resources.mjs';import {customMap} from '../custom-routes.mjs';
+import {data,resources,OriginalSimulation,prepareMap,prepareStep} from './gameplay-resources.mjs';import {customMap} from '../custom-routes.mjs';
 const system=new TemplePresentations([event]);const update=(position=event.position,heading=event.heading,stopped=true)=>system.update({position,heading,stopped,dt:1/60,playing:true});
 for(let i=0;i<180;i++)update(event.position,event.heading+90);assert.equal(system.completed.length,0);
 for(let i=0;i<180;i++)update(event.position,event.heading,false);assert.equal(system.completed.length,0);
