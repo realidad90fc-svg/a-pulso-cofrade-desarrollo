@@ -8,6 +8,7 @@ import {validateResourceManifest,validateCustomObject} from '../custom-assets.mj
 import {validSurface,validateTextureSettings} from '../map-geometry.mjs';
 import {validateMapDocument} from '../city-project.mjs';
 import {itemEdit,validateItemEdit} from '../editor-item-state.mjs';
+import {validatePlayableCity,makePlayableCity} from '../city-campaign.mjs';
 const OWNER='realidad90fc-svg';
 const REPO='a-pulso-cofrade-desarrollo';
 const BASE='https://api.github.com';
@@ -183,15 +184,18 @@ export default async function handler(req,res){
   if(!token||token.length>300)fail('Introduce un token de GitHub de acceso restringido al repositorio.',401);
   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
   if(!body||Buffer.byteLength(JSON.stringify(body))>MAX_BODY)fail('El archivo del mapa es demasiado grande.',413);
-  const draft=sanitize(body);
+  let draft,city;
+  if(body.project){
+   try{const validated=validatePlayableCity(body.project);const documents=Object.fromEntries(Object.entries(validated.documents).map(([key,d])=>[key,{...d,...Object.fromEntries(KINDS.map(k=>[k,cleanArray(d[k]||[],k)]))}]));city=makePlayableCity(validated.project,key=>documents[key],validated.resources)}catch(error){fail(error.message,422)}
+  }else draft=sanitize(body);
   const profile=await github('/user',token);
   if(!profile.ok)fail('GitHub no ha aceptado la autorización.',401);
   if(profile.body.login!==OWNER)fail('Solo la cuenta propietaria de GitHub puede publicar mapas.',403);
-  const pathname='published-maps/'+draft.mapKey+'.json',apiPath='/repos/'+OWNER+'/'+REPO+'/contents/'+pathname;
+  const pathname=city?'published-city.json':'published-maps/'+draft.mapKey+'.json',apiPath='/repos/'+OWNER+'/'+REPO+'/contents/'+pathname;
   const previous=await github(apiPath,token);
   if(!previous.ok&&previous.status!==404)fail('No se pudo consultar el mapa anterior en GitHub.',502);
-  const payload={message:'Publicar mapa '+draft.mapKey+' desde editor A Pulso',
-   content:Buffer.from(JSON.stringify(draft,null,2)+'\n','utf8').toString('base64'),branch:'main'};
+  const payload={message:city?'Publicar ciudad compartida e itinerarios desde editor A Pulso':'Publicar mapa '+draft.mapKey+' desde editor A Pulso',
+   content:Buffer.from(JSON.stringify(city||draft,null,2)+'\n','utf8').toString('base64'),branch:'main'};
   if(previous.ok)payload.sha=previous.body.sha;
   const commit=await github(apiPath,token,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   if(!commit.ok){
@@ -199,7 +203,7 @@ export default async function handler(req,res){
    if(commit.status===403||commit.status===401)fail('El token necesita permiso Contents: Read and write en este repositorio.',403);
    fail('GitHub no ha aceptado la publicación. Comprueba los permisos del token.',502);
   }
-  return res.status(200).json({ok:true,mapKey:draft.mapKey,commit:commit.body.commit?.sha,
+  return res.status(200).json({ok:true,...(draft?{mapKey:draft.mapKey}:{city:true}),commit:commit.body.commit?.sha,
    url:commit.body.content?.html_url||'https://github.com/'+OWNER+'/'+REPO+'/blob/main/'+pathname,
    message:'Publicación enviada a GitHub. Vercel tiene que terminar el despliegue antes de que sea pública.'});
  }catch(error){

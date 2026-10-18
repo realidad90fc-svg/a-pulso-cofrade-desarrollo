@@ -9,6 +9,7 @@ on:
       - '*.html'
       - '*.css'
       - 'assets/**'
+      - 'published-city.json'
       - 'tests/**'
       - '.github/workflows/windows-installer.yml'
   workflow_dispatch:
@@ -54,6 +55,12 @@ jobs:
           node tests/edited-arenal-preview.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/decor-rendering.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/city-campaign.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/city-campaign-web.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/city-campaign-publication.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/game-tree-images.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

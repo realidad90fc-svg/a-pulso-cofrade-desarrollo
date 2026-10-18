@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {createCityProject,addCityMap,assignCityZone} from '../city-project.mjs';
+import {activateCityItinerary,makePlayableCity,validatePlayableCity} from '../city-campaign.mjs';
+import {CONTENT_STEPS} from '../content-catalogue.mjs';
+import {defaultGameplay,newRouteEvent} from '../map-gameplay.mjs';
+let source=fs.readFileSync(new URL('../api/publish-map.js',import.meta.url),'utf8');source=source.replace(/from '(\.\.\/[^']+)'/g,(_,p)=>'from '+JSON.stringify(new URL('../'+p.slice(3),import.meta.url).href));
+const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const project=createCityProject([]),{meta,document}=addCityMap(project,{name:'Mi Arfe'}),step=CONTENT_STEPS.find(s=>s.implemented);
+document.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]],walkable:true}];document.startPose={x:10,y:10,angle:0};document.gameplay=defaultGameplay();document.gameplay.route.enabled=true;document.gameplay.route.events=[newRouteEvent('finish',[30,30])];document.houses=[{poly:[[2,2],[3,2],[3,3],[2,3]],facade:{shop:'bar',privatePhoto:'SECRET-PHOTO'}}];
+const asset={id:'asset-test',name:'Textura propia',category:'roads',width:1,depth:1,angle:0,collision:{kind:'none'},image:'data:image/png;base64,aGVsbG8='};document.resources=[asset];document.roads[0].material=asset.id;
+assignCityZone(project,step.brotherhoodId,'map:'+meta.key);activateCityItinerary(project,step.brotherhoodId,step.id,()=>document);const bundle=makePlayableCity(project,()=>document,[asset]);bundle.privatePhotos=[{image:'SECRET-PHOTO'}];bundle.documents[meta.key].reference={image:'SECRET-PHOTO'};
+let publication,url,requests=0,login='realidad90fc-svg',conflict=false;
+globalThis.fetch=async(path,options={})=>{requests++;if(path.endsWith('/user'))return{ok:true,status:200,json:async()=>({login})};if(options.method==='PUT'){url=path;publication=JSON.parse(Buffer.from(JSON.parse(options.body).content,'base64').toString());return{ok:!conflict,status:conflict?409:201,json:async()=>({commit:{sha:'test'},content:{html_url:'https://example.test/project'}})}}return{ok:false,status:404,json:async()=>({})}};
+function response(){return{headers:{},setHeader(k,v){this.headers[k]=v},status(code){this.code=code;return this},json(body){this.body=body;return this}}}
+const request=(body={project:bundle},headers={})=>({method:'POST',headers:{host:'example.test',origin:'https://example.test',authorization:'Bearer temporary_owner_token',...headers},body});
+let res=response();await handler(request(),res);assert.equal(res.code,200,JSON.stringify(res.body));assert(res.body.city);assert(url.endsWith('/contents/published-city.json'));validatePlayableCity(publication);assert(!JSON.stringify(publication).includes('SECRET-PHOTO'));assert.equal(publication.resources[0].image,asset.image);assert(publication.project.campaignItineraries[step.brotherhoodId]);
+const count=requests;res=response();await handler(request(undefined,{origin:'https://other.test'}),res);assert.equal(res.code,403);assert.equal(requests,count);
+res=response();await handler(request(undefined,{authorization:''}),res);assert.equal(res.code,401);assert.equal(requests,count);
+login='another-user';res=response();await handler(request(),res);assert.equal(res.code,403);login='realidad90fc-svg';
+conflict=true;res=response();await handler(request(),res);assert.equal(res.code,409);conflict=false;
+const malformed=structuredClone(bundle);malformed.resources=[];res=response();await handler(request({project:malformed}),res);assert.equal(res.code,422);
+console.log('City publication: owner authorization, same origin, version conflict, bundled image retention, shared itinerary catalog, private-photo/metadata exclusion and missing-resource rejection passed.');

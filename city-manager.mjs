@@ -1,11 +1,13 @@
-import {BROTHERHOODS} from './content-catalogue.mjs';
+import {BROTHERHOODS,CONTENT_STEPS} from './content-catalogue.mjs';
+import {activateCityItinerary,makePlayableCity} from './city-campaign.mjs';
+import {newId} from './map-gameplay.mjs';
 import {CITY_KEY,CITY_SCHEMA,MAP_STORAGE_PREFIX,KINDS,readCityProject,persistCityProject,addCityMap,addCityZone,indexMapStreets,searchCityStreets,assignCityZone,affectedBrotherhoods,selectCityZone,resolveCityMap,transformMapDocument,polygonBounds,exportCityBundle,validateCityBundle,validateMapDocument,normalizeStreet} from './city-project.mjs';
 import {paintCityScene} from './city-scene.mjs';
 import {lightweightDocument,loadDocumentAssets} from './custom-assets.mjs';
 
 const el=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n};
 function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
-export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true,canWrite=()=>true,onProjectChange=()=>{}}){
+export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true,canWrite=()=>true,onProjectChange=()=>{},beforeActivation=async()=>{},publishProject=()=>{}}){
  let project=readCityProject(localStorage,catalog),tab='maps',selectedZone=null,searchTimer;
  for(const map of project.maps)if(!catalog.some(m=>m.key===map.key))onRegisterMap(map);
  const persist=()=>{if(!canWrite())throw Error('El proyecto ha cambiado en otra ventana. Recarga el editor.');const value=persistCityProject(localStorage,project);onProjectChange();return value};
@@ -49,7 +51,8 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
  }
  function renderMaps(){
   const input=contextInput('Buscar mapa, zona o barrio…',paint);$('city-context').append(input);
-  const form=el('form','city-form');form.append(el('h3','','Añadir mapa'));
+  const originals=el('label','city-check'),originalsCheck=el('input');originalsCheck.type='checkbox';originalsCheck.checked=!project.archiveLegacy;originals.append(originalsCheck,document.createTextNode('Mostrar mapas anteriores como referencia'));$('city-context').append(originals);originalsCheck.onchange=()=>paint(input.value);
+  const form=el('form','city-form');form.append(el('h3','','Añadir mapa'),el('p','city-small','Para reutilizar cada calle, crea un mapa vacío por calle o registra zonas. Después enlázalas en los recorridos sin copiarlas.'));
   addField(form,'Nombre','name','');addField(form,'Barrio','barrio','');const row=el('div','city-two');form.append(row);addField(row,'Ancho (m)','width',40,'number');addField(row,'Fondo (m)','height',40,'number');
   const submit=el('button','city-primary','Crear mapa vacío');submit.type='submit';form.append(submit);form.onsubmit=guard(event=>{
    event.preventDefault();const values=new FormData(form),newMap=transaction(()=>{
@@ -66,7 +69,7 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   $('city-form').append(form,importLabel,button('Registrar zona del mapa abierto',()=>openZoneForm()));
   function paint(query=''){
    const results=$('city-results');results.replaceChildren();const q=normalizeStreet(query),grid=el('div','city-grid');
-   for(const map of project.maps.filter(m=>!q||normalizeStreet(m.name+' '+(m.barrio||'')+' '+project.zones.filter(z=>z.mapKey===m.key).map(z=>z.name).join(' ')).includes(q))){
+   for(const map of project.maps.filter(m=>(originalsCheck.checked||m.type==='user')&&(!q||normalizeStreet(m.name+' '+(m.barrio||'')+' '+project.zones.filter(z=>z.mapKey===m.key).map(z=>z.name).join(' ')).includes(q)))){
     const card=el('article','city-map-card'),canvas=el('canvas');canvas.width=320;canvas.height=150;canvas.setAttribute('aria-label','Plano de '+map.name);card.append(canvas,el('h3','',map.name),el('p','city-small',(map.barrio||'Sevilla')+' · '+(map.type==='user'?'Mapa propio':'Mapa existente')));
     const impacts=affectedBrotherhoods(project,map.key);if(impacts.length)card.append(el('p','city-used','Compartido por '+impacts.length+' hermandad'+(impacts.length===1?'':'es')));
     card.append(button('Abrir editor',()=>{modal.close();openMap(map.key)},true),button('Adjuntar a hermandad',()=>chooseZone('map:'+map.key)));
@@ -122,11 +125,29 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   function paint(){
    modal.dataset.brotherhood=select.value;const results=$('city-results');results.replaceChildren();const visits=project.itineraries[select.value]||[];
    results.append(el('h2','',brotherhoodName(select.value)),el('p','city-small',visits.length+' tramos en orden. Editar una calle compartida actualiza todos los itinerarios que la utilizan.'));
+   const active=project.campaignItineraries?.[select.value],steps=CONTENT_STEPS.filter(s=>s.brotherhoodId===select.value&&s.implemented),settings=el('section','city-campaign-settings');
+   settings.append(el('h3','','Hacer jugable en Semana Santa'),el('p','city-small',active?'Itinerario activo. Pulsa Actualizar para aplicar los cambios de orden, entradas o tramos.':'Asigna los mapas y actívalos cuando estén preparados. Cada tramo conserva sus récords aunque lo cambies de posición.'));
+   const stepLabel=el('label','city-field'),stepSelect=el('select');stepSelect.id='city-campaign-step';stepSelect.setAttribute('aria-label','Paso del itinerario');for(const s of steps){const o=el('option','',s.name);o.value=s.id;stepSelect.append(o)}if(active)stepSelect.value=active.stepId;stepLabel.append(el('span','','Paso'),stepSelect);settings.append(stepLabel);
+   if(!steps.length)settings.append(el('p','city-small','Esta hermandad todavía no tiene un paso disponible. Puedes preparar sus calles y su itinerario.'));
+   const replace=el('label','city-check'),replaceCheck=el('input');replaceCheck.type='checkbox';replaceCheck.checked=active?.replace!==false;replace.append(replaceCheck,document.createTextNode('Sustituir los recorridos anteriores de esta hermandad (conservar sus datos)'));settings.append(replace);
+   const activate=button(active?'Actualizar itinerario jugable':'Activar itinerario en Semana Santa',async()=>{
+    if(saveLocal()===false)throw Error('No se ha podido guardar el mapa. Libera espacio antes de activar el itinerario.');for(const v of visits){const zone=project.zones.find(z=>z.id===v.zoneId);saveCanonical(zone.mapKey);}
+    const candidate=structuredClone(project);activateCityItinerary(candidate,select.value,stepSelect.value,getDoc,{replace:replaceCheck.checked});
+    await beforeActivation('Antes de activar '+brotherhoodName(select.value));transaction(()=>{project=candidate});paint();notice('Itinerario activado. Abre el juego → Semana Santa → '+brotherhoodName(select.value)+'.');
+   },true);activate.id='city-activate-itinerary';activate.disabled=!steps.length||!visits.length;settings.append(activate);
+   if(active){settings.append(button('Abrir el juego',()=>window.open('./index.html','_blank','noopener')),button('Retirar itinerario del juego',async()=>{await beforeActivation('Antes de retirar itinerario');transaction(()=>{delete project.campaignItineraries[select.value];project.disabledCampaignBrotherhoods=[...new Set([...(project.disabledCampaignBrotherhoods||[]),select.value])]});paint();notice('Itinerario retirado del juego. Los mapas y sus récords se conservan.');}));}
+   const legacy=el('label','city-check'),legacyCheck=el('input');legacyCheck.type='checkbox';legacyCheck.checked=!!project.archiveLegacy;legacy.append(legacyCheck,document.createTextNode('En Semana Santa mostrar solo los itinerarios creados por mí'));legacyCheck.onchange=guard(async()=>{await beforeActivation('Antes de cambiar el catálogo jugable');transaction(()=>{project.archiveLegacy=legacyCheck.checked});notice('Catálogo actualizado. Los mapas anteriores se conservan como referencia y los guardados siguen disponibles.');});settings.append(legacy);
+   settings.append(button('Publicar ciudad e itinerarios',()=>publishProject()),el('p','city-small','Guardar conserva el trabajo en este dispositivo. Exportar proyecto completo (.apulso) incluye calles, imágenes y asignaciones. Publicar distribuye los itinerarios activos; las fotos de referencia quedan fuera.'));
+   results.append(settings);
    if(!visits.length)results.append(el('p','city-empty','Todavía no hay recorrido. Adjunta un mapa o una zona desde el panel lateral.'));
    for(const [i,visit]of visits.entries()){
     const zone=project.zones.find(z=>z.id===visit.zoneId),card=el('article','city-visit');card.append(el('span','city-order',String(i+1)),el('h3','',zone.name),el('p','city-small',mapsName(zone.mapKey)+(zone.whole?' · mapa completo':' · zona')));
+    const source=selectCityZone(project,zone.id,key=>resolveCityMap(project,key,getDoc)),events=source.gameplay?.route?.events||[];
+    for(const [field,label,choices]of [['entryId','Entrada para esta hermandad',events.filter(e=>e.type==='entry')],['finishId','Llegada de este tramo',[...events.filter(e=>e.type!=='announcement'),...(source.checkpoints||[]).map((cp,i)=>({id:cp.id||'control-'+i,name:cp.name||'Control'}))]]]){
+     const l=el('label','city-field'),s=el('select'),empty=el('option','',field==='entryId'?'Inicio guardado en el mapa':'Llegada / salida configurada en el mapa');empty.value='';s.append(empty);for(const e of choices){if([...s.children].some(o=>o.value===e.id))continue;const o=el('option','',e.name);o.value=e.id;s.append(o)}s.value=visit[field]||'';s.setAttribute('aria-label',label);s.onchange=guard(()=>transaction(()=>{visit[field]=s.value}));l.append(el('span','',label),s);card.append(l);
+    }
     const actions=el('div','city-actions');for(const [label,delta]of [['↑',-1],['↓',1]]){const b=button(label,()=>{transaction(()=>{const j=i+delta;if(j>=0&&j<visits.length)[visits[i],visits[j]]=[visits[j],visits[i]]});paint()});b.disabled=i+delta<0||i+delta>=visits.length;b.setAttribute('aria-label',delta<0?'Subir tramo':'Bajar tramo');actions.append(b)}
-    actions.append(button('Editar origen',()=>{modal.close();openMap(zone.mapKey)}),button('Probar zona',()=>{saveLocal();saveCanonical(zone.mapKey);window.open('./index.html?cityMap='+encodeURIComponent(zone.mapKey)+'&cityZone='+encodeURIComponent(zone.id)+'&cityBrotherhood='+encodeURIComponent(select.value),'_blank','noopener')}),button('Desvincular',()=>{transaction(()=>visits.splice(i,1));paint()}));card.append(actions);
+    actions.append(button('Editar origen',()=>{modal.close();openMap(zone.mapKey)}),button('Probar zona',()=>{saveLocal();saveCanonical(zone.mapKey);window.open('./index.html?cityMap='+encodeURIComponent(zone.mapKey)+'&cityZone='+encodeURIComponent(zone.id)+'&cityBrotherhood='+encodeURIComponent(select.value),'_blank','noopener')}),button('Añadir otra pasada',()=>{transaction(()=>visits.splice(i+1,0,{...structuredClone(visit),id:newId('visit')}));paint();notice('Otra pasada añadida. Puedes elegir una entrada y llegada distintas sin copiar la calle.');}),button('Desvincular',()=>{transaction(()=>visits.splice(i,1));paint()}));card.append(actions);
     const crowd=el('select');crowd.setAttribute('aria-label','Público de este tramo');for(const [v,label]of [['inherit','Público del mapa'],['none','Sin público en esta hermandad']]){const o=el('option','',label);o.value=v;crowd.append(o)}crowd.value=visit.crowd||'inherit';crowd.onchange=guard(()=>transaction(()=>{visit.crowd=crowd.value}));card.append(crowd);
     const label=el('label','city-check'),required=el('input');required.type='checkbox';required.checked=!!visit.mandatory;required.onchange=guard(()=>{
      if(required.checked&&!selectCityZone(project,zone.id,getDoc).checkpoints.length){required.checked=false;throw Error('Añade un checkpoint dentro de esta zona para definir dónde debe hacerse la presentación.');}
@@ -180,6 +201,7 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   }
  }
  return{open:guard(open),zoneForm:guard(()=>{open('maps');openZoneForm()}),
+  playable(){if(saveLocal()===false)throw Error('No se ha podido guardar el proyecto.');return makePlayableCity(project,getDoc)},
   refreshSelected,
   refresh(){const doc=getData();if(doc){indexMapStreets(project,doc);refreshLinks();refreshSelected();const ids=affectedBrotherhoods(project,getMapKey());const node=$('city-impact');if(node)node.textContent=ids.length?'Calle compartida: '+ids.map(brotherhoodName).join(' · '):'Diseño de ciudad · sin hermandades vinculadas'}},
   saveIndex(){indexMapStreets(project,getData());persist()},

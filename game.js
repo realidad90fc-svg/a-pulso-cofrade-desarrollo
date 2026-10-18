@@ -5,7 +5,8 @@ import {resolveMapConnection} from './map-connections.mjs';
 import {readCityPreview,loadCityImages} from './city-runtime.mjs';
 import {loadSevilleTextures} from './seville-textures.mjs';
 import {applyContentNames,contentStepForNative,CONTENT_STEPS,displayContentName} from './content-catalogue.mjs';
-import {CAMPAIGN_DATA} from './campaign-data.mjs';
+import {CAMPAIGN_DATA as BASE_CAMPAIGN_DATA} from './campaign-data.mjs';
+import {loadPlayableCampaign,campaignCityPreview} from './city-campaign.mjs';
 import {createProgress,finishCampaign,CampaignAttempt,formatCampaignTime} from './campaign-progress.mjs';
 import {createCampaignUI} from './campaign-ui.mjs';
 import {DEVELOPMENT_UNLOCKS,visibleCampaignProgress} from './development-mode.mjs';
@@ -28,7 +29,7 @@ const format=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.floor
 const recordFormat=t=>format(t)+'.'+String(Math.floor(t*100)%100).padStart(2,'0');
 let saved={prefs:{version:2,numEstampitas:0,libre:0,pasoElegido:1,mapaElegido:1,himnoMapa:0},settings:{enabled:true,musicMenu:1,musicGameplay:1,voice:1,knock:1,applause:1},active:null};
 try{const old=JSON.parse(localStorage.getItem(KEY)||'null');if(old)saved={...saved,...old,prefs:{...saved.prefs,...old.prefs},settings:{...saved.settings,...old.settings}};}catch{}
-saved.campaign=createProgress(CAMPAIGN_DATA,saved.campaign);
+let CAMPAIGN_DATA=BASE_CAMPAIGN_DATA;
 let campaignRun=null,campaignUI,cityPreview=null;
 const save=()=>{if(editorTestMode)return true;try{localStorage.setItem(KEY,JSON.stringify(saved));return true;}catch{return false;}};
 function saveCampaign(){if(!save())toast('No se ha podido guardar el progreso. Comprueba el espacio del navegador.',6);}
@@ -56,7 +57,7 @@ function mainMenu(){
 }
 function beginCampaign(id,attempt=null,snapshot=null){
  const route=CAMPAIGN_DATA.routes.find(r=>r.id===id);if(!route||route.playable===false||(!DEVELOPMENT_UNLOCKS&&!saved.campaign.unlocked.routes.includes(id))){toast('Este recorrido todavía está bloqueado.');return;}
- overlay?.destroy();overlay=null;if(!snapshot?.mapContext)cityPreview=null;campaignRun=attempt||new CampaignAttempt(route);startGame(2,snapshot);
+ overlay?.destroy();overlay=null;if(!snapshot?.mapContext)cityPreview=campaignCityPreview(route);campaignRun=attempt||new CampaignAttempt(route);startGame(2,snapshot);
 }
 function resumeCampaign(id,fromCheckpoint=false){
  const active=saved.campaign.active;if(active?.routeId!==id)return;const route=CAMPAIGN_DATA.routes.find(r=>r.id===id),attempt=new CampaignAttempt(route,active);
@@ -92,7 +93,7 @@ async function startGame(scene=2,snapshot=null){
  const run=++loading;if(campaignRun)sim=null;unlock();sound.stopAll();sound.paused=false;
  retryLoad=()=>startGame(scene,snapshot);$('load-retry').hidden=true;$('load-detail').textContent='Cargando la calle y la cuadrilla…';setScreen('loader');
  try{
-  if(snapshot?.mapContext?.key)cityPreview=await resolveMapConnection({targetMap:snapshot.mapContext.key,targetEntry:''},localStorage);
+  if(snapshot?.mapContext?.key)cityPreview=campaignRun?.route?.cityDocument&&snapshot.mapContext.key===campaignRun.route.mapKey?campaignCityPreview(campaignRun.route):await resolveMapConnection({targetMap:snapshot.mapContext.key,targetEntry:''},localStorage);
   const tutorial=scene===4;
   const choice=campaignRun?.route;
   const chosenStep=CONTENT_STEPS.find(s=>s.id===choice?.stepRef);
@@ -110,7 +111,7 @@ async function startGame(scene=2,snapshot=null){
   const editorDraft=authoredNative?null:attachEditorDraft(next,cityPreview&&!cityPreview.isolated?withEditorStreetPoints(publishedOrLocal,cityPreview.document):publishedOrLocal);
   attachMapGameplay(next,cityPreview?.document||publishedOrLocal?.gameplayScene||next.routeAdapter?.document,snapshot);
   if(cityPreview)next.mapContext={key:cityPreview.key};
-  if(campaignRun&&next.gameplay?.ownsEvents){const r=next.gameplay.config.route;campaignRun.route={...campaignRun.route,threeStars:r.threeStars,twoStars:r.twoStars,presentations:r.events.filter(e=>e.type==='presentation'),checkpoints:{...campaignRun.route.checkpoints,points:[]}};}
+  if(campaignRun&&next.gameplay?.ownsEvents){const r=next.gameplay.config.route;campaignRun.route={...campaignRun.route,threeStars:campaignRun.route.cityDocument?campaignRun.route.threeStars:r.threeStars,twoStars:campaignRun.route.cityDocument?campaignRun.route.twoStars:r.twoStars,presentations:r.events.filter(e=>e.type==='presentation'),checkpoints:{...campaignRun.route.checkpoints,points:[]}};}
   const spawnResult=editorDraft&&!snapshot&&editorDraft.startPose?applyEditorStart(next,editorDraft.startPose):null;
   if((cityPreview||authoredNative)&&!snapshot){
    const inspection=spawnResult&&!spawnResult.ok?spawnResult:inspectEditorSpawn(next);
@@ -309,6 +310,7 @@ async function boot(){
   $('stamp-image').src=r.assets.uiByName.estampita.url;$('controls-guide').src=r.assets.uiByName.menuDefControles.url;
   customMenu=installCustomStepMenu(r.layouts);installCustomInfoMenu(r.layouts);r.customRouteMenu=installCustomRouteMenu(r.layouts);applyContentNames(r.layouts);
   steps=steps.map(s=>({...s,name:contentStepForNative(s)?.name||s.name}));
+  const authored=await loadPlayableCampaign(BASE_CAMPAIGN_DATA,localStorage);CAMPAIGN_DATA=authored.data;saved.campaign=createProgress(CAMPAIGN_DATA,saved.campaign);
   updatePrefsForNative();buildVolumes();
   menus=new OriginalMenus(r,$('menu'),{displayText:displayContentName,prefs:saved.prefs,unlock,save,start:startGame,settings,onError:e=>{console.error(e);toast(e.message,7);},toggleSound:value=>{saved.settings.enabled=value;sound.update();save();},muted:()=>!saved.settings.enabled,onClick:n=>{if(n.name==='ButtonMapaAlemanes'){saved.prefs.customRoute=NEW_ROUTE.key;saved.prefs.mapaElegido=1;save();startGame();return true;}if(/^ButtonMapa\d+$/.test(n.name)){saved.prefs.customRoute='';save();}if(n.name==='ButtonDefJesusPenas'){saved.prefs.customStep=JESUS_PENAS.key;saved.prefs.pasoElegido=1;save();menus.show('MenuDefPasos');return true;}if(n.name==='ButtonJesusPenas'){saved.prefs.customStep=JESUS_PENAS.key;saved.prefs.pasoElegido=1;save();menus.show('MenuEligeMapa');return true;}if(/^Button(?:Def)?(BueMue|DivMis|PenEst|PreJer|BesJud|TreReq|TreCai)$/.test(n.name)){saved.prefs.customStep='';save();}return false;},onReady:customMenuReady,onOpen:name=>{setScreen(name==='MenuInicio'&&!allowLegacyHome?'home-screen':'menu');$('menu').classList.add('native-menu');},openURL:url=>window.open(url,'_blank','noopener')});
   modeNavigation=createModeNavigation({document,onScreen:setScreen,onLegacy:openLegacyAction,onSettings:settings,onNotice:toast,onWeek:()=>campaignUI.week(),onDay:id=>campaignUI.day(id)});
@@ -318,7 +320,7 @@ async function boot(){
   reviewSession=await readEditorTest(location.search);
   if(reviewSession){cityPreview=reviewSession.preview;const chosen=CONTENT_STEPS.find(s=>s.id===reviewSession.stepId);saved.prefs.pasoElegido=chosen.engineId;saved.prefs.customStep=chosen.engineVariant||'';}
   else try{cityPreview=readCityPreview(location.search,localStorage)}catch(error){toast(error.message,12)}
-  bind();resize();setScreen('entry');last=performance.now();requestAnimationFrame(frame);
+  bind();resize();setScreen('entry');if(authored.warnings.length)toast(authored.warnings.join('\n'),15);last=performance.now();requestAnimationFrame(frame);
  }catch(e){console.error(e);$('load-detail').textContent='No se ha podido cargar el juego. '+e.message;$('load-retry').hidden=false;}
 }
 $('load-retry').onclick=()=>retryLoad();

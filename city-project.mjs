@@ -68,6 +68,16 @@ export function validateProject(p){
  for(const [items,field]of [[p.maps,'key'],[p.zones,'id'],[p.streets,'id']]){const ids=items.map(x=>x?.[field]);if(ids.some(x=>typeof x!=='string'||!x||x.length>180)||new Set(ids).size!==ids.length)throw Error('Hay identificadores de mapa, calle o zona repetidos o no válidos.');}
  for(const z of p.zones){if(!p.maps.some(m=>m.key===z.mapKey)||!Array.isArray(z.streets))throw Error('Una zona apunta a un mapa inexistente.');if(z.bounds&&(!Array.isArray(z.bounds)||z.bounds.length!==4||!z.bounds.every(Number.isFinite)||z.bounds[2]<=z.bounds[0]||z.bounds[3]<=z.bounds[1]))throw Error('Límites de zona no válidos.');}
  for(const visits of Object.values(p.itineraries)){if(!Array.isArray(visits)||visits.length>300)throw Error('Itinerario no válido.');for(const v of visits){if(!p.zones.some(z=>z.id===v.zoneId)||typeof v.id!=='string')throw Error('Un itinerario utiliza una zona inexistente.');}}
+ if(p.disabledCampaignBrotherhoods!==undefined&&(!Array.isArray(p.disabledCampaignBrotherhoods)||p.disabledCampaignBrotherhoods.length>200||p.disabledCampaignBrotherhoods.some(b=>typeof b!=='string'||b.length>150)))throw Error('Catálogo de itinerarios retirados no válido.');
+ if(p.archiveLegacy!==undefined&&typeof p.archiveLegacy!=='boolean')throw Error('La opción de archivo no es válida.');
+ if(p.campaignItineraries!==undefined){
+  if(!p.campaignItineraries||typeof p.campaignItineraries!=='object'||Array.isArray(p.campaignItineraries)||Object.keys(p.campaignItineraries).length>200)throw Error('Catálogo de itinerarios jugables no válido.');
+  const ids=new Set();
+  for(const [brotherhoodId,c]of Object.entries(p.campaignItineraries)){
+   if(!brotherhoodId||brotherhoodId.length>150||!c||typeof c.stepId!=='string'||c.stepId.length>150||typeof c.replace!=='boolean'||!Array.isArray(c.visits)||!c.visits.length||c.visits.length>300)throw Error('Itinerario jugable no válido.');
+   for(const v of c.visits){if(!v||typeof v.id!=='string'||!v.id||v.id.length>150||ids.has(brotherhoodId+':'+v.id)||!p.zones.some(z=>z.id===v.zoneId))throw Error('Un tramo jugable falta o está repetido.');ids.add(brotherhoodId+':'+v.id);for(const k of ['entryId','finishId','name'])if(v[k]!==undefined&&(typeof v[k]!=='string'||v[k].length>150))throw Error('Datos del tramo no válidos.');}
+  }
+ }
  return p;
 }
 export function persistCityProject(storage,p){validateProject(p);p.revision=(p.revision||0)+1;storage.setItem(CITY_KEY,JSON.stringify(p));}

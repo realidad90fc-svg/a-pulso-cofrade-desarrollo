@@ -2,6 +2,7 @@ import {readCityPreview} from './city-runtime.mjs';
 import {validateMapDocument,MAP_STORAGE_PREFIX} from './city-project.mjs';
 import {EDITOR_MAPS} from './editor-map-catalog.mjs';
 import {GAME_PATCH_PREFIX,withEditorStreetPoints} from './editor-game-draft.mjs';
+import {campaignMapPreview} from './city-campaign.mjs';
 export function applyMapEntry(preview,entryId){
  if(!entryId)return preview;
  const document=structuredClone(preview.document),e=document.gameplay?.route?.events?.find(e=>e.id===entryId&&e.type==='entry');
@@ -11,6 +12,7 @@ export function applyMapEntry(preview,entryId){
 }
 export async function resolveMapConnection({targetMap,targetEntry},storage,fetcher=fetch){
  if(typeof targetMap!=='string'||!targetMap||targetMap.length>150)throw Error('La salida no tiene un mapa de destino válido.');
+ const authored=campaignMapPreview(targetMap);if(authored)return applyMapEntry(authored,targetEntry);
  if(storage.getItem(MAP_STORAGE_PREFIX+targetMap)){const preview=readCityPreview('?cityMap='+encodeURIComponent(targetMap),storage);const raw=storage.getItem(GAME_PATCH_PREFIX+targetMap);if(raw)preview.draft=JSON.parse(raw);return applyMapEntry(preview,targetEntry);}
  const response=await fetcher('./published-maps/'+encodeURIComponent(targetMap)+'.json',{cache:'no-store'});
  if(!response.ok)throw Error('Guarda el mapa de destino en este navegador o publica su diseño antes de conectar la salida.');

@@ -5,7 +5,7 @@ import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=itinerario-manual-1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=itinerarios-jugables-3.1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -1310,12 +1310,12 @@ async function init(){
   if(floorImage&&!floorImage.complete)
    floorImage.addEventListener('load',()=>visualPanels?.redrawFloorPreviews(),{once:true});
   resize();
-  setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,saveLocal,show});
+  const publisher=setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,getPlayableProject:()=>cityManager.playable(),saveLocal,show});
   cityManager=setupCityManager({catalog:EDITOR_MAPS,getData:()=>data,getBaseline:()=>baseline,
    getMapKey:()=>activeMap,getDocument:getStoredDocument,openMap:switchMap,
    onRegisterMap:registerUserMap,onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
    snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
-   getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit,canWrite:()=>!projectUI||projectUI.canWrite(),onProjectChange:()=>projectUI?.notifyChange()});
+   getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit,canWrite:()=>!projectUI||projectUI.canWrite(),onProjectChange:()=>projectUI?.notifyChange(),beforeActivation:label=>projectUI?.controller.checkpoint(label,{force:true,includePhotos:false}),publishProject:()=>publisher.openProject()});
   projectUI=await setupProjectUI({getCity:()=>cityManager.project(),getDocument:key=>key===activeMap&&data?data:getStoredDocument(key),getBaseline:getBaselineDocument,getMapKey:()=>activeMap,flushPhotos:()=>photoGuides.flush(),show,saveLocal});
   reviewUI=setupReviewUI({state,getData:()=>data,getBaseline:()=>baseline,getResolved:()=>cityManager.resolve(),getDocument:getStoredDocument,getMeta:key=>EDITOR_MAPS.find(m=>m.key===key),getMapKey:()=>activeMap,snapshot,show,configureTool,requestDraw,pixel,focus:focusAt,saveLocal});
   $('open-city').onclick=()=>cityManager.open();
