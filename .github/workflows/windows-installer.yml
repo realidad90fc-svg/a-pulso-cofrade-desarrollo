@@ -100,7 +100,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-project-review-game.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/photo-import-dialog.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-workbench.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verificar fotografias en el programa real de Windows
+        shell: pwsh
+        run: |
+          & .\desktop\node_modules\.bin\electron.cmd .\tests\windows-photo-import.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Crear instalador EXE
         working-directory: desktop

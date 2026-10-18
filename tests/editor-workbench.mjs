@@ -38,6 +38,7 @@ globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
 await import('../editor-arenal.mjs');
 const flush=async()=>{for(let i=0;i<25;i++){await new Promise(r=>setTimeout(r,10));let n=0;while(frames.length&&n++<100)frames.shift()(performance.now())}};
 await flush();
+for(let i=0;i<30&&!document.getElementById('loading').hidden;i++)await flush();
 
 const $=id=>document.getElementById(id);
 
@@ -197,8 +198,9 @@ pointer('pointerdown',420,300,{button:2,buttons:2});pointer('lostpointercapture'
 // and two-finger takeover do not alter the stored image transform.
 const {exportProjectPhotos}=await import('../editor-photo-guides.mjs'),{readProjectMeta}=await import('../editor-project-session.mjs');
 document.querySelector('[data-tool="reference"]').click();$('goto-all').click();const sample=createCanvas(32,32);sample.getContext('2d').fillRect(0,0,32,32);const photoFile=new Blob([sample.toBuffer('image/png')],{type:'image/png'});photoFile.name='Plano privado de prueba.png';
-const photoInput=$('reference-file');Object.defineProperty(photoInput,'files',{value:[photoFile],configurable:true});window.prompt=()=>'';
-const originalObjectURL=URL.createObjectURL;URL.createObjectURL=()=>sample.toDataURL('image/png');photoInput.dispatchEvent(new window.Event('change'));await flush();URL.createObjectURL=originalObjectURL;
+const photoInput=$('reference-file');Object.defineProperty(photoInput,'files',{value:[photoFile],configurable:true});window.prompt=()=>{throw Error('prompt() is not supported.')} ;
+const acceptPhotoHeight=()=>{assert($('photo-import-dialog').open);$('photo-import-height').value='';$('photo-import-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));};
+const originalObjectURL=URL.createObjectURL;URL.createObjectURL=()=>sample.toDataURL('image/png');photoInput.dispatchEvent(new window.Event('change'));acceptPhotoHeight();await flush();URL.createObjectURL=originalObjectURL;
 assert($('reference-count').textContent.startsWith('1/'),'Reference photo imports through its normal control');
 const photos=()=>exportProjectPhotos(readProjectMeta().id,[key]),photoBefore=(await photos())[0];rightPan(90,40);$('save').click();await flush();let photoAfter=(await photos())[0];assert.deepEqual(photoAfter.position,photoBefore.position);assert.equal(photoAfter.rotation,photoBefore.rotation);
 let photoScreen=[...toCanvas(photoBefore.position)];photoScreen=[photoScreen[0]+90,photoScreen[1]+40];pointer('pointerdown',...photoScreen);pointer('pointermove',photoScreen[0]+10,photoScreen[1]);pointer('pointermove',photoScreen[0]+10,photoScreen[1],{button:2,buttons:3});pointer('pointermove',photoScreen[0]+70,photoScreen[1]+30,{buttons:3});pointer('pointermove',photoScreen[0]+70,photoScreen[1]+30,{button:2,buttons:1});pointer('pointermove',photoScreen[0]+80,photoScreen[1]+30);pointer('pointerup',photoScreen[0]+80,photoScreen[1]+30);$('save').click();await flush();photoAfter=(await photos())[0];samePoint(photoAfter.position,[photoBefore.position[0]+20/scale,photoBefore.position[1]]);
@@ -206,7 +208,7 @@ $('goto-all').click();photoScreen=toCanvas(photoAfter.position);touch('pointerdo
 // One accessible slider affects every reference, including locked images,
 // without changing calibration, positions, map geometry or image bytes.
 assert(!$('wb-photo-transparency-input').disabled);assert.equal($('wb-photo-transparency-value').textContent,'64%');
-const importPhoto=async name=>{const file=new Blob([sample.toBuffer('image/png')],{type:'image/png'});file.name=name;Object.defineProperty(photoInput,'files',{value:[file],configurable:true});URL.createObjectURL=()=>sample.toDataURL('image/png');try{photoInput.dispatchEvent(new window.Event('change'));await flush()}finally{URL.createObjectURL=originalObjectURL}};
+const importPhoto=async name=>{const file=new Blob([sample.toBuffer('image/png')],{type:'image/png'});file.name=name;Object.defineProperty(photoInput,'files',{value:[file],configurable:true});URL.createObjectURL=()=>sample.toDataURL('image/png');try{photoInput.dispatchEvent(new window.Event('change'));acceptPhotoHeight();await flush()}finally{URL.createObjectURL=originalObjectURL}};
 await importPhoto('Segunda referencia.png');$('reference-locked').checked=true;$('reference-locked').onchange({target:$('reference-locked')});$('save').click();await flush();
 const guidesBefore=await photos(),withoutOpacity=items=>items.map(({opacity,...item})=>item);assert.equal(guidesBefore.length,2);assert(guidesBefore.some(p=>p.locked));$('save').click();const mapBeforeOpacity=storage.get(docKey);
 const setTransparency=async(value,id='wb-photo-transparency-input')=>{$(id).value=String(value);$(id).dispatchEvent(new window.Event('input',{bubbles:true}));await flush();$('save').click();await flush()};

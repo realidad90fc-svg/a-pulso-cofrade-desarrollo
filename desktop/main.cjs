@@ -197,7 +197,7 @@ function menu(){
 function createWindow(){
  mainWindow=new BrowserWindow({
   width:1500,height:950,minWidth:900,minHeight:640,
-  title:'A Pulso Cofrade · Estudio de Sevilla 3.0',backgroundColor:'#15202a',
+  title:'A Pulso Cofrade · Estudio de Sevilla 3.1.1',backgroundColor:'#15202a',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}
  });
  mainWindow.webContents.setWindowOpenHandler(({url})=>{

@@ -2,6 +2,7 @@ import {readProjectMeta,DEFAULT_PROJECT_ID,projectId as newPhotoId} from './edit
 import {validatePrivatePhoto,PHOTO_PACKAGE_LIMIT} from './editor-project-package.mjs';
 // Private photo guides for the A Pulso map workshop.
 import {parseEarthAltitude,estimateEarthPhotoSize} from './editor-earth-scale.mjs';
+import {createPhotoHeightDialog} from './editor-photo-import.mjs';
 // Photos use local IndexedDB, outside map/game JSON. A complete project can
 // optionally carry them only when its export explicitly requests private photos.
 const DATABASE='apulso-private-map-photos-v1';
@@ -59,6 +60,7 @@ const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const selectedText=p=>p?.name||'';
 export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,getView,focusImage,activateReferenceTool,onChange=()=>{},onViewChange=()=>{},canWrite=()=>true}){
  const el=id=>document.getElementById(id);
+ const heightDialog=createPhotoHeightDialog();
  let photos=[],currentId=null,dbPromise=null,mapKey='',generation=0,drag=null,saveTimer=null;
  let storageAvailable=true;
  let commonOpacity=null;
@@ -158,6 +160,7 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  }
  function release(items){for(const p of items)if(p.url)URL.revokeObjectURL(p.url)}
  async function switchMap(next){
+  heightDialog.cancel();
   const epoch=++generation,old=photos;
   clearTimeout(saveTimer);saveTimer=null;photos=[];currentId=null;drag=null;mapKey=next;
   updateUI();requestDraw();
@@ -196,14 +199,8 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
    if(!['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif','image/bmp'].includes(file.type)){show('Usa una imagen PNG, JPG, WebP, HEIC, GIF o AVIF.','error');continue}
    if(file.size>MAX_SIZE){show('La foto supera los 25 MB: '+file.name,'error');continue}
    try{
-    // Ask per file before decoding, while the file-input gesture is active.
-    // Empty = regular (uncalibrated) photo. Cancel = do not import this file.
-    const rawHeight=window.prompt(
-     '¿Qué ALTURA DE CÁMARA indica Google Earth para «'+file.name+'»?\n'+
-     'Ejemplo: 106 (metros).\n'+
-     'Deja vacío si no es una captura de Google Earth.\n'+
-     'La escala será aproximada y podrás ajustarla después.',''
-    );
+    const rawHeight=await heightDialog.ask(file.name);
+    if(epoch!==generation||!canWrite())break;
     if(rawHeight===null)continue;
     let cameraHeightM=null;
     if(rawHeight.trim()){
@@ -330,7 +327,8 @@ export function createPhotoGuides({ctx,pixel,world,requestDraw,show,getMapKey,ge
  function bind(){
   el('reference-file').addEventListener('change',async event=>{
    const input=event.currentTarget,files=Array.from(input.files||[]);
-   input.value='';await addFiles(files);
+   input.value='';if(input.disabled||!files.length)return;input.disabled=true;
+   try{await addFiles(files)}finally{input.disabled=false}
   });
   el('reference-list').addEventListener('change',event=>{currentId=event.target.value;updateUI();requestDraw()});
   el('reference-opacity').addEventListener('input',event=>setTransparency(event.target.value));
