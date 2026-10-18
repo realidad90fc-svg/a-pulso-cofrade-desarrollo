@@ -37,6 +37,7 @@ globalThis.OffscreenCanvas=class{constructor(w,h){return createCanvas(w,h)}};
 await import('../editor-arenal.mjs');
 const flush=async()=>{for(let i=0;i<25;i++){await new Promise(r=>setTimeout(r,10));let n=0;while(frames.length&&n++<100)frames.shift()(performance.now())}};
 await flush();
+for(let i=0;i<30&&!document.getElementById('loading').hidden;i++)await flush();
 const $=id=>document.getElementById(id);
 assert($('loading').hidden,'Editor initialization must complete');
 assert($('map-select').querySelectorAll('option').length>=17,'Every original map must remain selectable');
