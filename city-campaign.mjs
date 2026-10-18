@@ -11,6 +11,7 @@ const clone=value=>structuredClone(value);
 let gameSources=[];
 export function cityVisitDocument(project,visit,getDocument){
  const zone=project.zones.find(z=>z.id===visit.zoneId);if(!zone)throw Error('El tramo ya no existe.');
+ if(project.maps.find(m=>m.key===zone.mapKey)?.trashed)throw Error('El mapa «'+zone.name+'» está en la papelera.');
  const document=selectCityZone(project,zone.id,key=>resolveCityMap(project,key,getDocument));
  const g=gameplayOf(document);g.collision.mode='replace';document.gameplay=g;
  if(!g.route.enabled){

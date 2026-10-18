@@ -18,9 +18,10 @@ export function setupWorkbench({state,getData,getMapKey,getProjectName,configure
  const button=(id,label,icon,fn)=>{const b=document.createElement('button');b.type='button';if(id)b.id=id;b.innerHTML=workbenchIcon(icon)+'<span>'+label+'</span>';b.title=label;b.setAttribute('aria-label',label);if(fn)b.onclick=fn;return b};
  function pressed(b,on){b.setAttribute('aria-pressed',String(on));b.classList.toggle('active',on)}
  body.classList.add('workbench');
- const brand=header.querySelector('.brand');brand.querySelector('strong').textContent='Taller de Sevilla';brand.querySelector('span').textContent='A PULSO · ESTUDIO DE MAPAS 3.1.1';
+ const brand=header.querySelector('.brand');brand.querySelector('strong').textContent='Taller de Sevilla';brand.querySelector('span').textContent='A PULSO · ESTUDIO DE MAPAS 3.2.0';
  const actions=header.querySelector('.title-actions');actions.replaceChildren();
  const projectButton=button('wb-project-button','Proyecto','project',()=>openLeft('project'));actions.append(projectButton);
+ const helpButton=button('wb-help','Cómo se usa','help',()=>openCity('help'));helpButton.querySelector('svg path').setAttribute('d','M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5 M12 17h.01');actions.append(helpButton);
   // Move real controls, preserving their event handlers and data formats.
  const rail=document.createElement('nav');rail.className='wb-rail';rail.setAttribute('aria-label','Navegación del editor');
  const leftPane=document.createElement('aside');leftPane.id='wb-left';leftPane.className='wb-pane wb-left';leftPane.setAttribute('aria-label','Biblioteca y proyecto');
@@ -93,7 +94,7 @@ export function setupWorkbench({state,getData,getMapKey,getProjectName,configure
  $('mobile-header-settings').hidden=true;
  for(const r of registry){const b=button('',r.title,'settings',()=>openPanel(r.id));b.dataset.wbPanel=r.id;$('wb-settings-index').append(b)}
  const command=document.createElement('dialog');command.id='wb-command-dialog';command.innerHTML='<header><h2>¿Qué quieres hacer?</h2><button id="wb-command-close" type="button" aria-label="Cerrar buscador">'+workbenchIcon('close')+'</button></header><label class="wb-search">'+workbenchIcon('search')+'<input id="wb-command-query" type="search" placeholder="Ej.: colisiones, fotos, guardar…" aria-label="Buscar herramientas y ajustes"></label><div id="wb-command-results"></div>';body.append(command);
- const commandItems=[...registry.map(r=>({label:r.title,run:()=>openPanel(r.id)})),...railViews.map(([id,label])=>({label,run:()=>id==='maps'?openCity('maps'):openLeft(id)}))];
+ const commandItems=[{label:'Cómo se usa · mapas, asignaciones y guardar',run:()=>openCity('help')},{label:'Hermandades · asignar y ordenar mapas',run:()=>openCity('brotherhoods')},{label:'Papelera · recuperar un mapa eliminado',run:()=>openCity('trash')},...registry.map(r=>({label:r.title,run:()=>openPanel(r.id)})),...railViews.map(([id,label])=>({label,run:()=>id==='maps'?openCity('maps'):openLeft(id)}))];
  function renderCommands(){const q=normalize($('wb-command-query').value);const found=commandItems.filter(c=>normalize(c.label).includes(q));$('wb-command-results').replaceChildren(...found.map(c=>button('',c.label,'settings',()=>{command.close();c.run()})));if(!found.length)$('wb-command-results').textContent='No hay coincidencias. Prueba con otra palabra.'}
  $('wb-command-open').onclick=()=>{renderCommands();command.showModal();$('wb-command-query').focus()};$('wb-command-close').onclick=()=>command.close();$('wb-command-query').oninput=renderCommands;
  $('wb-library-search').oninput=filterCards;

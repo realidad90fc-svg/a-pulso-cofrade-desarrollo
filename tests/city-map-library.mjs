@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createCityProject,addCityMap,assignCityZone,indexMapStreets,searchCityStreets,exportCityBundle,validateCityBundle,readCityProject} from '../city-project.mjs';
+import {mapUsage,itineraryState,renameCityMap,trashCityMap,restoreCityMap} from '../city-map-library.mjs';
+const p=createCityProject(),a=addCityMap(p,{name:'Arfe',purpose:'street'}),b=addCityMap(p,{name:'Recorrido'}),docs={[a.meta.key]:a.document,[b.meta.key]:b.document},get=k=>docs[k];
+a.document.labels=[['Arfe',[2,2]]];indexMapStreets(p,a.document);
+const visit=assignCityZone(p,'hermandad-a','map:'+a.meta.key).visit;
+assert.equal(itineraryState(p,'hermandad-a'),'draft');p.campaignItineraries={'hermandad-a':{stepId:'step',replace:true,visits:[structuredClone(visit)]}};
+assert.equal(itineraryState(p,'hermandad-a'),'live');visit.note='Otro sentido';assert.equal(itineraryState(p,'hermandad-a'),'pending');
+renameCityMap(p,a.meta.key,'Calle Arfe nueva');assert.equal(p.zones.find(z=>z.mapKey===a.meta.key).name,'Calle Arfe nueva');assert.equal(visit.id,p.campaignItineraries['hermandad-a'].visits[0].id);
+b.document.zoneRefs=[{zoneId:visit.zoneId,offset:[0,0],angle:0}];assert.equal(mapUsage(p,a.meta.key,get).links[0].key,b.meta.key);assert.throws(()=>trashCityMap(p,a.meta.key,get),/enlazada/);assert(!a.meta.trashed);
+b.document.zoneRefs=[];b.document.gameplay={route:{events:[{type:'exit',targetMap:a.meta.key}]}};assert.throws(()=>trashCityMap(p,a.meta.key,get),/salidas/);b.document.gameplay=undefined;
+const original=JSON.stringify(a.document);trashCityMap(p,a.meta.key,get);assert(a.meta.trashed);assert.equal(p.itineraries['hermandad-a'].length,0);assert(!p.campaignItineraries['hermandad-a']);assert(p.disabledCampaignBrotherhoods.includes('hermandad-a'));assert.equal(JSON.stringify(a.document),original);assert.equal(searchCityStreets(p,'arfe').length,0);assert.throws(()=>assignCityZone(p,'hermandad-a',visit.zoneId),/Papelera/);
+const exported=validateCityBundle(JSON.parse(JSON.stringify(exportCityBundle(p,get))));assert(exported.project.maps.find(m=>m.key===a.meta.key).trashed);assert.equal(exported.documents[a.meta.key].labels[0][0],'Arfe');
+const reloaded=readCityProject({getItem:()=>JSON.stringify(p)},[{key:a.meta.key,name:'Arfe'}]);assert(reloaded.maps.find(m=>m.key===a.meta.key).trashed,'Catalog merge never resurrects a deleted map');
+restoreCityMap(p,a.meta.key,get);assert.equal(searchCityStreets(p,'arfe').length,1);assert.equal(p.itineraries['hermandad-a'].length,0,'Restoration must not silently reassign');assert.equal(JSON.stringify(a.document),original);
+trashCityMap(p,a.meta.key,get);const duplicate=addCityMap(p,{name:'Calle Arfe nueva'});docs[duplicate.meta.key]=duplicate.document;assert.throws(()=>restoreCityMap(p,a.meta.key,get),/nombre/);renameCityMap(p,duplicate.meta.key,'Otro nombre');restoreCityMap(p,a.meta.key,get);
+b.document.zoneRefs=[{zoneId:'map:'+a.meta.key,offset:[0,0],angle:0}];trashCityMap(p,b.meta.key,get);trashCityMap(p,a.meta.key,get);assert.throws(()=>restoreCityMap(p,b.meta.key,get),/Restaura primero/);restoreCityMap(p,a.meta.key,get);restoreCityMap(p,b.meta.key,get);
+console.log('Map library: shared references and exits block deletion, draft/live states, stable IDs, recoverable deletion and .json round trip, catalog reopening, restore dependencies and name collisions passed.');

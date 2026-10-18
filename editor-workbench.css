@@ -57,3 +57,19 @@ body.workbench.wb-mobile{grid-template-rows:var(--wb-header) 94px minmax(0,1fr) 
 .workbench.wb-mobile #wb-photo-transparency>label{white-space:normal;font-size:11px;line-height:1.3}
 .workbench.wb-mobile #wb-photo-transparency-input{min-height:42px}
 .workbench .wb-drawing-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(530px,calc(100% - 24px));max-width:530px;white-space:normal;gap:5px}.workbench .wb-drawing-actions button{min-width:0;font-size:12px;padding:8px 5px}.workbench .wb-drawing-actions button svg{display:none}.workbench #wb-point-count{grid-column:1/-1;text-align:center;font-size:11px;color:#4a6554;padding:1px 4px}.workbench.wb-mobile .wb-mobile-dock{grid-template-columns:repeat(6,minmax(0,1fr))}.workbench.wb-mobile .wb-mobile-dock button span{max-width:100%;overflow-wrap:anywhere;line-height:1.2}.workbench.wb-mobile .wb-drawing-actions{width:calc(100% - 18px);max-width:530px;grid-template-columns:repeat(4,minmax(0,1fr))}.workbench.wb-mobile .wb-drawing-actions button{font-size:11px;padding:6px 3px;line-height:1.2}.workbench.wb-mobile .map-container:has(#wb-drawing-actions:not([hidden])) .wb-drawing-hint{display:none}
+
+/* Light surfaces need dark, readable text throughout the map library. */
+.workbench .city-dialog{--city-muted:#4d604f;--city-line:#c6d3bf}
+.workbench .city-dialog :is(input,select,button){background:#fff;color:#263d2b}
+.workbench .city-dialog .city-search{background:#fff!important;color:#263d2b}
+.workbench .city-dialog :is(input,select)::placeholder{color:#536451;opacity:1}
+.workbench .city-dialog .city-tabs button{background:transparent}
+.workbench .city-dialog .city-tabs button.active{background:#e2edda;color:#2b6038}
+.workbench .city-dialog .city-primary{background:#236c45!important;color:#fff!important}
+.workbench .city-dialog .city-danger{background:#9b342e;color:#fff;border-color:#9b342e}
+.workbench .city-dialog .city-campaign-settings{background:#edf3e6;color:#263d2b}
+.workbench .city-dialog button:hover:not(:disabled){border-color:#648365;filter:brightness(.97)}
+.workbench .notice{background:#eff4e9;color:#304633}.workbench .notice strong{color:#244b32}
+.workbench #wb-help{padding:8px}.workbench #wb-help span{display:none}
+.workbench #wb-help svg{width:21px;height:21px}
+.workbench.wb-mobile #wb-help{min-height:44px;min-width:36px}

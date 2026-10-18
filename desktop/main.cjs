@@ -185,6 +185,8 @@ function menu(){
    {role:'zoomOut',label:'Reducir vista'},{role:'resetZoom',label:'Zoom normal'}
   ]},
   {label:'Ayuda',submenu:[
+   {label:'Cómo se usa el editor',click:()=>mainWindow?.webContents.executeJavaScript("document.getElementById('wb-help')?.click()")},
+   {label:'Mapas y hermandades',click:()=>mainWindow?.webContents.executeJavaScript("document.getElementById('open-city')?.click()")},
    {label:'Página del editor en Internet',click:()=>shell.openExternal(BASE_URL+'/editor-arenal.html')},
    {label:'Cómo guardar trabajos anteriores',click:()=>dialog.showMessageBox(mainWindow,{
     type:'info',message:'Importar tus mapas del navegador',
@@ -197,7 +199,7 @@ function menu(){
 function createWindow(){
  mainWindow=new BrowserWindow({
   width:1500,height:950,minWidth:900,minHeight:640,
-  title:'A Pulso Cofrade · Estudio de Sevilla 3.1.1',backgroundColor:'#15202a',
+  title:'A Pulso Cofrade · Estudio de Sevilla 3.2.0',backgroundColor:'#15202a',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}
  });
  mainWindow.webContents.setWindowOpenHandler(({url})=>{

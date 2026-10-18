@@ -8,7 +8,8 @@ export async function setupProjectUI({getCity,getDocument,getBaseline,getMapKey,
  <label>Nombre del proyecto<input id="project-name" maxlength="100"></label><div class="actions"><button id="project-rename" type="button">Guardar nombre</button><button id="project-copy" type="button">Crear copia independiente</button></div>
  <label class="flag"><input id="project-export-photos" type="checkbox"> Incluir fotografías privadas en el archivo exportado</label>
  <button id="project-export" type="button">Exportar proyecto completo (.apulso)</button>
- <label>Abrir proyecto desde archivo<input id="project-import" type="file" accept=".apulso,.json,application/json"></label>
+ <label>Abrir proyecto completo (.apulso)<input id="project-import" type="file" accept=".apulso,.json,application/json"></label>
+ <p class="muted">Para añadir un único mapa .json: Mis mapas → Importar un mapa. Abrir un proyecto completo se prepara aquí para que puedas revisarlo antes de restaurar.</p>
  <p class="muted">Incluye mapas, calles compartidas, hermandades, recorridos, recursos y plantillas. Las fotografías solo se incluyen si marcas la casilla.</p>
  <label class="flag"><input id="project-auto" type="checkbox" checked> Guardar versiones automáticas (cada 2 minutos de cambios)</label>
  <label class="flag"><input id="project-history-photos" type="checkbox" checked> Conservar fotos privadas en las versiones locales</label>

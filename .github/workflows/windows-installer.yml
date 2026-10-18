@@ -41,6 +41,7 @@ jobs:
       - name: Verificar ciudad compartida y compatibilidad de pasos
         run: |
           node tests/city-project.mjs
+          node tests/city-map-library.mjs
           node tests/street-identifiers.mjs
           node tests/street-publication.mjs
           node tests/native-regression.mjs
@@ -57,6 +58,8 @@ jobs:
           node tests/decor-rendering.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/city-campaign.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/city-map-library-ui.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/city-campaign-web.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -104,7 +107,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/editor-workbench.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verificar fotografias en el programa real de Windows
+      - name: Verificar fotos, mapas, contraste y movil en Windows real
         shell: pwsh
         run: |
           & .\desktop\node_modules\.bin\electron.cmd .\tests\windows-photo-import.cjs

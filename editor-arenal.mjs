@@ -1210,7 +1210,8 @@ function fitMap(){
  focusAt((area[0]+area[2])/2,(area[1]+area[3])/2,Math.min(80,Math.max(1.5,Math.min((view.w-30)/wd,(view.h-30)/ht))));
 }
 function switchMap(key){
- if(!EDITOR_MAPS.some(m=>m.key===key))return;
+ if(!EDITOR_MAPS.some(m=>m.key===key&&!m.trashed))key=EDITOR_MAPS.find(m=>!m.trashed&&m.type==='user')?.key||EDITOR_MAPS.find(m=>!m.trashed)?.key;
+ if(!key)return;
  mapNavigation?.cancel();
  if(data){clearTimeout(saveTimer);saveLocal()}
  activeMap=key;clearSelection();clearDrawing(state);state.mouseWorld=null;
@@ -1230,6 +1231,7 @@ function switchMap(key){
  catch(error){setData(structuredClone(baseline));show('La edición guardada era incompatible: '+error.message,'error')}
  $('map-select').value=key;
  const chosen=EDITOR_MAPS.find(m=>m.key===key);
+ data.metadata.map=chosen.name;
  cityManager?.refresh();updatePlayLink();
  $('map-kind').textContent=chosen.type==='user'?'Mapa propio: enlaza calles existentes o construye nuevos tramos.':chosen.type==='native'?'Mapa clásico del APK: geometría guía de colisiones; no es una reproducción visual exacta.':chosen.type==='mixed'?'Recorrido combinado: se conserva el mapa original junto a las ampliaciones.':chosen.type==='arenal'?'Arenal: taller con geometría detallada.':'Recorrido modular: aceras y público orientativos que puedes ajustar.';
  configureTool('pan');fitMap();
@@ -1237,11 +1239,11 @@ function switchMap(key){
 }
 function getBaselineDocument(key){
  if(!baselineCache.has(key))baselineCache.set(key,buildEditorMap(key,animationData,nativeMaps,prepareMap));
- return structuredClone(baselineCache.get(key));
+ const doc=structuredClone(baselineCache.get(key));doc.metadata.map=EDITOR_MAPS.find(m=>m.key===key)?.name||doc.metadata.map;return doc;
 }
 function getStoredDocument(key){
  const raw=localStorage.getItem(storageFor(key));
-  if(raw){const doc=JSON.parse(raw);validateMapDocument(doc);return removeArenalPreset(doc)}
+  if(raw){const doc=JSON.parse(raw);validateMapDocument(doc);doc.metadata.map=EDITOR_MAPS.find(m=>m.key===key)?.name||doc.metadata.map;return removeArenalPreset(doc)}
  return getBaselineDocument(key);
 }
 function registerUserMap(meta){
@@ -1250,6 +1252,16 @@ function registerUserMap(meta){
  const selector=$('map-select');let group=selector.querySelector('[data-user-maps]');
  if(!group){group=document.createElement('optgroup');group.label='Mis mapas de Sevilla';group.dataset.userMaps='true';selector.append(group)}
  const option=document.createElement('option');option.value=meta.key;option.textContent=meta.name;group.append(option);
+}
+function syncCityCatalog(maps){
+ for(const meta of maps){
+  registerUserMap(meta);const entry=EDITOR_MAPS.find(m=>m.key===meta.key);
+  Object.assign(entry,{name:meta.name,trashed:!!meta.trashed,purpose:meta.purpose});
+  const option=[...$('map-select').querySelectorAll('option')].find(o=>o.value===meta.key);
+  if(option){option.textContent=meta.name;option.hidden=!!meta.trashed;option.disabled=!!meta.trashed}
+  if(data&&meta.key===activeMap)data.metadata.map=meta.name;
+ }
+ workbenchUI?.refresh();
 }
 function updatePlayLink(){
  for(const id of ['editor-play','editor-play-mobile']){const link=$(id);if(link)link.href='./index.html?cityMap='+encodeURIComponent(activeMap);}
@@ -1313,7 +1325,7 @@ async function init(){
   const publisher=setupMapPublishing({getMapKey:()=>activeMap,getData:()=>data,getBaseline:()=>baseline,getPlayableProject:()=>cityManager.playable(),saveLocal,show});
   cityManager=setupCityManager({catalog:EDITOR_MAPS,getData:()=>data,getBaseline:()=>baseline,
    getMapKey:()=>activeMap,getDocument:getStoredDocument,openMap:switchMap,
-   onRegisterMap:registerUserMap,onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
+   onRegisterMap:registerUserMap,onCatalogChange:syncCityCatalog,openProject:()=>workbenchUI?.openLeft('project'),onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
    snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
    getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit,canWrite:()=>!projectUI||projectUI.canWrite(),onProjectChange:()=>projectUI?.notifyChange(),beforeActivation:label=>projectUI?.controller.checkpoint(label,{force:true,includePhotos:false}),publishProject:()=>publisher.openProject()});
   projectUI=await setupProjectUI({getCity:()=>cityManager.project(),getDocument:key=>key===activeMap&&data?data:getStoredDocument(key),getBaseline:getBaselineDocument,getMapKey:()=>activeMap,flushPhotos:()=>photoGuides.flush(),show,saveLocal});

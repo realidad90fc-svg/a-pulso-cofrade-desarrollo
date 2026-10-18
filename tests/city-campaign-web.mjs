@@ -51,7 +51,7 @@ const {saveCustomAsset}=await import('../custom-assets.mjs');const tile=createCa
 const sidebar=document.createElement('aside');sidebar.className='sidebar';document.body.append(sidebar);let before=0;
 const manager=setupCityManager({catalog:[{key:doc.metadata.mapKey,name:doc.metadata.map,type:'user'}],getData:()=>doc,getMapKey:()=>doc.metadata.mapKey,getDocument:()=>doc,openMap(){},onRegisterMap(){},onNewDocument(){},snapshot(){},changed(){},saveLocal(){localStorage.setItem(MAP_STORAGE_PREFIX+doc.metadata.mapKey,JSON.stringify(doc));return true},show(){},focus(){},getSelection:()=>[],getView:()=>({bounds:[0,0,40,40]}),getImage:()=>null,beforeActivation:async()=>before++});
 manager.open('brotherhoods');$('city-brotherhood').value=chosen.brotherhoodId;$('city-brotherhood').onchange();
-await [...$('city-form').querySelectorAll('button')].find(b=>b.textContent==='Añadir zona al itinerario').onclick();await settle();assert($('city-activate-itinerary'));assert(!$('city-activate-itinerary').disabled);
+await [...$('city-form').querySelectorAll('button')].find(b=>b.textContent==='Añadir al recorrido').onclick();await settle();assert($('city-activate-itinerary'));assert(!$('city-activate-itinerary').disabled);
 await $('city-activate-itinerary').onclick();await settle();assert.equal(before,1);assert(JSON.parse(storage.get(CITY_KEY)).campaignItineraries[chosen.brotherhoodId]);
 const visit=manager.project().itineraries[chosen.brotherhoodId][0],id='city-route:'+visit.id+':'+chosen.id;
 const pkg=makeProjectPackage({meta:{id:'project-ui',name:'Sevilla nueva'},project:manager.project(),documents:{[doc.metadata.mapKey]:doc},resources:[asset]});assert(validateProjectPackage(JSON.parse(JSON.stringify(pkg))).city.project.campaignItineraries[chosen.brotherhoodId]);

@@ -66,6 +66,7 @@ export function validateProject(p){
  if(p?.schema!==CITY_SCHEMA||!Array.isArray(p.maps)||!Array.isArray(p.zones)||!Array.isArray(p.streets)||!p.itineraries||typeof p.itineraries!=='object')throw Error('El archivo no es un proyecto de ciudad compatible.');
  if(p.maps.length>500||p.zones.length>3000||p.streets.length>15000)throw Error('El proyecto supera el tamaño permitido.');
  for(const [items,field]of [[p.maps,'key'],[p.zones,'id'],[p.streets,'id']]){const ids=items.map(x=>x?.[field]);if(ids.some(x=>typeof x!=='string'||!x||x.length>180)||new Set(ids).size!==ids.length)throw Error('Hay identificadores de mapa, calle o zona repetidos o no válidos.');}
+ for(const m of p.maps){if(m.trashed!==undefined&&typeof m.trashed!=='boolean')throw Error('Estado de papelera no válido.');if(m.purpose!==undefined&&!['street','route'].includes(m.purpose))throw Error('Tipo de mapa no válido.');}
  for(const z of p.zones){if(!p.maps.some(m=>m.key===z.mapKey)||!Array.isArray(z.streets))throw Error('Una zona apunta a un mapa inexistente.');if(z.bounds&&(!Array.isArray(z.bounds)||z.bounds.length!==4||!z.bounds.every(Number.isFinite)||z.bounds[2]<=z.bounds[0]||z.bounds[3]<=z.bounds[1]))throw Error('Límites de zona no válidos.');}
  for(const visits of Object.values(p.itineraries)){if(!Array.isArray(visits)||visits.length>300)throw Error('Itinerario no válido.');for(const v of visits){if(!p.zones.some(z=>z.id===v.zoneId)||typeof v.id!=='string')throw Error('Un itinerario utiliza una zona inexistente.');}}
  if(p.disabledCampaignBrotherhoods!==undefined&&(!Array.isArray(p.disabledCampaignBrotherhoods)||p.disabledCampaignBrotherhoods.length>200||p.disabledCampaignBrotherhoods.some(b=>typeof b!=='string'||b.length>150)))throw Error('Catálogo de itinerarios retirados no válido.');
@@ -81,12 +82,12 @@ export function validateProject(p){
  return p;
 }
 export function persistCityProject(storage,p){validateProject(p);p.revision=(p.revision||0)+1;storage.setItem(CITY_KEY,JSON.stringify(p));}
-export function addCityMap(p,{name,barrio='',width=40,height=40},document=null){
+export function addCityMap(p,{name,barrio='',width=40,height=40,purpose='route'},document=null){
  name=String(name||'').trim().slice(0,100);if(!name)throw Error('Escribe un nombre para el mapa.');
- if(p.maps.some(m=>normalizeStreet(m.name)===normalizeStreet(name)))throw Error('Ya existe un mapa con ese nombre. Puedes abrirlo desde el buscador.');
+ if(p.maps.some(m=>!m.trashed&&normalizeStreet(m.name)===normalizeStreet(name)))throw Error('Ya existe un mapa con ese nombre. Puedes abrirlo desde el buscador.');
  if(document)validateMapDocument(document);
  const key=document?.metadata.mapKey||id('city');if(p.maps.some(m=>m.key===key))throw Error('Este mapa ya está en el catálogo. Ábrelo para actualizarlo.');
- const meta={key,name,barrio:String(barrio).slice(0,80),width,height,type:'user'};
+ const meta={key,name,barrio:String(barrio).slice(0,80),width,height,type:'user',purpose};
  const doc=document?{...clone(document),schema:'apulso-universal-editor-v2',metadata:{...document.metadata,mapKey:key,map:name,sourceType:'user',barrio:meta.barrio}}:blankMapDocument(meta);
  for(const k of KINDS)doc[k]??=[];
  p.maps.push(meta);p.zones.push({id:'map:'+key,mapKey:key,name,bounds:null,streets:[],whole:true});indexMapStreets(p,doc);
@@ -116,10 +117,11 @@ export function indexMapStreets(p,doc){
  const zone=p.zones.find(z=>z.id==='map:'+mapKey);if(zone)zone.streets=[...new Set(labels.map(l=>l[0]))];
 }
 export function searchCityStreets(p,query=''){
- const q=normalizeStreet(query);return p.streets.filter(s=>!q||[s.name,...(s.aliases||[]),...(s.segments||[]).map(t=>t.barrio)].some(n=>normalizeStreet(n).includes(q))).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ const q=normalizeStreet(query);return p.streets.map(s=>({...s,segments:(s.segments||[]).filter(t=>!p.maps.find(m=>m.key===t.mapKey)?.trashed)})).filter(s=>s.segments.length&&(!q||[s.name,...(s.aliases||[]),...s.segments.map(t=>t.barrio)].some(n=>normalizeStreet(n).includes(q)))).sort((a,b)=>a.name.localeCompare(b.name,'es'));
 }
 export function assignCityZone(p,brotherhoodId,zoneId){
  if(!p.zones.some(z=>z.id===zoneId))throw Error('La zona ya no está disponible.');
+ if(p.maps.find(m=>m.key===p.zones.find(z=>z.id===zoneId).mapKey)?.trashed)throw Error('Restaura este mapa desde Papelera antes de asignarlo.');
  const visits=p.itineraries[brotherhoodId]??=[];
  const existing=visits.find(v=>v.zoneId===zoneId);if(existing)return{visit:existing,added:false};
  const visit={id:id('visit'),zoneId,crowd:'inherit',mandatory:false,presentation:'',note:''};visits.push(visit);return{visit,added:true};

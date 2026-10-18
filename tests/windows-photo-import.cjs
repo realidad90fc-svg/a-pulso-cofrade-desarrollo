@@ -41,5 +41,32 @@ app.whenReady().then(async()=>{
  if(metadata.length!==1||metadata[0].cameraHeightM!==106||metadata[0].width<=0||metadata[0].height<=0)throw Error('Photo or Earth calibration not persisted');
  window.webContents.reload();
  await waitFor(window,"document.getElementById('loading')?.hidden === true && document.getElementById('reference-count')?.textContent.startsWith('1/')");
- finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; no browser prompt.');app.exit(0);
+ // Verify the redesigned map library in Chromium, including its real CSS.
+ await window.webContents.executeJavaScript(`(async()=>{
+  const $=id=>document.getElementById(id),assert=(value,message)=>{if(!value)throw Error(message)};
+  const click=async(host,label)=>{const b=[...host.querySelectorAll('button')].find(n=>n.textContent===label);assert(b,'Missing '+label);await b.onclick()};
+  const contrast=node=>{const style=getComputedStyle(node),rgb=s=>s.match(/[\\d.]+/g).slice(0,3).map(Number),lum=s=>rgb(s).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);let bg=node;while(getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)')bg=bg.parentElement;const a=lum(style.color),b=lum(getComputedStyle(bg).backgroundColor);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+  await $('wb-help').onclick();assert($('city-dialog').open,'Guide opens');assert(document.querySelectorAll('.city-help-card').length===6,'Guide content');
+  document.querySelector('[data-city-tab=maps]').click();const form=$('city-create-map');assert(contrast(form.querySelector('input'))>=4.5,'Readable map name input');assert(contrast(document.querySelector('.city-search'))>=4.5,'Readable search input');assert(contrast(form.querySelector('.city-primary'))>=4.5,'Readable primary button');
+  form.querySelector('[name=name]').value='Arfe Windows';await form.onsubmit({preventDefault(){}});assert(!$('city-dialog').open,'New map opens editor');
+  window.__testMapKey=$('map-select').value;const raw=JSON.parse(localStorage.getItem('apulso-universal-editor-v2:'+window.__testMapKey));
+  const {defaultGameplay,newRouteEvent}=await import('./map-gameplay.mjs');raw.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]]}];raw.startPose={x:20,y:20,angle:0};raw.gameplay=defaultGameplay();raw.gameplay.route.enabled=true;raw.gameplay.route.events=[newRouteEvent('finish',[30,30])];
+  const files=new DataTransfer();files.items.add(new File([JSON.stringify(raw)],'Arfe.json',{type:'application/json'}));$('import').files=files.files;await $('import').onchange({target:$('import')});$('save').click();
+  await $('wb-help').onclick();document.querySelector('[data-city-tab=maps]').click();const card=document.querySelector('[data-map-key="'+window.__testMapKey+'"]');await click(card,'Asignar a hermandad');
+  const {CONTENT_STEPS}=await import('./content-catalogue.mjs');$('city-brotherhood').value=CONTENT_STEPS.find(s=>s.implemented).brotherhoodId;$('city-brotherhood').onchange();
+  assert(contrast($('city-brotherhood'))>=4.5,'Readable brotherhood selector');assert(contrast(document.querySelector('.city-campaign-settings h3'))>=4.5,'Readable campaign settings');
+  await click($('city-form'),'Añadir al recorrido');assert($('city-itinerary-state').dataset.state==='draft','Draft state');await $('city-activate-itinerary').onclick();assert($('city-itinerary-state').dataset.state==='live','Applied to real game catalogue');
+  document.querySelector('[data-city-tab=maps]').click();await click(document.querySelector('[data-map-key="'+window.__testMapKey+'"]'),'Nombre y usos');const rename=$('city-form').querySelector('form');rename.querySelector('input').value='Arfe renombrada';await rename.onsubmit({preventDefault(){}});assert($('map-select').selectedOptions[0].textContent==='Arfe renombrada','Map picker rename');
+  await click(document.querySelector('[data-map-key="'+window.__testMapKey+'"]'),'Eliminar');await $('city-confirm-trash').onclick();assert($('map-select').value!==window.__testMapKey,'Deleted active map changes editor');document.querySelector('[data-city-tab=trash]').click();await click($('city-results'),'Restaurar mapa');assert(!JSON.parse(localStorage.getItem('apulso-city-project-v1')).maps.find(m=>m.key===window.__testMapKey).trashed,'Restored map');
+ })()`);
+ window.setMinimumSize(320,400);window.setSize(390,844);await delay();
+ await window.webContents.executeJavaScript(`(()=>{
+  const modal=document.getElementById('city-dialog'),content=modal.querySelector('.city-content'),tabs=modal.querySelector('.city-tabs');
+  if(!document.body.classList.contains('wb-mobile'))throw Error('Mobile controls did not adapt');
+  if(content.clientHeight<150||content.scrollWidth>content.clientWidth+2)throw Error('Mobile map dialog overflow');
+  if(tabs.scrollWidth<=tabs.clientWidth)throw Error('Mobile map tabs must scroll to every action');
+  const rect=modal.getBoundingClientRect();if(rect.left<0||rect.right>innerWidth+1||rect.bottom>innerHeight+1)throw Error('Map dialog must fit mobile viewport');
+  modal.close();
+ })()`);
+ finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; map library create/assign/apply/rename/delete/restore, readable contrast and mobile layout; no browser prompt.');app.exit(0);
 }).catch(fail);
