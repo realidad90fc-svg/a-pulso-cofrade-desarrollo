@@ -1,7 +1,7 @@
 'use strict';
 // Test de regresión: las aceras nunca deben tapar tejados.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=path.resolve(__dirname,fs.existsSync(path.join(__dirname,'../editor-arenal.mjs'))?'../dist':'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
+const root=path.resolve(__dirname,fs.existsSync(path.join(__dirname,'..','dist','editor-arenal.mjs'))?'../dist':'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
 const editor=read('editor-arenal.mjs');
 const a=editor.slice(editor.indexOf('function renderStaticScene(){'),editor.indexOf('// Maps, roofs, sprites and Google Earth photos'));
 function before(text,a,b,label){
