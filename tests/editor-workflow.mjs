@@ -77,7 +77,7 @@ const streetTab=[...document.querySelectorAll('[data-city-tab]')].find(n=>n.data
 const search=$('city-context').querySelector('input');search.value='adriano';search.oninput();await new Promise(r=>setTimeout(r,180));await flush();
 assert($('city-results').textContent.includes('Adriano'),'A street from an existing map is found');
 const attach=[...$('city-results').querySelectorAll('button')].find(b=>b.textContent.includes('Usar mapa en hermandad'));assert(attach);await attach.onclick();await flush();
-const add=[...$('city-form').querySelectorAll('button')].find(b=>b.textContent==='Añadir zona al itinerario');assert(add);await add.onclick();await flush();
+const add=[...$('city-form').querySelectorAll('button')].find(b=>b.textContent==='Añadir al recorrido');assert(add);await add.onclick();await flush();
 assert($('city-results').querySelector('.city-visit'),'Map is attached to a brotherhood');
 await add.onclick();await flush();assert.equal($('city-results').querySelectorAll('.city-visit').length,1,'Repeated attachment does not duplicate the zone');
 const p=JSON.parse(storage.get('apulso-city-project-v1'));assert.equal(p.maps.length,18);assert(Object.values(p.itineraries).some(v=>v.length===1));
