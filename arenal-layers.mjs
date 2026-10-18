@@ -313,6 +313,7 @@ export function paintArenalScene(route,ctx,images,r){
  // impossible rather than painted over.
  for(let lotIndex=0;lotIndex<route.buildings.length;lotIndex++){
   const lot=route.buildings[lotIndex];
+  if(route.editorLayeredScene)continue;
   if(!boxhit(lot.bbox,r))continue;
   // The source game provided flat, stretched house sprites when an editor
   // building had no explicit material. Render residential roofs using the
@@ -421,6 +422,7 @@ export function paintArenalScene(route,ctx,images,r){
  // Decorations from the editable Arenal scene: no change to street masks,
  // roof parcels, buildings, collision obstacles or original sprite dimensions.
  for(const lot of route.buildings){
+  if(route.editorLayeredScene)continue;
   if(lot.facade&&boxhit(facadeVisualBounds(lot),r))
    drawFacadeDecor(ctx,lot,(x,y)=>[px(x),py(y)],p);
  }
@@ -429,6 +431,7 @@ export function paintArenalScene(route,ctx,images,r){
  ctx.fillStyle=route.scene.ambient.tint;ctx.fillRect(0,0,(r[2]-r[0])*p,(r[3]-r[1])*p);ctx.restore();
  // SECOND-BUILT: people render above stone, never under a house.
  for(const person of route.people){
+  if(route.editorLayeredScene)continue;
   const [x,y]=person.point,[w,h]=person.size;
   if(x+w/2<r[0]||x-w/2>r[2]||y+h/2<r[1]||y-h/2>r[3])continue;
   const image=img(person.key);

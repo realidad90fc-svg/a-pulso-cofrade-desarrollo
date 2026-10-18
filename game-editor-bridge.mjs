@@ -1,4 +1,5 @@
 import {overheadObstacles,obstacleApplies} from './overhead-elements.mjs';
+import {paintCityObjects} from './city-scene.mjs';
 import {removeArenalPreset} from './arenal-manual-route.mjs';
 // Apply editor layers to real-time game preview on the SAME origin as the editor.
 // The production game retains its native source data; local drafts are opt-in
@@ -217,6 +218,11 @@ export function attachEditorDraft(sim,draftOverride=undefined){
   const polygons=[...route.walkable,...route.sidewalks.map(o=>o.poly),...(route.buildings||[]).map(o=>o.poly)];
   const boxes=polygons.filter(polygon).map(bbox),original=route.scene.bounds;
   route.renderBounds=[Math.min(original[0],...boxes.map(b=>b[0])),Math.min(original[1],...boxes.map(b=>b[1])),Math.max(original[2],...boxes.map(b=>b[2])),Math.max(original[3],...boxes.map(b=>b[3]))];
+  // Keep all geometry for physics. Draw editable objects in the shared layer
+  // stack instead of baking them irreversibly into the ground tile.
+  route.editorLayeredScene=true;
+  route.editorLayeredTrees=Array.isArray(scene.trees);
+  route.editorLayeredSigns=Array.isArray(scene.signs);
   route.tileCache?.clear();
  }else if(route&&Array.isArray(route.walkable)){
   const roads=draft.layers.roads.filter(o=>polygon(o.poly)).map(o=>o.poly.map(p=>[...p]));
@@ -238,13 +244,13 @@ export function attachEditorDraft(sim,draftOverride=undefined){
  if(sim._editorStreetState){sim.editorDraft.streetIdentifiers.restore(sim._editorStreetState);sim._editorStreetState=null}
  sim.editorDraft.baseArenalSidewalks=key==='RegresoArenal'&&!!route?.editorSidewalkMaterialReady;
  sim.editorDraft.baseArenalRoads=key==='RegresoArenal'&&!!route?.editorRoadSurfaces;
- sim.editorDraft.baseArenalHouses=key==='RegresoArenal'&&Array.isArray(draft.arenalScene?.houses);
- sim.editorDraft.baseArenalPeople=key==='RegresoArenal'&&Array.isArray(draft.arenalScene?.people);
+ sim.editorDraft.baseArenalHouses=false;
+ sim.editorDraft.baseArenalPeople=false;
  return sim.editorDraft;
 }
 export class RuntimeEditorDraft{
  constructor(draft){
-  this.key=draft.mapKey;this.layers=removeArenalPreset(draft.layers,this.key);this.total=draft.total;this.resources=draft.resources||[];
+  this.key=draft.mapKey;this.layers=removeArenalPreset({...draft.layers,...(this.key==='RegresoArenal'?draft.arenalScene:null)},this.key);this.total=draft.total;this.resources=draft.resources||[];
    // Previously discarded by the runtime wrapper: caused editor-defined starts not to load.
    this.startPose=validStart(draft.startPose)?{...draft.startPose}:null;
   this.labels=removeArenalPreset({labels:Array.isArray(draft.labelScene)?draft.labelScene:(this.layers.labels||[])},this.key).labels;
@@ -254,7 +260,7 @@ export class RuntimeEditorDraft{
   this.obstacles=obstaclesFor({...this.layers,...draft.arenalScene});
   this.lastCollisionFrame=-1;this.reachedCheckpoints=new Set();
  }
- draw(ctx,project,images,canvas){
+ draw(ctx,project,images,canvas,phase='all'){
   const inv=inverse(project);if(!inv)return;
   const coords=[[0,0],[canvas.width,0],[canvas.width,canvas.height],[0,canvas.height]]
    .map(([x,y])=>[inv[0]*x+inv[2]*y+inv[4],inv[1]*x+inv[3]*y+inv[5]]);
@@ -265,7 +271,7 @@ export class RuntimeEditorDraft{
   const im=key=>images.get(key);
   ctx.save();ctx.setTransform(...oriented);
   ctx.globalAlpha=1;ctx.imageSmoothingEnabled=false;
-  for(const [kind,materials]of [['roads',ROAD_MATERIALS],['sidewalks',SIDEWALK_MATERIALS]]){
+  if(phase!=='above')for(const [kind,materials]of [['roads',ROAD_MATERIALS],['sidewalks',SIDEWALK_MATERIALS]]){
    // Only the Arenal full-scene layers, once accepted, are skipped here.
    // All other maps keep the original additive editor painter unchanged.
    if((kind==='sidewalks'&&this.baseArenalSidewalks)
@@ -275,28 +281,11 @@ export class RuntimeEditorDraft{
     drawSurface(ctx,o.poly,kind,o.material||materials[0].id,px,1,floor,bound,o);
    }
   }
-  for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type)&&hits([o.point[0]-9,o.point[1]-9,o.point[0]+9,o.point[1]+9],bound))
-    drawUrbanElement(ctx,o,px,1);
-   for(const o of this.layers.houses)if(!this.baseArenalHouses&&polygon(o.poly)&&hits(bbox(o.poly),bound)){
-    drawRoof(ctx,o.poly,o.material||o.key,px,im,1,o);
-   }
-   for(const o of this.layers.houses)if(!this.baseArenalHouses&&o.facade&&polygon(o.poly)&&hits(facadeVisualBounds(o),bound))drawFacadeDecor(ctx,o,px,1);
-  for(const o of this.layers.trees)if(valid(o.point)&&hits([o.point[0]-1,o.point[1]-1,o.point[0]+1,o.point[1]+1],bound))drawTree(ctx,o,px,1,im);
-  for(const o of this.layers.signs)if(valid(o.point))drawTrafficSign(ctx,o,px,1);
-  for(const o of this.layers.urban||[])if(valid(o.point)&&!urbanIsMarking(o.type)&&hits(urbanBounds(o),bound))
-    drawUrbanElement(ctx,o,px,1);
-   for(const kind of ['fences','chairs'])for(const o of this.layers[kind])if(valid(o.point)&&hits([o.point[0]-2,o.point[1]-2,o.point[0]+2,o.point[1]+2],bound))drawFurniture(ctx,o,kind==='fences'?'fence':'chair',px,1);
-  for(const cp of this.layers.checkpoints||[])if(valid(cp.position))drawCheckpointGuide(ctx,cp,px,1,{label:false});
-  for(const o of this.layers.customObjects||[])if(valid(o.point))drawCustomObject(ctx,o,px,1);
-  for(const o of this.layers.people)if(!this.baseArenalPeople&&valid(o.point)&&!personBlockedByTrees(o,this.layers.trees)){
-   const image=images.get(o.key)||images.get(o.key?.split(':').at(-1));
-   const x=o.point[0],y=o.point[1],width=o.size?.[0]||.19,height=o.size?.[1]||.19;
-   if(!hits([x-width/2,y-height/2,x+width/2,y+height/2],bound))continue;
-   ctx.save();ctx.translate(x,-y);ctx.rotate(-(o.angle||0)*Math.PI/180);
-   if(image)ctx.drawImage(image,-width/2,-height/2,width,height);
-   else{ctx.fillStyle='#b99976';ctx.beginPath();ctx.arc(0,0,.095,0,2*Math.PI);ctx.fill()}
-   ctx.restore();
+  if(phase!=='above'){
+   for(const o of this.layers.urban||[])if(valid(o.point)&&urbanIsMarking(o.type))drawUrbanElement(ctx,o,px,1);
+   for(const cp of this.layers.checkpoints||[])if(valid(cp.position))drawCheckpointGuide(ctx,cp,px,1,{label:false});
   }
+  paintCityObjects(ctx,this.layers,px,1,im,bound,{phase,filter:(type)=>!(type==='houses'&&this.baseArenalHouses)&&!(type==='people'&&this.baseArenalPeople)});
   ctx.restore();
  }
  streetNoticeFor(sim){
@@ -335,6 +324,7 @@ export class RuntimeEditorDraft{
 }
 export async function loadEditorDraftImages(layer,load,images){
  if(!layer)return;
+ layer={...layer,layers:{...layer.layers,...layer.arenalScene}};
  await loadDocumentAssets({...layer.layers,resources:layer.resources||layer.layers.resources||[]});
  const trees=layer.layers.trees||[];
  const all=[...new Set([

@@ -15,7 +15,8 @@ export function validateHeightProfiles(profiles){
 export function heightProfile(sim){const id=sim?.step?.variant?.key||sim?.step?.code;return(sim?.gameplay?.config?.heightProfiles||sim?.editorHeightProfiles||[]).find(p=>p.id===id)||DEFAULT_HEIGHTS}
 export function pasoHeight(sim){const p=heightProfile(sim),state=sim?.controller?.animator?.state;return ['pasoBajado','prelevanta'].includes(state)?p.lowered:sim?.controller?.flex?p.crouched:p.standing}
 export const obstacleApplies=(obstacle,sim)=>obstacle.clearance===undefined||pasoHeight(sim)>obstacle.clearance+1e-6;
-export function overheadSize(o){return o.size||[o.width??3,o.depth??(overheadType(o.type)?.kind==='canopy'?1.2:.6)]}
+export function overheadDefaultSize(type){return[3,overheadType(type)?.kind==='canopy'?1.2:type==='arch-postigo'?.55:type==='lintel-cathedral'?.32:.24]}
+export function overheadSize(o){const defaults=overheadDefaultSize(o.type);return o.size||[o.width??defaults[0],o.depth??defaults[1]]}
 export function validateOverhead(o){if(!overheadType(o?.type))return;const size=overheadSize(o);if(!size.every(n=>Number.isFinite(n)&&n>=.05&&n<=100)||!Number.isFinite(o.clearance)||o.clearance<.1||o.clearance>20||!Number.isFinite(o.angle)||Math.abs(o.angle)>360000||!Number.isFinite(o.pier??.3)||(o.pier??.3)<.05||(overheadType(o.type).kind!=='canopy'&&(o.pier??.3)>size[0]/2))throw Error('Revisa las medidas, altura libre y grosor de los laterales del toldo o portal.');}
 export function overheadObstacles(o){
  if(!overheadType(o?.type)||o.solid===false)return[];validateOverhead(o);

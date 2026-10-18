@@ -7,12 +7,11 @@ export const GAME_PATCH_PREFIX='apulso-game-draft-v1:';
 export const EDITOR_PATCH_SCHEMA='apulso-game-draft-v1';
 export const MAP_KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 const stringify=x=>JSON.stringify(x);
-// Grouping and locking are authoring state, not extra scenery. Only resized
-// collision state participates in the playable delta.
+// Grouping and locking stay in the editor. Size and visual order affect the game.
 function sceneSignature(kind,item){
  const value=structuredClone(item);delete value.solid;delete value.walkable;
  if(kind==='labels'){value[2]={radius:1,...value[2]};delete value[2].edit;return stringify(value)}
- const resized=value.edit?.resized;delete value.edit;if(resized)value.edit={resized:true};return stringify(value);
+ const {resized,drawOrder}=value.edit||{};delete value.edit;if(resized||drawOrder!==undefined)value.edit={...(resized?{resized:true}:{}),...(drawOrder!==undefined?{drawOrder}:{})};return stringify(value);
 }
 export function makeGameDraft(data,baseline){
  data=removeArenalPreset(data);baseline=removeArenalPreset(baseline);
@@ -46,7 +45,7 @@ export function makeGameDraft(data,baseline){
   // Full road geometry supports accurate path validation on the Arenal route.
   labelScene:data?.labels||[],
   arenalScene:data?.metadata?.mapKey==='RegresoArenal'?Object.fromEntries(
-    ['roads','sidewalks','houses','people'].map(k=>[k,data[k]||[]])
+    MAP_KINDS.map(k=>[k,data[k]||[]])
    ):null,
   note:'Solo diseño local del editor, sin fotografías. Las bajas en mapas originales requieren integrar sus gráficos y colisiones de origen.'};
 }

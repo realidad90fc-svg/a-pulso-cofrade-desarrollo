@@ -4,6 +4,7 @@ import {selectionGeometry,translateSelections,rotateSelections,captureSelection}
 import {validateMapDocument} from './city-project.mjs';
 import {resourceManifest,embedDocumentAssets,validateResourceManifest} from './custom-assets.mjs';
 import {validSurface,surfaceRings} from './map-geometry.mjs';
+import {SCENE_KINDS,sceneDrawOrder} from './scene-order.mjs';
 const clone=o=>structuredClone(o),round=n=>Math.round(n*1e6)/1e6;
 export function selectionFrame(doc,items){
  const selected=expandGroups(doc,items,true),geometry=selectionGeometry(doc,selected);if(!geometry)return null;
@@ -46,6 +47,13 @@ export function groupSelection(doc,items,name='Conjunto'){
 }
 export function ungroupSelection(doc,items){return transaction(doc,expandGroups(doc,items),(staged,list)=>{for(const s of list){const e=itemEdit(staged[s.type][s.index]);delete e.groupId;delete e.groupName;delete e.groupAngle}})}
 export function lockSelection(doc,items,locked){const selected=expandGroups(doc,items);if(!selected.length)throw Error('Selecciona elementos para bloquearlos o desbloquearlos.');for(const s of selected)itemEdit(doc[s.type][s.index],true).locked=!!locked;return selected}
+export function reorderSelection(doc,items,direction){
+ const selected=expandGroups(doc,items);if(!selected.length||selected.some(s=>!SCENE_KINDS.includes(s.type)))throw Error('Elige objetos, público o edificios. El suelo y los puntos de recorrido conservan sus capas.');
+ if(!['forward','backward','reset'].includes(direction))throw Error('Orden visual no válido.');
+ const orders=selected.map(s=>sceneDrawOrder(s.type,doc[s.type][s.index]));
+ const delta=direction==='reset'?0:Math.max(-1000-Math.min(...orders),Math.min(1000-Math.max(...orders),direction==='forward'?10:-10));
+ return transaction(doc,selected,(staged,list)=>{for(const s of list){const e=itemEdit(staged[s.type][s.index],true);if(direction==='reset')delete e.drawOrder;else e.drawOrder=sceneDrawOrder(s.type,staged[s.type][s.index])+delta}staged.metadata.precisionGeometry=true});
+}
 function layoutUnits(doc,items){
  const units=new Map();for(const s of expandGroups(doc,items)){const id=itemEdit(doc[s.type][s.index]).groupId||s.type+':'+s.index;if(!units.has(id))units.set(id,[]);units.get(id).push(s)}return[...units.values()];
 }

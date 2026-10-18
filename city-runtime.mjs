@@ -72,11 +72,11 @@ export class CityRoute{
  snapshot(){return{checkpointIds:[...this.checkpointIds],finished:this.finished,checkpointReached:this.checkpointReached}}
  restore(value){this.checkpointIds=[...(value?.checkpointIds||[])];this.finished=!!value?.finished;this.checkpointReached=!!value?.checkpointReached;this.follow()}
  drawFloor(){}
- drawScene(ctx,project,images,canvas){
+ drawScene(ctx,project,images,canvas,phase='all'){
   const inv=inverse(project);if(!inv)return;
   const corners=[[0,0],[canvas.width,0],[canvas.width,canvas.height],[0,canvas.height]].map(([x,y])=>[inv[0]*x+inv[2]*y+inv[4],inv[1]*x+inv[3]*y+inv[5]]),bounds=polygonBounds(corners);
   ctx.save();ctx.setTransform(...multiply(project,[1,0,0,-1,0,0]));
-  paintCityScene(ctx,this.document,(x,y)=>[x,-y],1,key=>images.get(key),bounds,{labels:false});ctx.restore();
+  paintCityScene(ctx,this.document,(x,y)=>[x,-y],1,key=>images.get(key),bounds,{labels:false,phase});ctx.restore();
  }
  drawMarkers(ctx,project){
   ctx.save();ctx.setTransform(...multiply(project,[1,0,0,-1,0,0]));

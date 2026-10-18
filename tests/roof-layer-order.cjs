@@ -1,7 +1,7 @@
 'use strict';
 // Test de regresión: las aceras nunca deben tapar tejados.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=path.resolve(__dirname,'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
+const root=path.resolve(__dirname,fs.existsSync(path.join(__dirname,'../editor-arenal.mjs'))?'../dist':'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
 const editor=read('editor-arenal.mjs');
 const a=editor.slice(editor.indexOf('function renderStaticScene(){'),editor.indexOf('// Maps, roofs, sprites and Google Earth photos'));
 function before(text,a,b,label){
@@ -14,6 +14,7 @@ const native=read('arenal-layers.mjs');
 const n=native.slice(native.indexOf('export function paintArenalScene'));
 before(n,'for(const sw of route.sidewalks)','for(const lot of route.buildings)','Las aceras deben estar detrás de los tejados en el Arenal');
 const bridge=read('game-editor-bridge.mjs');
-const g=bridge.slice(bridge.indexOf('draw(ctx,project,images,canvas)'),bridge.indexOf('for(const o of this.layers.trees)'));
-before(g,"['sidewalks',SIDEWALK_MATERIALS]","for(const o of this.layers.houses)",'La vista previa debe dibujar las cubiertas después de las aceras');
+const g=bridge.slice(bridge.indexOf("draw(ctx,project,images,canvas,phase='all')"),bridge.indexOf('streetNoticeFor(sim)'));
+before(g,"['sidewalks',SIDEWALK_MATERIALS]",'paintCityObjects(ctx,this.layers','La vista previa debe dibujar las cubiertas después de las aceras');
 console.log('PASS: Tejados encima de aceras en editor, Arenal y prueba de juego');
+

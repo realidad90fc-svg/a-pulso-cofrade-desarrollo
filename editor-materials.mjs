@@ -261,12 +261,13 @@ export function drawFurniture(ctx,item,type,pixel,zoom,selected=false){
  ctx.save();ctx.translate(x,y);ctx.rotate(-angle);
  ctx.lineWidth=Math.max(.0001,zoom*.028);
  if(type==='fence'){
-  // Small red Sevilla crowd-control barrier viewed from above: segmented crossbar and feet.
-  ctx.fillStyle='#ba2726';ctx.strokeStyle='#791b18';
-  ctx.fillRect(-w/2,-d*.30,w,d*.60);ctx.strokeRect(-w/2,-d*.30,w,d*.60);
-  ctx.fillStyle='#de4841';
-  const bars=Math.max(2,Math.floor((item.width||.95)/.25));for(let i=1;i<bars;i++){const xx=-w/2+i*w/bars;ctx.fillRect(xx-zoom*.011,-d*.34,zoom*.022,d*.68)}
-  ctx.fillStyle='#912524';ctx.fillRect(-w/2,-d,w*.06,d*2);ctx.fillRect(w/2-w*.06,-d,w*.06,d*2);
+  // A continuous red rail in plan view; all joints stay inside the rail.
+  const rail=d*.50;
+  ctx.fillStyle='#762522';ctx.fillRect(-w/2,-rail/2,w,rail);
+  ctx.fillStyle='#b9332c';ctx.fillRect(-w/2,-rail*.40,w,rail*.68);
+  ctx.fillStyle='#de6751';ctx.fillRect(-w/2,-rail*.40,w,rail*.15);
+  const bars=Math.max(1,Math.ceil((item.width||.95)/.32));
+  for(let i=1;i<bars;i++){const xx=-w/2+i*w/bars;ctx.fillStyle='#8e2925';ctx.fillRect(xx-zoom*.006,-rail/2,zoom*.012,rail);}
  }else{
   // Folding wooden Carrera Oficial chair. Keep the saved .40 x .43 m footprint
   // and orientation: the backrest is at negative screen Y in every view.

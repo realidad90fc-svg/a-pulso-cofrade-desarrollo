@@ -30,7 +30,7 @@ export class Renderer {
     route.drawArchitecture(ctx,worldToTile,null,sprite,null,images);
    }
   }
-  if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas);
+  if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas,'below');
   const drawable=[];
   for(const graph of sim.renderGraphs||sim.graphs)for(const node of graph.nodes.values()){
    // Keep the original body animator and contacts; replace only its visible art.
@@ -60,7 +60,7 @@ export class Renderer {
   drawable.sort((a,b)=>a.node.sprite.order-b.node.sprite.order);
   let markers=false,floor=false,editorDrawn=false;
   for(const {graph,node,sprite,im}of drawable){
-   if(!editorDrawn&&node.sprite.order>=3){sim.editorDraft?.draw(ctx,project,images,this.canvas);editorDrawn=true;}
+   if(!editorDrawn&&node.sprite.order>=3){sim.editorDraft?.draw(ctx,project,images,this.canvas,'below');editorDrawn=true;}
    if(!floor&&node.sprite.order>=0){sim.routeAdapter?.drawFloor(ctx,project,images,this.canvas);floor=true;}
    if(!markers&&node.sprite.order>=2){if(sim.gameplay?.ownsEvents)sim.gameplay.drawMarkers(ctx,project);else if(sim.routeAdapter)sim.routeAdapter.drawMarkers(ctx,project);else if(!sim.tutorial)drawRouteMarkers(ctx,project,!sim.mapController.zonaInterPasada?sim.mapColliders.find(c=>c.entity.tag==='zonaInter')?.world().points:null,sim.mapColliders.find(c=>c.entity.tag==='zonaParada')?.world().points);markers=true;}
    const ppu=sprite.pixelsToUnits,[sw,sh]=sprite.rectSize;
@@ -76,7 +76,10 @@ export class Renderer {
    else{ctx.imageSmoothingEnabled=!sim.routeAdapter;ctx.drawImage(im,0,0,sw,sh);ctx.imageSmoothingEnabled=true;}
    ctx.filter='none';ctx.restore();
   }
-  if(!editorDrawn)sim.editorDraft?.draw(ctx,project,images,this.canvas);
+  if(!editorDrawn)sim.editorDraft?.draw(ctx,project,images,this.canvas,'below');
+  // Elevated scenery occludes the actual moving actors as well as the public.
+  if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas,'above');
+  sim.editorDraft?.draw(ctx,project,images,this.canvas,'above');
   drawGameReview(ctx,project,sim);
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
   if(showOverlay){

@@ -1,4 +1,4 @@
-// Authoring-only state. Labels keep metadata in their serializable third slot.
+// Labels keep metadata in their serializable third slot. drawOrder also travels to the game.
 export const EDITABLE_KINDS=['roads','sidewalks','houses','people','trees','signs','checkpoints','fences','chairs','labels','urban','customObjects'];
 export const freshEditorId=prefix=>prefix+'-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
 export function itemEdit(item,create=false){
@@ -20,4 +20,5 @@ export function validateItemEdit(item){
  for(const key of ['angle','groupAngle'])if(e[key]!==undefined&&(!Number.isFinite(e[key])||Math.abs(e[key])>360000))throw Error('Giro de edición no válido.');
  if(e.locked!==undefined&&typeof e.locked!=='boolean')throw Error('Bloqueo no válido.');
  if(e.resized!==undefined&&typeof e.resized!=='boolean')throw Error('Datos de tamaño no válidos.');
+ if(e.drawOrder!==undefined&&(!Number.isInteger(e.drawOrder)||Math.abs(e.drawOrder)>1000))throw Error('El orden visual debe ser un entero entre -1000 y 1000.');
 }

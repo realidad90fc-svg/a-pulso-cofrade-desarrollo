@@ -52,6 +52,15 @@ app.whenReady().then(async()=>{
   window.__testMapKey=$('map-select').value;const raw=JSON.parse(localStorage.getItem('apulso-universal-editor-v2:'+window.__testMapKey));
   const {defaultGameplay,newRouteEvent}=await import('./map-gameplay.mjs');raw.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]]}];raw.startPose={x:20,y:20,angle:0};raw.gameplay=defaultGameplay();raw.gameplay.route.enabled=true;raw.gameplay.route.events=[newRouteEvent('finish',[30,30])];
   const files=new DataTransfer();files.items.add(new File([JSON.stringify(raw)],'Arfe.json',{type:'application/json'}));$('import').files=files.files;await $('import').onchange({target:$('import')});$('save').click();
+  // Actual Chromium selection and controls, not just a model import.
+  raw.trees=[{point:[8,8],radius:.35}];
+  const layeredFiles=new DataTransfer();layeredFiles.items.add(new File([JSON.stringify(raw)],'Capas.json',{type:'application/json'}));$('import').files=layeredFiles.files;await $('import').onchange({target:$('import')});
+  document.querySelector('[data-tool=select]').click();$('goto-all').click();
+  const canvas=$('editor-canvas'),rect=canvas.getBoundingClientRect(),scale=Math.min(80,Math.max(1.5,Math.min((rect.width-30)/43.6,(rect.height-30)/43.6))),x=rect.left+rect.width/2-12*scale,y=rect.top+rect.height/2+12*scale;
+  const pickTree=()=>{for(const type of ['pointerdown','pointerup'])canvas.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:x,clientY:y,pointerId:1,pointerType:'mouse',button:0,buttons:type==='pointerdown'?1:0}));};
+  pickTree();assert(!$('edit-order-backward').disabled,'Visual order available on selected tree');$('edit-order-backward').click();$('save').click();
+  const read=()=>JSON.parse(localStorage.getItem('apulso-universal-editor-v2:'+window.__testMapKey));assert(read().trees[0].edit.drawOrder===70,'Manual order persists');assert(read().trees[0].radius===.35,'Drawing order preserves dimensions');
+  $('undo').click();$('save').click();assert(read().trees[0].edit?.drawOrder===undefined,'Undo visual order');$('redo').click();$('save').click();assert(read().trees[0].edit.drawOrder===70,'Redo visual order');pickTree();$('edit-order-reset').click();$('save').click();assert(read().trees[0].edit.drawOrder===undefined,'Automatic order restored');
   await $('wb-help').onclick();document.querySelector('[data-city-tab=maps]').click();const card=document.querySelector('[data-map-key="'+window.__testMapKey+'"]');await click(card,'Asignar a hermandad');
   const {CONTENT_STEPS}=await import('./content-catalogue.mjs');$('city-brotherhood').value=CONTENT_STEPS.find(s=>s.implemented).brotherhoodId;$('city-brotherhood').onchange();
   assert(contrast($('city-brotherhood'))>=4.5,'Readable brotherhood selector');assert(contrast(document.querySelector('.city-campaign-settings h3'))>=4.5,'Readable campaign settings');
@@ -68,5 +77,5 @@ app.whenReady().then(async()=>{
   const rect=modal.getBoundingClientRect();if(rect.left<0||rect.right>innerWidth+1||rect.bottom>innerHeight+1)throw Error('Map dialog must fit mobile viewport');
   modal.close();
  })()`);
- finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; map library create/assign/apply/rename/delete/restore, readable contrast and mobile layout; no browser prompt.');app.exit(0);
+ finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; map library create/assign/apply/rename/delete/restore, readable contrast and mobile layout; native selection, visual order, undo/redo/reset; no browser prompt.');app.exit(0);
 }).catch(fail);

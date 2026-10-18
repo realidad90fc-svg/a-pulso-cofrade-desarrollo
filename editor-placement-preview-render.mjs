@@ -1,7 +1,7 @@
 import {overheadType,overheadSize} from './overhead-elements.mjs';
 import {drawRoof,drawSurface,drawTree,drawFurniture} from './editor-materials.mjs';
 import {drawFacadeDecor} from './editor-facades.mjs';
-import {drawUrbanElement,urbanIsMarking,urbanCollisionSize} from './editor-urban-elements.mjs';
+import {drawUrbanElement,urbanIsMarking,urbanCollisionSize,newUrbanElement} from './editor-urban-elements.mjs';
 import {drawTrafficSign,drawCheckpointGuide} from './editor-object-render.mjs';
 import {drawStreetTriggerGuide} from './street-identifiers.mjs';
 import {pasoFootprint,pasoPoint} from './editor-paso-orientation.mjs';
@@ -64,7 +64,7 @@ export function paintPlacementPreview(canvas,spec,getImage=()=>null){
  }else if(spec.kind==='fence'||spec.kind==='chair'){
   const n=spec.row?5:1,spacing=spec.spacing||.7;
   for(let i=0;i<n;i++)drawFurniture(c,{point:[(i-(n-1)/2)*spacing,0],angle:0,width:spec.kind==='fence'?.95:.4},spec.kind,pixel,z);
- }else if(spec.kind==='urban')drawUrbanElement(c,{point:[0,0],type:spec.type,angle:0,width:spec.width||3,depth:spec.depth||2.6},pixel,z);
+ }else if(spec.kind==='urban')drawUrbanElement(c,newUrbanElement(spec.type,[0,0],{width:spec.width,depth:spec.depth}),pixel,z);
  else if(spec.kind==='sign')drawTrafficSign(c,{point:[0,0],angle:0},pixel,z);
  else if(spec.kind==='checkpoint')drawCheckpointGuide(c,{position:[0,0]},pixel,z,{label:false});
  else if(spec.kind==='street-name'){

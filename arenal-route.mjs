@@ -131,14 +131,14 @@ export class ArenalRoute extends CentreRoute {
  paintAdrianoFurniture(ctx,r,images){
   const p=this.scene.ppu,px=x=>(x-r[0])*p,py=y=>(r[3]-y)*p;
   const nativeTree=images.get(ADRIANO_URBAN_DETAIL.treeSprite);
-  for(const item of this.adrianoTrees||[]){const [x,y]=item.point;if(!intersects([x-.55,y-.55,x+.55,y+.55],r))continue;
+  for(const item of this.adrianoTrees||[]){if(this.editorLayeredTrees)continue;const [x,y]=item.point;if(!intersects([x-.55,y-.55,x+.55,y+.55],r))continue;
    // A real tree pit and trunk under a native Chicotaz canopy (not an unrelated emoji/tree).
    ctx.fillStyle='#968d7c';ctx.fillRect(px(x-.17),py(y+.17),.34*p,.34*p);
    ctx.fillStyle='#514738';ctx.fillRect(px(x-.135),py(y+.135),.27*p,.27*p);
    ctx.fillStyle='#403b30';ctx.beginPath();ctx.arc(px(x),py(y),.060*p,0,Math.PI*2);ctx.fill();
    if(nativeTree){ctx.globalAlpha=.96;ctx.drawImage(nativeTree,px(x-.43),py(y+.43),.86*p,.86*p);ctx.globalAlpha=1;}
   }
-  for(const item of this.adrianoSigns||[]){const [x,y]=item.point;if(!intersects([x-.25,y-.25,x+.25,y+.25],r))continue;
+  for(const item of this.adrianoSigns||[]){if(this.editorLayeredSigns)continue;const [x,y]=item.point;if(!intersects([x-.25,y-.25,x+.25,y+.25],r))continue;
    // Semana Santa traffic restriction signs in the original top-down sprite scale.
    ctx.fillStyle='#313c42';ctx.beginPath();ctx.arc(px(x)+.028*p,py(y)+.025*p,.075*p,0,Math.PI*2);ctx.fill();
    ctx.fillStyle='#d0d2ca';ctx.beginPath();ctx.arc(px(x),py(y),.126*p,0,Math.PI*2);ctx.fill();

@@ -1,5 +1,6 @@
-import {selectionFrame,transformSelection,groupSelection,ungroupSelection,lockSelection,arrangeSelection,captureBlock,placeBlock,validateBlock} from './editor-selection-model.mjs';
+import {selectionFrame,transformSelection,groupSelection,ungroupSelection,lockSelection,reorderSelection,arrangeSelection,captureBlock,placeBlock,validateBlock} from './editor-selection-model.mjs';
 import {allSelections,itemEdit,expandGroups,selectionLocked} from './editor-item-state.mjs';
+import {SCENE_KINDS,sceneDrawOrder} from './scene-order.mjs';
 export function setupSelectionEditor({state,getData,snapshot,changed,show,setSelection,configureTool,getCenter,visible}){
  const panel=document.createElement('details');panel.id='selection-editor-panel';panel.open=true;
  panel.innerHTML=`<summary>Editar selección · objetos y grupos</summary><div class="stack">
@@ -12,6 +13,11 @@ export function setupSelectionEditor({state,getData,snapshot,changed,show,setSel
  <label><span id="edit-angle-title">Giro absoluto (°)</span><input id="edit-angle" type="number" step=".1"></label>
  <button id="edit-transform" type="button">Aplicar posición, medidas y giro</button>
  <p id="edit-size-help" class="muted"></p>
+ <div class="line"></div><strong>Orden visual · delante y detrás</strong>
+ <p id="edit-order-info" class="notice" role="status"></p>
+ <div class="actions"><button id="edit-order-forward" type="button">Adelantar ↑</button><button id="edit-order-backward" type="button">Enviar atrás ↓</button></div>
+ <button id="edit-order-reset" type="button">Restablecer orden automático</button>
+ <p class="muted">Cada pulsación sube o baja un nivel. Automático: vallas y sillas, público, paso, edificios, dinteles y toldos, copas de árboles. La altura libre para pasar por debajo se ajusta en las propiedades del dintel o toldo.</p>
  <div class="line"></div><strong>Alinear y repartir</strong><div class="edit-align-grid">
  <button data-arrange="left" type="button">Izquierda</button><button data-arrange="centerX" type="button">Centro X</button><button data-arrange="right" type="button">Derecha</button>
  <button data-arrange="top" type="button">Arriba</button><button data-arrange="centerY" type="button">Centro Y</button><button data-arrange="bottom" type="button">Abajo</button></div>
@@ -42,8 +48,12 @@ export function setupSelectionEditor({state,getData,snapshot,changed,show,setSel
   for(const id of ['copy','duplicate'])$('edit-'+id).disabled=!frame;$('edit-paste').disabled=!clipboard;
   for(const id of ['transform','group','ungroup','lock'])$('edit-'+id).disabled=!frame||locked;$('edit-unlock').disabled=!frame||!locked;
   for(const b of panel.querySelectorAll('[data-arrange]'))b.disabled=!frame||locked;
+  const canOrder=!!frame&&items.every(s=>SCENE_KINDS.includes(s.type)),orders=canOrder?items.map(s=>sceneDrawOrder(s.type,doc[s.type][s.index])):[];
+  $('edit-order-info').textContent=!canOrder?'Selecciona objetos, público o edificios para ajustar qué queda encima.':orders.every(n=>n===orders[0])?'Nivel visual: '+orders[0]+(items.every(s=>itemEdit(doc[s.type][s.index]).drawOrder===undefined)?' · automático':' · manual'):'Selección con varios niveles visuales. Se desplazan juntos.';
+  for(const id of ['forward','backward','reset'])$('edit-order-'+id).disabled=!canOrder||locked;
  }
  $('edit-copy').onclick=copy;$('edit-paste').onclick=paste;$('edit-duplicate').onclick=duplicate;
+ for(const direction of ['forward','backward','reset'])$('edit-order-'+direction).onclick=()=>run(doc=>reorderSelection(doc,state.selectedItems,direction),direction==='reset'?'Orden visual automático restaurado.':'Orden visual actualizado.');
  $('edit-transform').onclick=()=>run(doc=>transformSelection(doc,state.selectedItems,Object.fromEntries(['x','y','width','depth','angle'].map(k=>[k,+$('edit-'+k).value]))),'Posición, medidas y giro aplicados.');
  for(const name of ['width','depth'])$('edit-'+name).addEventListener('input',()=>{const frame=selectionFrame(getData(),state.selectedItems);if(frame&&$('edit-aspect').checked){const other=name==='width'?'depth':'width';$('edit-'+other).value=(+$('edit-'+name).value*frame[other]/frame[name]).toFixed(6)}});
  for(const b of panel.querySelectorAll('[data-arrange]'))b.onclick=()=>run(doc=>arrangeSelection(doc,state.selectedItems,b.dataset.arrange),'Selección alineada o repartida.');

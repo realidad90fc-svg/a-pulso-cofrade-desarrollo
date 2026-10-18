@@ -1,4 +1,4 @@
-import {overheadType,overheadSize,validateOverhead,DEFAULT_HEIGHTS,validateHeightProfiles} from './overhead-elements.mjs';
+import {overheadType,overheadSize,overheadDefaultSize,validateOverhead,DEFAULT_HEIGHTS,validateHeightProfiles} from './overhead-elements.mjs';
 import {gameplayOf} from './map-gameplay.mjs';
 import {selectionLocked} from './editor-item-state.mjs';
 import {CONTENT_STEPS} from './content-catalogue.mjs';
@@ -17,7 +17,7 @@ export function setupOverheadUI({state,getData,snapshot,changed,show,canWrite}){
  <p id="overhead-fit" class="notice" role="status"></p>`;
  $('urban-panel').querySelector('.stack').append(host);
  for(const step of CONTENT_STEPS){const option=document.createElement('option');option.value=step.id;option.textContent=step.name;$('overhead-step').append(option)}
- let stamp='',mapKey='';const selected=()=>state.tool==='select'&&state.selectedItems?.length===1&&state.selectedItems[0].type==='urban'?getData().urban[state.selectedItems[0].index]:null;
+ let stamp='',mapKey='',placementType='';const selected=()=>state.tool==='select'&&state.selectedItems?.length===1&&state.selectedItems[0].type==='urban'?getData().urban[state.selectedItems[0].index]:null;
  const profile=()=>getData()?.gameplay?.heightProfiles?.find(p=>p.id===$('overhead-step').value)||DEFAULT_HEIGHTS;
  function loadProfile(){const p=profile();for(const k of ['standing','crouched','lowered'])$('overhead-'+k).value=p[k];fit()}
  function options(){return Object.fromEntries(['width','depth','clearance','angle','pier'].map(k=>[k,Number($('overhead-'+k).value)]))}
@@ -25,6 +25,7 @@ export function setupOverheadUI({state,getData,snapshot,changed,show,canWrite}){
  function refresh(){if(!getData())return;const item=selected(),type=state.tool==='select'?item?.type:$('urban-type').value,active=overheadType(type);host.hidden=!active;if(!active)return;
   $('overhead-pier-label').hidden=active.kind==='canopy';$('overhead-apply').disabled=!overheadType(item?.type);
   $('overhead-context').textContent=overheadType(item?.type)?'Editando: '+active.name:'Siguiente pieza: '+active.name+' · toca el mapa para colocarla';
+  if(!item&&type!==placementType){const previous=overheadType(placementType);if(previous?.kind!==active.kind||active.kind!=='canopy'){const [w,d]=overheadDefaultSize(type);$('overhead-width').value=w;$('overhead-depth').value=d}placementType=type;}
   if(mapKey!==getData().metadata.mapKey){mapKey=getData().metadata.mapKey;stamp='';loadProfile()}
   const next=JSON.stringify([state.tool,state.selectedItems,item&&[item.type,overheadSize(item),item.angle,item.clearance,item.pier]]);
   if(next!==stamp){stamp=next;if(overheadType(item?.type)){const [w,d]=overheadSize(item);for(const [k,v]of Object.entries({width:w,depth:d,clearance:item.clearance,angle:item.angle,pier:item.pier??.3}))$('overhead-'+k).value=v}}

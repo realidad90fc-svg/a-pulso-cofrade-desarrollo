@@ -1,4 +1,4 @@
-import {OVERHEAD_ITEMS,overheadType,overheadSize} from './overhead-elements.mjs';
+import {OVERHEAD_ITEMS,overheadType,overheadSize,overheadDefaultSize} from './overhead-elements.mjs';
 import {drawOverhead} from './overhead-render.mjs';
 // Urban street fixtures for Sevilla-inspired editor maps.
 // Every piece is lightweight vector artwork; map data stores only type,
@@ -32,7 +32,7 @@ export function newUrbanElement(type,point,options={}){
  const angle=finite(options.angle)?options.angle:0;
  const width=clamp(finite(options.width)?options.width:3,1.5,12);
  const depth=clamp(finite(options.depth)?options.depth:2.6,1,6);
- if(overheadType(type))return{type,point:point.slice(0,2).map(round),angle,size:[options.width??3,options.depth??(overheadType(type).kind==='canopy'?1.2:.6)],clearance:options.clearance??3.5,pier:options.pier??.3};
+ if(overheadType(type)){const defaults=overheadDefaultSize(type);return{type,point:point.slice(0,2).map(round),angle,size:[options.width??defaults[0],options.depth??defaults[1]],clearance:options.clearance??3.5,pier:options.pier??.3};}
  return{type,point:point.slice(0,2).map(round),angle:round(((angle%360)+360)%360),width:round(width),depth:round(depth)};
 }
 export function crosswalkFromDrag(type,start,end,depth=2.6){
@@ -45,7 +45,7 @@ export function crosswalkFromDrag(type,start,end,depth=2.6){
 const sizes={
  'lamp-sevilla':[.24,.24],'lamp-modern':[.22,.22],
  'traffic-light':[.30,.22],'pedestrian-light':[.24,.24],
- 'crossing-sign':[.23,.23],'bollard':[.20,.20],
+ 'crossing-sign':[.23,.23],'bollard':[.12,.12],
  'bench':[1.15,.43],'bin':[.36,.36],'planter':[.76,.52],
  'bike-rack':[.84,.45],'bus-shelter':[1.95,.53],
  'tree-grille':[.90,.90]
@@ -135,8 +135,11 @@ export function drawUrbanElement(ctx,item,pixel,zoom,selected=false){
   ctx.fillStyle='#3c6a9b';ctx.beginPath();ctx.moveTo(0,-.145);ctx.lineTo(.15,.125);ctx.lineTo(-.15,.125);ctx.closePath();ctx.fill();
   disk(0,-.065,.027,'#f2f2eb');line(0,-.04,.035,.045,'#f1f2ef',.027);line(.025,.02,-.025,.085,'#f1f2ef',.025);
  }else if(t==='bollard'){
-  disk(0,0,.108,'#282e30','#111c1e');disk(-.016,-.02,.064,'#adb0a4','#525f5d');
-  disk(-.025,-.032,.023,'#e5e3d2');
+  // Twelve-centimetre cap, including its rim. No oversized base from above.
+  disk(0,0,.058,'#263333');
+  disk(-.005,-.006,.044,'#61716a');
+  disk(-.012,-.014,.025,'#929e8e');
+  disk(-.019,-.021,.010,'#d0d4bc');
  }else if(t==='bench'){
   rect(-.58,-.22,1.16,.44,'#393c37');outline(-.58,-.22,1.16,.44,'#262b29',.025);
   for(let i=0;i<4;i++){rect(-.53,-.185+i*.09,1.06,.075,i%2?'#a78155':'#c49b67');line(-.53,-.185+i*.09,.53,-.185+i*.09,'#725b45',.009)}

@@ -5,14 +5,15 @@ import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
 let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=itinerarios-jugables-3.1';
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=capas-alturas-3.2.1';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
 import {setupGameplayEditor} from './editor-gameplay-ui.mjs';
 import {setupCityManager} from './city-manager.mjs';
 import {blankMapDocument,validateMapDocument,MAP_STORAGE_PREFIX,KINDS} from './city-project.mjs';
-import {paintCityScene} from './city-scene.mjs';
+import {paintCityScene,paintCityObjects} from './city-scene.mjs';
+import {orderedSceneItems} from './scene-order.mjs';
 import {loadSevilleTextures,onTextureReady} from './seville-textures.mjs';
 import {ARENAL_MAP, ARENAL_ROUTE} from './arenal-data.mjs';
 import {buildArenalRoad,buildArenalCrowd,buildArenalSidewalks,buildArenalHouses} from './arenal-layers.mjs';
@@ -219,20 +220,6 @@ function drawFloor(poly,kind='roads',material=ROAD_MATERIALS[0].id,options={}){
  const b=rect(poly);if(!bboxHit(b,visualBounds()))return;
  drawSurface(ctx,poly,kind,material,pixel,view.zoom,getImage(FLOOR_KEY),visualBounds(),options);
 }
-function drawPeople(){
- const v=visualBounds();
- for(let i=0;i<data.people.length;i++){
-  const a=data.people[i],x=a.point[0],y=a.point[1];
-  if(personBlockedByTrees(a,data.trees))continue;
-  if(x<v[0]-.2||x>v[2]+.2||y<v[1]-.2||y>v[3]+.2)continue;
-  const img=getImage(a.key),dims=a.size||spriteDims(a.key),p=pixel(x,y);
-  const w=Math.max(.0001,dims[0]*view.zoom),h=Math.max(.0001,dims[1]*view.zoom);
-  ctx.save();ctx.translate(...p);ctx.rotate(-(a.angle||0)*Math.PI/180);
-  if(img){ctx.drawImage(img,-w/2,-h/2,w,h)}
-  else{ctx.fillStyle='#d4a47c';ctx.beginPath();ctx.arc(0,0,Math.max(2,w/2),0,Math.PI*2);ctx.fill()}
-  ctx.restore();
- }
-}
 function drawGrid(){
  if(!$('grid-on').checked)return;
  const v=visualBounds(),requested=$('precision-grid')?.checked?Math.max(.01,Number($('precision-step').value)||.1):view.zoom>36?1:2;
@@ -261,8 +248,9 @@ function renderStaticScene(){
  // Existing Arenal polygons often have no material ID. Use the SAME
  // default in editor and playable map, never an index-dependent legacy
  // material that can randomly display flat asphalt or wrong paving.
+ let linkedScene=null;
  if(data.zoneRefs?.length&&cityManager){
-  try{const linked=cityManager.linkedScene();for(const kind of KINDS)if(!selectionVisibility(kind))linked[kind]=[];paintCityScene(ctx,linked,pixel,view.zoom,getImage,visualBounds(),{labels:$('labels-on').checked})}
+  try{linkedScene=cityManager.linkedScene();for(const kind of KINDS)if(!selectionVisibility(kind))linkedScene[kind]=[];paintCityScene(ctx,linkedScene,pixel,view.zoom,getImage,visualBounds(),{onlyFloor:true})}
   catch(error){show(error.message,'error')}
  }
  const isArenal=data.metadata?.mapKey==='RegresoArenal';
@@ -278,23 +266,13 @@ function renderStaticScene(){
    drawFloor(o.poly,'sidewalks',o.material||curbDefault||SIDEWALK_MATERIALS[i%12].id,o);
   }
  }
- if($('houses-on').checked){
-  for(let i=0;i<data.houses.length;i++){
-   const o=data.houses[i];drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o);
-  }
-  // Applied after the roof: balcony/awning/storefront decorations stay visible
-  // without changing the original polygon, scale, physics or roof texture.
-  for(const o of data.houses)if(o.facade&&bboxHit(facadeVisualBounds(o),visualBounds()))
-   drawFacadeDecor(ctx,o,pixel,view.zoom);
- }
  if($('urban-on').checked)for(const o of data.urban||[])if(urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
- if($('public-on').checked)drawPeople();
- if($('trees-on').checked)for(const t of data.trees||[])drawTree(ctx,t,pixel,view.zoom,getImage);
- if($('fences-on').checked)for(const f of data.fences||[])drawFurniture(ctx,f,'fence',pixel,view.zoom);
- if($('chairs-on').checked)for(const c of data.chairs||[])drawFurniture(ctx,c,'chair',pixel,view.zoom);
- if($('signs-on').checked)for(const t of data.signs||[])drawTrafficSign(ctx,t,pixel,view.zoom);
- if($('urban-on').checked)for(const o of data.urban||[])if(!urbanIsMarking(o.type))drawUrbanElement(ctx,o,pixel,view.zoom);
- if($('custom-on')?.checked!==false)for(const o of data.customObjects||[])drawCustomObject(ctx,o,pixel,view.zoom);
+ const scene=linkedScene?{...data,...Object.fromEntries(KINDS.map(k=>[k,[...(data[k]||[]),...(linkedScene[k]||[])]]))}:data;
+ paintCityObjects(ctx,scene,pixel,view.zoom,getImage,visualBounds(),{
+  filter:(type)=>selectionVisibility(type),personSize:o=>spriteDims(o.key),
+  roofPainter:(o,i)=>drawTexture(o.poly,o.material||o.key,'#b97357',i%4,o)
+ });
+ if($('labels-on').checked)for(const label of linkedScene?.labels||[])drawStreetTriggerGuide(ctx,label,pixel,view.zoom);
  drawGrid();
  if(!showMaterialsAbovePhotos)photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[])drawCheckpointGuide(ctx,cp,pixel,view.zoom);
@@ -360,10 +338,8 @@ function draw(){
    traceSurface(ctx,item,pixel);ctx.stroke();
    if(state.selectedItems.length===1)for(const ring of surfaceRings(item))for(const q of ring){const p=pixel(...q);ctx.fillStyle='#fff';ctx.fillRect(p[0]-4,p[1]-4,8,8)}
   }else if(item.point||item.position){
-   if(selection.type==='fences'||selection.type==='chairs')drawFurniture(ctx,item,selection.type==='fences'?'fence':'chair',pixel,view.zoom,true);
-    else if(selection.type==='urban')drawUrbanElement(ctx,item,pixel,view.zoom,true);
-    else if(selection.type==='customObjects')drawCustomObject(ctx,item,pixel,view.zoom,true);
-   else {const p=pixel(...(item.point||item.position));ctx.beginPath();ctx.arc(p[0],p[1],7,0,Math.PI*2);ctx.stroke()}
+   // Highlight the footprint without repainting a low object above a canopy.
+   const corners=elementCorners(selection.type,item);ctx.beginPath();corners.forEach((q,i)=>{const p=pixel(...q);i?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.closePath();ctx.stroke();
   }
  }
  if(state.tool==='select'&&state.selectedItems.length&&!lockedSelection){
@@ -483,7 +459,6 @@ function focusAt(x,y,zoom){
  requestDraw();
 }
 function selectAt(p,px){
- if($('custom-on')?.checked!==false)for(let i=(data.customObjects||[]).length-1;i>=0;i--)if(customObjectContains(data.customObjects[i],p,5/view.zoom))return{type:'customObjects',index:i,vertex:-1};
  if($('labels-on').checked){
   const c=pixel(...p);ctx.save();ctx.font='600 12px system-ui';
   for(let i=data.labels.length-1;i>=0;i--){
@@ -494,28 +469,24 @@ function selectAt(p,px){
   ctx.restore();
  }
 
- for(const [type,checkbox] of [['checkpoints','checkpoints-on'],['signs','signs-on'],['trees','trees-on'],['fences','fences-on'],['chairs','chairs-on']]){
-  if(!$(checkbox).checked)continue;
-  const items=data[type]||[];
-  for(let i=items.length-1;i>=0;i--){
-   const q=items[i].point||items[i].position;
-   if(q&&type!=='checkpoints'&&inPolygon(p,elementCorners(type,items[i])))return{type,index:i,vertex:-1};
-   if(q&&dist(q,p)<Math.max(.25,12/view.zoom))return {type,index:i,vertex:-1};
+ // Pick the visible top object first, using the same order as the painter.
+ if($('checkpoints-on').checked)for(let i=data.checkpoints.length-1;i>=0;i--)if(dist(data.checkpoints[i].position,p)<Math.max(.25,12/view.zoom))return{type:'checkpoints',index:i,vertex:-1};
+ const ordered=orderedSceneItems(data).reverse();
+ // Exact silhouettes take priority over another object's generous grab area.
+ // Otherwise a roof vertex near a chair steals the chair's actual centre.
+ for(const exact of [true,false])for(const {type,item,index}of ordered){
+  if(!selectionVisibility(type))continue;
+  if(type==='houses'){
+   const inside=inSurface(p,item);if(exact&&!inside)continue;
+   for(const [ringIndex,ring]of surfaceRings(item).entries())for(let n=0;n<ring.length;n++)if(dist(ring[n],p)<11/view.zoom)return{type,index,vertex:n,ring:ringIndex};
+   if(inside)return{type,index,vertex:-1};
+  }else{
+   const tolerance=exact?0:Math.max(type==='people'?.13:.25,(type==='people'?9:12)/view.zoom);
+   const hit=type==='customObjects'?customObjectContains(item,p,tolerance):type==='urban'?urbanContains(item,p,tolerance):inPolygon(p,elementCorners(type,item))||!exact&&dist(item.point,p)<tolerance;
+   if(hit)return{type,index,vertex:-1};
   }
  }
- if($('public-on').checked){
-  let near=-1,nearD=Math.max(.13,9/view.zoom);
-  for(let i=0;i<data.people.length;i++){
-   if(inPolygon(p,elementCorners('people',data.people[i])))return{type:'people',index:i,vertex:-1};
-   const d=dist(data.people[i].point,p);
-   if(d<nearD){nearD=d;near=i}
-  }
-  if(near>=0)return{type:'people',index:near,vertex:-1};
- }
- if($('urban-on').checked)for(let i=(data.urban||[]).length-1;i>=0;i--){
-  const item=data.urban[i];if(urbanContains(item,p,Math.max(.06,9/view.zoom)))return{type:'urban',index:i,vertex:-1};
- }
- for(const type of ['houses','sidewalks','roads']){
+ for(const type of ['sidewalks','roads']){
   if(!$(type==='houses'?'houses-on':type==='sidewalks'?'sidewalks-on':'roads-on').checked)continue;
   const arr=data[type];
   for(let i=arr.length-1;i>=0;i--){

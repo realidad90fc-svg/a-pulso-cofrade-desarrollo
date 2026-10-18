@@ -18,7 +18,7 @@ export function setupWorkbench({state,getData,getMapKey,getProjectName,configure
  const button=(id,label,icon,fn)=>{const b=document.createElement('button');b.type='button';if(id)b.id=id;b.innerHTML=workbenchIcon(icon)+'<span>'+label+'</span>';b.title=label;b.setAttribute('aria-label',label);if(fn)b.onclick=fn;return b};
  function pressed(b,on){b.setAttribute('aria-pressed',String(on));b.classList.toggle('active',on)}
  body.classList.add('workbench');
- const brand=header.querySelector('.brand');brand.querySelector('strong').textContent='Taller de Sevilla';brand.querySelector('span').textContent='A PULSO · ESTUDIO DE MAPAS 3.2.0';
+ const brand=header.querySelector('.brand');brand.querySelector('strong').textContent='Taller de Sevilla';brand.querySelector('span').textContent='A PULSO · ESTUDIO DE MAPAS 3.2.1';
  const actions=header.querySelector('.title-actions');actions.replaceChildren();
  const projectButton=button('wb-project-button','Proyecto','project',()=>openLeft('project'));actions.append(projectButton);
  const helpButton=button('wb-help','Cómo se usa','help',()=>openCity('help'));helpButton.querySelector('svg path').setAttribute('d','M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5 M12 17h.01');actions.append(helpButton);
