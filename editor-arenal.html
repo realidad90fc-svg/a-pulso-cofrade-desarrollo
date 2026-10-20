@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#15202a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Taller de Sevilla 3.2.1 · A Pulso Cofrade</title>
+<title>Taller de Sevilla 3.3.0 · A Pulso Cofrade</title>
 <link rel="stylesheet" href="./editor-tools.css">
 <link rel="icon" href="./assets/original-menu-app-icon.png">
 <style>
@@ -51,20 +51,22 @@
 #palettes .swatch small{font-size:11px;line-height:1.1;white-space:normal}
 #roof-selected{display:block;min-height:28px;margin:4px 0}
 #urban-preview{display:block;width:100%;height:105px;background:#555956;border:1px solid #59636a;border-radius:8px}
+
+.city-dialog input[type=color]{height:42px;width:100%;padding:3px}#brotherhood-content canvas{width:100%;height:auto;max-width:100%;border-radius:8px}#brotherhood-content .stack{padding:12px}#brotherhood-content label{display:flex;flex-direction:column;gap:5px}#brotherhood-content input,#brotherhood-content select{min-width:0;width:100%}#brotherhood-content input[type=checkbox]{width:20px}#pinned-paso-settings{min-width:0}#pinned-paso-settings input[type=range]{width:100%}
 </style>
 <link rel="stylesheet" href="./editor-decor-ui.css">
 <link rel="stylesheet" href="./editor-mobile.css">
-<link rel="stylesheet" href="./city-manager.css?rev=capas-alturas-3.2.1">
-<link rel="stylesheet" href="./editor-photo-import.css?rev=capas-alturas-3.2.1">
+<link rel="stylesheet" href="./city-manager.css?rev=cofradias-cortejos-3.3.0">
+<link rel="stylesheet" href="./editor-photo-import.css?rev=cofradias-cortejos-3.3.0">
 <link rel="stylesheet" href="./editor-gameplay.css">
 <link rel="stylesheet" href="./editor-project-review.css">
-<link rel="stylesheet" href="./editor-workbench.css?rev=capas-alturas-3.2.1">
+<link rel="stylesheet" href="./editor-workbench.css?rev=cofradias-cortejos-3.3.0">
 </head>
 <body>
 <header class="titlebar">
  <div class="brand">
   <img src="./assets/original-menu-app-icon.png" alt="A Pulso Cofrade">
-  <div><strong>Taller de Sevilla · A Pulso 3.2.1</strong><span>Prueba con motor real, proyectos e historial</span></div>
+  <div><strong>Taller de Sevilla · A Pulso 3.3.0</strong><span>Prueba con motor real, proyectos e historial</span></div>
  </div>
  <div class="title-actions">
   <button id="open-city" title="Mapas, calles y hermandades">Ciudad ↗</button>
@@ -331,7 +333,7 @@
    <summary>Pavimentos y acerados</summary>
    <div class="stack">
     <p class="muted">Pulsa una textura: <strong>si ya tienes calles o aceras seleccionadas, se aplica directamente</strong>. También puedes usar el botón «Aplicar». Deshacer permite revertir el cambio.</p>
-    <label class="flag"><input id="surface-clear-preview" type="checkbox"> Mostrar pavimentos sobre la fotografía guía (la foto queda detrás temporalmente, sin moverse ni cambiar de escala)</label>
+    <label class="flag" hidden><input id="surface-clear-preview" type="checkbox"> Mostrar pavimentos sobre la fotografía guía (la foto queda detrás temporalmente, sin moverse ni cambiar de escala)</label>
     <p class="muted">Desmarca la opción cuando quieras calcar viendo la fotografía por encima del dibujo.</p>
     <div id="surface-apply-status" class="notice" role="status" aria-live="polite">Selecciona una calzada o acera para cambiar su material.</div>
     <label for="surface-search">Buscar textura</label>
@@ -405,6 +407,7 @@
      <label for="urban-type"><strong>Elemento que quieres colocar</strong></label>
      <select id="urban-type"></select>
      <canvas id="urban-preview" width="270" height="105" role="img" aria-label="Vista previa del mobiliario urbano"></canvas>
+     <fieldset id="urban-item-size" hidden><legend>Tamaño al colocar · también ajusta la colisión</legend><div class="precision-two"><label>Ancho (m)<input id="urban-item-width" type="number" min=".02" max="100" step=".01" value=".55"></label><label>Fondo (m)<input id="urban-item-depth" type="number" min=".02" max="100" step=".01" value=".3"></label></div><div class="actions"><button id="urban-item-smaller" type="button">Reducir 25 %</button><button id="urban-item-normal" type="button">Tamaño normal</button></div><p class="muted">Las siguientes piezas usarán estas medidas. Para una pieza ya colocada: Seleccionar → Ancho y Fondo.</p></fieldset>
      <label for="urban-depth">Longitud de las franjas del paso: <output id="urban-depth-value">2,6 m</output></label>
      <input id="urban-depth" type="range" min="1.2" max="5.5" step=".1" value="2.6">
      <p id="urban-hint" class="muted">Selecciona 🚦 Urbanismo y arrastra de una acera a la otra para dibujar el paso de peatones.</p>
@@ -444,7 +447,7 @@
      </div>
      <button id="reference-clear" type="button" class="danger">Eliminar foto seleccionada</button>
     </fieldset>
-    <label class="flag"><input id="reference-overlay" type="checkbox" checked> Ver fotos sobre el plano para calcar con transparencia</label>
+    <label class="flag"><input id="reference-overlay" type="checkbox" checked disabled> Fotos siempre encima del dibujo · regula su transparencia</label>
     <p class="muted">Después puedes mover y girar la imagen para alinearla. La escala basada solo en la altura es una estimación si cambia la inclinación o la cámara de Google Earth.</p>
     <p id="reference-storage" class="muted" role="status">Las fotografías nunca forman parte del juego.</p>
    </div>
@@ -493,6 +496,6 @@
   </div>
  </div>
 </dialog>
-<script type="module" src="./editor-arenal.mjs?rev=capas-alturas-3.2.1"></script>
+<script type="module" src="./editor-arenal.mjs?rev=cofradias-cortejos-3.3.0"></script>
 </body>
 </html>

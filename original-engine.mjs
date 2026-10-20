@@ -1,3 +1,5 @@
+import {updateProcession} from './procession-model.mjs';
+import {calibrateImportedPaso} from './imported-paso.mjs';
 import {CityRoute} from './city-runtime.mjs';
 import {ArenalRoute} from './arenal-route.mjs';
 import {CathedralRoute} from './cathedral-route.mjs';
@@ -58,7 +60,9 @@ export class OriginalSimulation {
     this.vm.invoke('cameraController.Start',this.cameraController);
     if(!this.tutorial){this.controller.limiteActual=resources.code.limits[step.code]['limite'+step.code+'Mapa'+map.id];this.controller.limiteActual2=resources.code.limits[step.code]['limite2'+step.code+'Mapa'+map.id];}
     if(map.variant&&!this.tutorial)this.routeAdapter=map.variant.kind==='city'?new CityRoute(this):map.variant.kind==='arenal'?new ArenalRoute(this):map.variant.kind==='cathedral'?new CathedralRoute(this):map.variant.kind==='official'?new OfficialRoute(this):map.variant.kind==='centre'?new CentreRoute(this):map.variant.kind==='bridge'?new BridgeRoute(this):map.variant.kind==='modular'?new ModularRoute(this):new CustomRoute(this);
+    if(this.step.imported)calibrateImportedPaso(this);
     if(snapshot)this.restore(snapshot);
+    updateProcession(this);
     this.sync();
   }
   emit(type,data={}){this.events.push({type,...data});}
@@ -359,10 +363,12 @@ export class OriginalSimulation {
     for(const g of this.graphs)g.advance(this.dt);
     this.vm.invoke(this.className+'.LateUpdate',this.controller);
     (this.editorDraft||this.routeAdapter?.contacts)?.streetNoticeFor?.(this);
+    updateProcession(this);
     this.gameplay?.collision(this);
     if(this.state.status==='playing'&&this.routeAdapter)this.routeAdapter.tick();
     this.vm.invoke('cameraController.LateUpdate',this.cameraController);
     this.sync();
+    updateProcession(this);
     this.gameplay?.tick(this);
     if(!this.tutorial&&this.names.get('checkpoint')?.components.Text)this.names.get('checkpoint').components.Text.enabled=false;
     this.inputClick=false;
@@ -376,12 +382,13 @@ export class OriginalSimulation {
   snapshot(){
     const serialize=s=>Object.fromEntries(Object.entries(s).filter(([k,v])=>!k.startsWith('__')&&(['number','boolean','string'].includes(typeof v))));
     const editor=this.editorDraft||this.routeAdapter?.contacts;editor?.streetNoticeFor?.(this);
-    return {mapContext:this.mapContext,gameplay:this.gameplay?.snapshot(),route:this.routeAdapter?.snapshot(),editorStreet:editor?.streetIdentifiers?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
+    return {processionProgress:this.processionProgress,mapContext:this.mapContext,gameplay:this.gameplay?.snapshot(),route:this.routeAdapter?.snapshot(),editorStreet:editor?.streetIdentifiers?.snapshot(),state:{...this.state},controller:serialize(this.controller),mapController:serialize(this.mapController),prefs:{...this.prefs},levelTime:this.levelTime,graphs:this.graphs.map(g=>({name:g.name||g.graphName||g.root.name,nodes:[...g.nodes.values()].map(n=>({id:n.id,position:[...n.position],scale:[...n.scale],rotation:[...n.rotation]})),animators:[...g.animators].map(([id,a])=>({id,state:a.state,time:a.time,params:{...a.params},speed:a.speed}))}))};
   }
   restore(snapshot){
     if(!snapshot.controller)return;
     Object.assign(this.controller,snapshot.controller);Object.assign(this.mapController,snapshot.mapController);Object.assign(this.prefs,snapshot.prefs);
     this.levelTime=snapshot.levelTime||0;
+    this.processionProgress={...snapshot.processionProgress};
     for(let i=0;i<this.graphs.length;i++){
       const g=this.graphs[i],saved=snapshot.graphs?.[i];if(!saved||g===this.routeAdapter?.graph)continue;
       for(const n of saved.nodes){const target=g.nodes.get(n.id);if(target)Object.assign(target,n);}

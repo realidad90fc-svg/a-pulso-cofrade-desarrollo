@@ -1,3 +1,4 @@
+import {validateProcession} from './procession-model.mjs';
 import {overheadObstacles,obstacleApplies} from './overhead-elements.mjs';
 import {paintCityObjects} from './city-scene.mjs';
 import {removeArenalPreset} from './arenal-manual-route.mjs';
@@ -75,7 +76,7 @@ function parseDraft(obj,key){
  registerCustomAssets(obj.resources||[]);
  const authoringScene=obj.authoringScene?validateMapDocument({...obj.authoringScene,resources:obj.resources||[]}):null;
  const gameplayScene=obj.gameplayScene?validateMapDocument({...obj.gameplayScene,resources:obj.resources||[]}):null;
- return{gameplayScene,mapKey:key,layers,total:obj.total,resources:obj.resources||[],authoringScene,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
+ return{procession:obj.procession,gameplayScene,mapKey:key,layers,total:obj.total,resources:obj.resources||[],authoringScene,arenalScene:obj.arenalScene||null,labelScene:Array.isArray(obj.labelScene)?obj.labelScene:null,startPose:validStart(obj.startPose)?{...obj.startPose}:null};
 }
 function readDraft(key){
  try{
@@ -240,7 +241,9 @@ export function attachEditorDraft(sim,draftOverride=undefined){
    o.kind!=='visible-spectator'||!personBlockedByTrees(o.center,draft.layers.trees));
   route.tileCache?.clear();
  }
+ if(draft.procession)validateProcession(draft.procession);
  sim.editorDraft=new RuntimeEditorDraft(draft);
+ sim.processionConfig=draft.procession||null;
  if(sim._editorStreetState){sim.editorDraft.streetIdentifiers.restore(sim._editorStreetState);sim._editorStreetState=null}
  sim.editorDraft.baseArenalSidewalks=key==='RegresoArenal'&&!!route?.editorSidewalkMaterialReady;
  sim.editorDraft.baseArenalRoads=key==='RegresoArenal'&&!!route?.editorRoadSurfaces;

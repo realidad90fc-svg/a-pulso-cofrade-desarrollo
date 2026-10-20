@@ -1,11 +1,13 @@
+import {setupProcessionEditor} from './editor-procession-ui.mjs';
+import {setupPersistentPaso} from './editor-paso-preview.mjs';
 import {isDrawingTool,hasDrawingDraft,appendDrawingPoint,clearDrawing,undoDrawingPoint,redoDrawingPoint} from './editor-drawing-history.mjs';
 import {createMapNavigation} from './editor-map-navigation.mjs';
 import {removeArenalPreset} from './arenal-manual-route.mjs';
 import {isCanopy,pickCanopyHandle,resizeCanopy,drawCanopyHandles} from './canopy-resize.mjs';
 import {setupOverheadUI} from './editor-overhead-ui.mjs';
 import {overheadType,validateOverhead} from './overhead-elements.mjs';
-let overheadUI=null;
-import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=capas-alturas-3.2.1';
+let overheadUI=null,processionUI=null,pinnedPreview=null;
+import {setupWorkbench,captureWorkbenchControls} from './editor-workbench.mjs?rev=cofradias-cortejos-3.3.0';
 import {lockSelection} from './editor-selection-model.mjs';
 import {setupProjectUI} from './editor-project-ui.mjs';
 import {setupReviewUI} from './editor-review-ui.mjs';
@@ -23,7 +25,7 @@ import {ROOF_MATERIALS,REALISTIC_ROOFS,SEVILLA_ROOFS,SEVILLA_NEIGHBOURHOOD_ROOFS
 import {makeGameDraft,GAME_PATCH_PREFIX} from './editor-game-draft.mjs';
 import {setupMapPublishing} from './editor-publish.mjs';
 import {makeCrowdStroke,picksInRectangle,unifySelections,translateSelections,deleteSelections,selectionGeometry,rotateSelections,captureSelection,mouseAngle,angleDelta} from './editor-interactions.mjs';
-import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
+import {URBAN_ITEMS,urbanName,urbanIsMarking,urbanElementSize,urbanContains,newUrbanElement,crosswalkFromDrag,drawUrbanElement} from './editor-urban-elements.mjs';
 import {nextRoofId} from './editor-roof-cycle.mjs';
 import {pasoPoint,pasoFootprint,pasoRotationHandle,pasoFacingName} from './editor-paso-orientation.mjs';
 import {personBlockedByTrees,visibleSpectators} from './editor-tree-crowd-clearance.mjs';
@@ -111,12 +113,12 @@ function deleteSelected(){
 function updateCounts(){
  if(!data)return;
  $('counts').textContent=count('roads')+' calles · '+count('people')+' personas · '+count('sidewalks')+' aceras · '+count('houses')+' edificios · '+count('trees')+' árboles · '+count('signs')+' señales · '+count('checkpoints')+' controles · '+count('fences')+' vallas · '+count('chairs')+' sillas · '+count('labels')+' nombres · '+count('urban')+' urbanos';
- $('tool-name').textContent=({template:'Colocar plantilla',custom:'Colocar recurso propio','custom-row':'Fila de recursos propios',measure:'Medir distancia o anchura',split:'Dividir superficie',hole:'Recortar patio','vertex-add':'Añadir vértice','vertex-remove':'Eliminar vértice',pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',urban:'Urbanismo sevillano',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
+ $('tool-name').textContent=({'procession-path':'Trazar recorrido del cortejo',template:'Colocar plantilla',custom:'Colocar recurso propio','custom-row':'Fila de recursos propios',measure:'Medir distancia o anchura',split:'Dividir superficie',hole:'Recortar patio','vertex-add':'Añadir vértice','vertex-remove':'Eliminar vértice',pan:'Mover plano',select:'Seleccionar',road:'Dibujar calzada',sidewalk:'Dibujar acera',house:'Dibujar edificio',people:'Pintar público','people-row':'Fila de público','street-name':'Nombre de calle',urban:'Urbanismo sevillano',tree:'Colocar árbol',fence:'Colocar valla roja',chair:'Colocar silla','fence-row':'Trazar fila de vallas','chair-row':'Trazar fila de sillas',sign:'Colocar señal',checkpoint:'Colocar checkpoint',erase:'Borrar',paso:'Probar paso',reference:'Ajustar fotografía'})[state.tool]||state.tool;
  const chosen=state.selectedItems.length;
  $('selection').textContent=chosen>1?chosen+' elementos seleccionados':state.selected?('Seleccionado: '+nameOf(state.selected.type)+' '+(state.selected.index+1)):'Sin selección';
  $('delete-selected').disabled=chosen===0;
  $('clear-selected').disabled=chosen===0;
- overheadUI?.refresh();workbenchUI?.refresh();
+ overheadUI?.refresh();processionUI?.refresh();pinnedPreview?.refresh();workbenchUI?.refresh();
 }
 function nameOf(type){return{customObjects:'Recurso propio',roads:'Calle',sidewalks:'Acera',houses:'Edificio',people:'Persona',trees:'Árbol',fences:'Valla',chairs:'Silla',signs:'Señal',checkpoints:'Checkpoint',labels:'Nombre de calle',urban:'Elemento urbano'}[type]||type}
 function chooseCustomAsset(asset,row=false){
@@ -137,6 +139,7 @@ function snapshot(){
  state.future.length=0;
 }
 function changed(){
+ if(!['paso','rotate-paso'].includes(state.drag?.action))pinnedPreview?.invalidate();processionUI?.refresh();
  gameplayUI?.invalidate();reviewUI?.invalidate();
  if(data)data.resources=resourceManifest(data,false);
  state.unsaved=true;updateCounts();requestDraw();cityManager?.refresh();vegetationPreview?.sync();selectionEditor?.refresh();
@@ -149,6 +152,7 @@ function saveLocal(){
  catch(e){show('No se pudo guardar localmente: exporta el archivo JSON.','error')}
 }
 function undo(){
+ if(processionUI?.undo()){requestDraw(true);return;}
  if(hasDrawingDraft(state)){const removed=undoDrawingPoint(state);requestDraw(true);show(removed?'Último punto quitado. Puedes recuperarlo con Rehacer.':'No quedan puntos que quitar. Usa Rehacer para recuperarlos.');return}
  if(state.drag?.action==='resize-canopy'){state.drag=null;canvas.style.cursor=''}
  if(!state.history.length)return;
@@ -156,6 +160,7 @@ function undo(){
  data=JSON.parse(state.history.pop());gameplayUI?.refresh();reviewUI?.refresh();clearSelection();restorePreviewStart();changed();
 }
 function redo(){
+ if(processionUI?.redo()){requestDraw(true);return;}
  if(hasDrawingDraft(state)){const restored=redoDrawingPoint(state);requestDraw(true);show(restored?'Punto recuperado. Puedes continuar el trazado.':'No hay puntos pendientes de recuperar.');return}
  cancelCanopyResize();
  if(!state.future.length)return;
@@ -241,7 +246,7 @@ function renderStaticScene(){
  if(data?.metadata?.mapKey==='RegresoArenal'&&$('roads-on')?.checked)
   paintArenalGround(ctx,pixel,view.zoom,visualBounds(),ARENAL_MAP.bounds);
  const showMaterialsAbovePhotos=$('surface-clear-preview')?.checked;
- photoGuides?.draw(showMaterialsAbovePhotos?'material-background':'background');
+ // Private tracing images are always drawn after the map geometry.
  if(!data)return;
  // Orden visual fijo: los tejados se pintan sobre aceras y calzada,
  // independientemente del orden de creación o del solapamiento de polígonos.
@@ -274,7 +279,7 @@ function renderStaticScene(){
  });
  if($('labels-on').checked)for(const label of linkedScene?.labels||[])drawStreetTriggerGuide(ctx,label,pixel,view.zoom);
  drawGrid();
- if(!showMaterialsAbovePhotos)photoGuides?.draw('overlay');
+ photoGuides?.draw('overlay');
  if($('checkpoints-on').checked)for(const cp of data.checkpoints||[])drawCheckpointGuide(ctx,cp,pixel,view.zoom);
  if($('labels-on').checked)for(const label of data.labels)drawStreetTriggerGuide(ctx,label,pixel,view.zoom);
  if(data.startPose){
@@ -360,28 +365,30 @@ function draw(){
   ctx.save();ctx.fillStyle='rgba(67,163,231,.17)';ctx.strokeStyle='#8bddff';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
   ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);ctx.restore();
  }
- gameplayUI?.overlay(ctx);reviewUI?.overlay(ctx);
+ gameplayUI?.overlay(ctx);reviewUI?.overlay(ctx);processionUI?.overlay(ctx);
  if(state.tool==='reference')photoGuides?.draw('handles');
- if(state.tool==='paso'||$('paso-on').checked)drawPaso();
+ if(state.tool==='paso'||pinnedPreview?.visible()||$('paso-on').checked)drawPaso();
  if(state.tool==='people'&&state.mouseWorld){
   const p=pixel(...state.mouseWorld);ctx.beginPath();ctx.arc(...p,.22*view.zoom,0,Math.PI*2);ctx.strokeStyle='#ffba57';ctx.lineWidth=2;ctx.stroke();
  }
 }
 function drawPaso(){
  const p=state.paso||data.paso;if(!p)return;
- const corners=pasoFootprint(p);if(!corners.length)return;
+ const dimensions=pinnedPreview?.dimensions()||{width:1.0386,length:2.15};
+ const corners=pasoFootprint(p,dimensions.width,dimensions.length);if(!corners.length)return;
+ const actual=pinnedPreview?.draw(ctx,view.zoom);
  updatePasoDirectionStatus();
  ctx.save();polygon(corners);
- ctx.fillStyle='rgba(108,59,151,.58)';ctx.fill();
+ ctx.fillStyle=actual?'rgba(108,59,151,.03)':'rgba(108,59,151,.35)';ctx.fill();
  ctx.lineWidth=2.5;ctx.strokeStyle='#efc96e';ctx.stroke();
- const frontLine=[pasoPoint(p,-.5193,1.075),pasoPoint(p,.5193,1.075)];
- const backLine=[pasoPoint(p,-.5193,-1.075),pasoPoint(p,.5193,-1.075)];
+ const frontLine=[pasoPoint(p,-dimensions.width/2,dimensions.length/2),pasoPoint(p,dimensions.width/2,dimensions.length/2)];
+ const backLine=[pasoPoint(p,-dimensions.width/2,-dimensions.length/2),pasoPoint(p,dimensions.width/2,-dimensions.length/2)];
  for(const [line,color] of [[frontLine,'#4af2ce'],[backLine,'#e89984']]){
   const a=pixel(...line[0]),b=pixel(...line[1]);
   ctx.strokeStyle=color;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();
  }
  // Forward arrow uses the same axis as sim.setAngle() in the native engine.
- const begin=pixel(...pasoPoint(p,0,.53)),tip=pixel(...pasoPoint(p,0,1.5));
+ const begin=pixel(...pasoPoint(p,0,.53)),tip=pixel(...pasoPoint(p,0,dimensions.length/2+.425));
  const dx=tip[0]-begin[0],dy=tip[1]-begin[1],n=Math.hypot(dx,dy)||1,ux=dx/n,uy=dy/n;
  ctx.beginPath();ctx.moveTo(...begin);ctx.lineTo(...tip);
  ctx.strokeStyle='#4af2ce';ctx.lineWidth=3.5;ctx.stroke();
@@ -392,16 +399,16 @@ function drawPaso(){
  ctx.textAlign='center';ctx.textBaseline='middle';
  ctx.font='bold 12px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#142331';
  const frontLabel=[tip[0]+ux*24,tip[1]+uy*24];ctx.strokeText('FRENTE',...frontLabel);ctx.fillStyle='#b7fff0';ctx.fillText('FRENTE',...frontLabel);
- const backLabel=pixel(...pasoPoint(p,0,-1.35));
+ const backLabel=pixel(...pasoPoint(p,0,-dimensions.length/2-.275));
  ctx.font='bold 10px system-ui';ctx.strokeText('TRASERA',...backLabel);ctx.fillStyle='#ffd6c0';ctx.fillText('TRASERA',...backLabel);
  const center=pixel(p.x,p.y);ctx.beginPath();ctx.arc(...center,3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
  if(state.tool==='paso'){
-  const handle=pasoRotationHandle(p,view.zoom,pixel);
+  const handle=pasoRotationHandle(p,view.zoom,pixel,dimensions.length);
   ctx.strokeStyle='#ffdc83';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(...tip);ctx.lineTo(...handle);ctx.stroke();
   ctx.fillStyle='#142b36';ctx.beginPath();ctx.arc(...handle,12,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff1b9';ctx.font='bold 17px system-ui';ctx.fillText('↻',...handle);
-  const okay=shapeOnSurfaces(corners,[...data.roads,...data.sidewalks]);
-  $('paso-test').textContent=!(data.roads.length+data.sidewalks.length)?'Dibuja calzada o acera bajo el paso':okay?'Paso sobre superficie transitable (calzada o acera)':'Paso fuera de la calzada y las aceras';
+  const okay=actual?.ok??shapeOnSurfaces(corners,[...data.roads,...data.sidewalks]);
+  if(!actual&&!pinnedPreview)$('paso-test').textContent=!(data.roads.length+data.sidewalks.length)?'Dibuja calzada o acera bajo el paso':okay?'Paso sobre superficie transitable (calzada o acera)':'Paso fuera de la calzada y las aceras';
   $('paso-test').dataset.ok=okay?'yes':'no';
  }
  ctx.restore();precisionTools?.overlay(ctx);
@@ -440,7 +447,7 @@ $('mobile-step-right')?.addEventListener('click',()=>rotatePasoOnMobile(-5));
 function configureTool(name){
  mapNavigation?.toolChanged();
  cancelCanopyResize();canvas.style.cursor='';
- if(state.tool!==name)clearDrawing(state);state.tool=name;state.drag=null;canvas.dataset.tool=name;
+ if(state.tool!==name){clearDrawing(state);if(state.tool==='procession-path')processionUI?.cancel();}state.tool=name;state.drag=null;canvas.dataset.tool=name;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===name);
  $('finish-shape').disabled=!['road','house','sidewalk','hole','collision-draw'].includes(name);
  updateCounts();requestDraw();
@@ -614,7 +621,7 @@ function onRotationHandle(pos){
 function pointEvent(e){const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
 function beginTouchEdit(){
  touchCheckpoint={mapKey:activeMap,document:JSON.stringify(data),history:[...state.history],future:[...state.future],
-  selectedItems:structuredClone(state.selectedItems),paso:structuredClone(state.paso),peopleIndex:state.peopleIndex,unsaved:state.unsaved};
+  processionDraft:processionUI?.snapshotDraft(),selectedItems:structuredClone(state.selectedItems),paso:structuredClone(state.paso),peopleIndex:state.peopleIndex,unsaved:state.unsaved};
  clearTimeout(saveTimer);return touchCheckpoint;
 }
 function commitTouchEdit(){touchCheckpoint=null;if(state.unsaved)saveTimer=setTimeout(saveLocal,900)}
@@ -623,7 +630,7 @@ function cancelTouchEdit(checkpoint){
  state.drag=null;state.pointers.clear();
  if(checkpoint?.mapKey===activeMap){
   data=JSON.parse(checkpoint.document);state.history=checkpoint.history;state.future=checkpoint.future;
-  state.paso=checkpoint.paso;state.peopleIndex=checkpoint.peopleIndex;state.unsaved=checkpoint.unsaved;
+  processionUI?.restoreDraft(checkpoint.processionDraft);state.paso=checkpoint.paso;state.peopleIndex=checkpoint.peopleIndex;state.unsaved=checkpoint.unsaved;
   gameplayUI?.invalidate();gameplayUI?.refresh();reviewUI?.invalidate();reviewUI?.refresh();
   setSelection(checkpoint.selectedItems);updateStartStatus();cityManager?.refresh();updatePeopleHint();
  }
@@ -644,6 +651,7 @@ function pointerDown(e){
  const pos=pointEvent(e);
  state.pointers.set(e.pointerId,pos);
  const raw=world(...pos),q=precisionTools?.snap(raw,e)||raw;state.mouseWorld=q;
+ if(processionUI?.down(q)){requestDraw(true);return;}
  if(reviewUI?.down(q))return;
  if(gameplayUI?.down(q))return;
  if(templatesUI?.down(q))return;
@@ -657,7 +665,7 @@ function pointerDown(e){
  if(state.tool==='reference'){photoGuides?.pointerDown(pos);return}
  if(state.tool==='paso'){
   const current=state.paso||data.paso,center=pixel(current.x,current.y),
-   handle=pasoRotationHandle(current,view.zoom,pixel);
+   handle=pasoRotationHandle(current,view.zoom,pixel,pinnedPreview?.dimensions()?.length||2.15);
   // Fingers hide the small knob; give touch a larger target without
   // changing the original 17px mouse hitbox or the paso's geometry.
   const rotateHitRadius=e.pointerType==='touch'?35:e.pointerType==='pen'?23:17;
@@ -691,7 +699,7 @@ function pointerDown(e){
  if(state.tool==='urban'){
   const type=$('urban-type').value||'crosswalk';
   if(urbanIsMarking(type)){state.drag={action:'urban-mark',type,start:q,end:q};requestDraw();return}
-  let item;try{item=newUrbanElement(type,q,overheadType(type)?overheadUI.options():{});validateOverhead(item)}catch(e){show(e.message,'error');return}snapshot();data.urban.push(item);
+  let item;try{item=newUrbanElement(type,q,overheadType(type)?overheadUI.options():{size:[Number($('urban-item-width').value),Number($('urban-item-depth').value)]});validateOverhead(item)}catch(e){show(e.message,'error');return}snapshot();data.urban.push(item);
   if(isCanopy(item)){configureTool('select');setSelection([{type:'urban',index:data.urban.length-1,vertex:-1}]);changed();show('Toldo colocado. Arrastra sus esquinas o laterales para ajustar el tamaño.','good')}else{changed();show(urbanName(type)+' colocado. Selecciónalo para moverlo o girarlo.','good')}return;
  }
  if(state.tool==='sign'){snapshot();data.signs.push({point:q.map(x=>+x.toFixed(3)),type:'traffic',source:'manual'});changed();return}
@@ -834,6 +842,7 @@ function downloadJSON(){
  setTimeout(()=>URL.revokeObjectURL(url),5000);show('Archivo JSON exportado. Puedes pasármelo para incorporarlo al juego.','good');
 }
 function setData(loaded){
+ processionUI?.cancel();
  mapNavigation?.cancel();
  if(!loaded||!Array.isArray(loaded.roads)||!Array.isArray(loaded.houses)||!Array.isArray(loaded.sidewalks)||!Array.isArray(loaded.people))throw new Error('El archivo no contiene un diseño de mapa válido.');
  if(loaded.metadata?.mapKey!==activeMap)throw new Error('Este archivo corresponde a otro mapa. Selecciónalo antes de importar.');
@@ -965,11 +974,15 @@ function palette(){
  previewRoofDetail();
 }
 function setupUrbanPalette(){
+ $('urban-item-smaller').onclick=()=>{for(const id of ['urban-item-width','urban-item-depth'])$(id).value=Math.max(.02,Number($(id).value)*.75).toFixed(3);};
+ $('urban-item-normal').onclick=()=>{const [w,d]=urbanElementSize({type:$('urban-type').value});$('urban-item-width').value=w;$('urban-item-depth').value=d;};
  const select=$('urban-type');select.replaceChildren();
  for(const item of URBAN_ITEMS){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;select.appendChild(option)}
- select.value='crosswalk';
+ select.value='crosswalk';let lastType='';
  const update=()=>{
   const type=select.value,mark=urbanIsMarking(type);
+  $('urban-item-size').hidden=mark||!!overheadType(type);
+  if(type!==lastType){const [w,d]=urbanElementSize({type});$('urban-item-width').value=w;$('urban-item-depth').value=d;lastType=type;}
   $('urban-depth').disabled=!mark;
   $('urban-hint').textContent=mark?
    'Arrastra de un lado de la calle al otro para fijar el ancho del paso. La longitud de las franjas se ajusta arriba.':
@@ -1138,6 +1151,8 @@ function bind(){
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
+  if(state.tool==='procession-path'&&e.key==='Escape'){e.preventDefault();processionUI?.cancel();configureTool('pan');requestDraw(true);return;}
+  if(state.tool==='procession-path'&&(e.key==='Backspace'||e.key==='Delete')){e.preventDefault();if(processionUI?.undo())requestDraw(true);return;}
   if(isDrawingTool(state.tool)&&(e.key==='Backspace'||e.key==='Delete')){e.preventDefault();const removed=undoDrawingPoint(state);requestDraw(true);show(removed?'Último punto quitado. Rehacer lo recupera.':'No quedan puntos que quitar.');return}
   if(e.key==='Enter')finishPolygon();
   if(e.key==='Escape'){if(mapNavigation.isNavigating()){mapNavigation.cancel();requestDraw();return}if(cancelCanopyResize()){requestDraw();return}gameplayUI?.up(true);clearDrawing(state);precisionTools?.cancel();templatesUI?.cancel();if(state.tool==='template')configureTool('select');photoGuides?.cancelCalibration();clearSelection();requestDraw()}
@@ -1297,13 +1312,16 @@ async function init(){
   cityManager=setupCityManager({catalog:EDITOR_MAPS,getData:()=>data,getBaseline:()=>baseline,
    getMapKey:()=>activeMap,getDocument:getStoredDocument,openMap:switchMap,
    onRegisterMap:registerUserMap,onCatalogChange:syncCityCatalog,openProject:()=>workbenchUI?.openLeft('project'),onNewDocument:(key,doc)=>{switchMap(key);setData(doc);saveLocal()},
-   snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
+   onPreviewStep:step=>pinnedPreview?.select(step),snapshot,changed,saveLocal,show,focus:focusAt,getSelection:()=>state.selectedItems,
    getView:()=>({...view,bounds:visualBounds()}),getImage,getPreviewStart:()=>state.paso,canEdit,canWrite:()=>!projectUI||projectUI.canWrite(),onProjectChange:()=>projectUI?.notifyChange(),beforeActivation:label=>projectUI?.controller.checkpoint(label,{force:true,includePhotos:false}),publishProject:()=>publisher.openProject()});
   projectUI=await setupProjectUI({getCity:()=>cityManager.project(),getDocument:key=>key===activeMap&&data?data:getStoredDocument(key),getBaseline:getBaselineDocument,getMapKey:()=>activeMap,flushPhotos:()=>photoGuides.flush(),show,saveLocal});
   reviewUI=setupReviewUI({state,getData:()=>data,getBaseline:()=>baseline,getResolved:()=>cityManager.resolve(),getDocument:getStoredDocument,getMeta:key=>EDITOR_MAPS.find(m=>m.key===key),getMapKey:()=>activeMap,snapshot,show,configureTool,requestDraw,pixel,focus:focusAt,saveLocal});
   $('open-city').onclick=()=>cityManager.open();
   const requested=new URLSearchParams(location.search).get('map');
   switchMap(EDITOR_MAPS.some(m=>m.key===requested)?requested:DEFAULT_MAP);
+  processionUI=setupProcessionEditor({state,getData:()=>data,snapshot,changed,show,configureTool,canWrite:()=>projectUI.canWrite(),pixel,requestDraw,getUniforms:()=>cityManager.project().brotherhoodSettings?.[pinnedPreview?.selectedBrotherhood()]||{}});
+  pinnedPreview=setupPersistentPaso({getData:()=>data,getResolved:()=>cityManager.resolve(),getBaseline:()=>baseline,getMeta:()=>EDITOR_MAPS.find(m=>m.key===activeMap),getProject:()=>cityManager.project(),getPose:()=>state.paso||data?.paso,pixel,getImage,requestDraw,configureTool});
+  pinnedPreview.refresh();
   captureWorkbenchControls();
   workbenchUI=setupWorkbench({state,photoGuides,getData:()=>data,getMapKey:()=>activeMap,getProjectName:()=>projectUI.controller.meta().name,configureTool,syncPreviews:()=>placementPreviews.sync(),saveLocal,requestDraw,show,openCity:tab=>cityManager.open(tab),lockLayer:(kind,locked)=>{if(!projectUI.canWrite())return;const items=(data[kind]||[]).map((_,index)=>({type:kind,index}));if(!items.length)return;snapshot();lockSelection(data,items,locked);changed();show(locked?'Elementos y grupos de la capa bloqueados.':'Elementos y grupos de la capa desbloqueados.','good');}});
   $('loading').hidden=true;

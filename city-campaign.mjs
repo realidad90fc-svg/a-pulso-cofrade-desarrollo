@@ -1,3 +1,4 @@
+import {projectSteps,applyBrotherhoodDocument} from './brotherhood-content.mjs';
 import {CITY_SCHEMA,CITY_KEY,MAP_STORAGE_PREFIX,KINDS,validateMapDocument,validateProject,validateCityBundle,resolveCityMap,selectCityZone} from './city-project.mjs';
 import {CONTENT_STEPS} from './content-catalogue.mjs';
 import {CAMPAIGN_DATA} from './campaign-data.mjs';
@@ -43,7 +44,7 @@ function validateConnections(document,project,getDocument,seen=new Set()){
  }
 }
 export function activateCityItinerary(project,brotherhoodId,stepId,getDocument,{replace=true}={}){
- const step=CONTENT_STEPS.find(s=>s.id===stepId&&s.implemented&&s.brotherhoodId===brotherhoodId);
+ const step=projectSteps(project).find(s=>s.id===stepId&&s.implemented&&s.brotherhoodId===brotherhoodId);
  if(!step)throw Error('Elige un paso disponible de esta hermandad.');
  const visits=clone(project.itineraries[brotherhoodId]||[]);if(!visits.length)throw Error('Añade primero un mapa o zona al itinerario.');
  for(const visit of visits){const d=cityVisitDocument(project,visit,getDocument);validateConnections(d,project,getDocument);}
@@ -52,12 +53,12 @@ export function activateCityItinerary(project,brotherhoodId,stepId,getDocument,{
 export function compileCityCampaign(base,project,getDocument){
  validateProject(project);const routes=[],replaced=new Set();
  for(const [brotherhoodId,configuration]of Object.entries(project.campaignItineraries||{})){
-  const step=CONTENT_STEPS.find(s=>s.id===configuration.stepId&&s.brotherhoodId===brotherhoodId&&s.implemented);
+  const step=projectSteps(project).find(s=>s.id===configuration.stepId&&s.brotherhoodId===brotherhoodId&&s.implemented);
   if(!step)throw Error('El itinerario usa un paso que todavía no está disponible.');
   if(configuration.replace)replaced.add(brotherhoodId);
   let previous=null;
   for(const [i,visit]of configuration.visits.entries()){
-   const document=cityVisitDocument(project,visit,getDocument);validateConnections(document,project,getDocument);const g=document.gameplay.route;
+   const document=applyBrotherhoodDocument(project,brotherhoodId,cityVisitDocument(project,visit,getDocument),{useStep:!!step.imported});validateConnections(document,project,getDocument);const g=document.gameplay.route;
    const id='city-route:'+visit.id+':'+step.id;
    routes.push({id,name:visit.name||document.metadata.zoneName||document.metadata.map,brotherhoodId,stepRef:step.id,stepId:step.engineId,stepKey:step.engineVariant,mapId:1,mapKey:document.metadata.mapKey,order:i+1,playable:true,threeStars:g.threeStars,twoStars:g.twoStars,unlock:previous?{scope:'brotherhood',stars:0,completedRoute:previous}:{scope:'brotherhood',stars:0},checkpoints:{policy:'time',points:[]},presentations:g.events.filter(e=>e.type==='presentation'),cityDocument:document,cityVisitId:visit.id,instructions:'Recorrido creado en el editor. Los controles, la llegada y los tiempos son los configurados para este tramo.'});previous=id;
   }
@@ -65,7 +66,7 @@ export function compileCityCampaign(base,project,getDocument){
  const disabled=new Set(project.disabledCampaignBrotherhoods||[]);
  const retained=base.routes.filter(r=>(!project.archiveLegacy||r.cityDocument)&&!replaced.has(r.brotherhoodId)&&!(disabled.has(r.brotherhoodId)&&r.cityDocument)&&!routes.some(n=>n.id===r.id));
  const restored=project.archiveLegacy?[]:CAMPAIGN_DATA.routes.filter(r=>disabled.has(r.brotherhoodId)&&!retained.some(n=>n.id===r.id));
- return{...base,routes:[...retained,...restored,...routes]};
+ return{...base,steps:[...(base.steps||CONTENT_STEPS).filter(s=>!projectSteps(project).some(n=>n.id===s.id&&n.imported)),...projectSteps(project).filter(s=>s.imported)],routes:[...retained,...restored,...routes]};
 }
 export function campaignCityPreview(route){
  if(!route?.cityDocument)return null;const document=clone(route.cityDocument);
@@ -73,7 +74,7 @@ export function campaignCityPreview(route){
 }
 function publicDocument(input){
  const d={schema:input.schema,metadata:{mapKey:input.metadata.mapKey,map:input.metadata.map||input.metadata.mapKey,sourceType:'user'},...Object.fromEntries(KINDS.map(k=>[k,clone(input[k]||[])]))};
- for(const key of ['paso','startPose','bounds','zoneRefs'])if(input[key]!==undefined)d[key]=clone(input[key]);
+ for(const key of ['paso','startPose','bounds','zoneRefs','procession','stepAppearance','brotherhoodId'])if(input[key]!==undefined)d[key]=clone(input[key]);
  if(input.gameplay)d.gameplay=cleanGameplay(input.gameplay);d.resources=clone(input.resources||[]);return d;
 }
 export function makePlayableCity(project,getDocument,resources=listCustomAssets()){
@@ -86,9 +87,9 @@ export function makePlayableCity(project,getDocument,resources=listCustomAssets(
  }
  for(const c of Object.values(project.campaignItineraries||{}))for(const v of c.visits){const z=project.zones.find(z=>z.id===v.zoneId);if(!z)throw Error('Falta una zona del itinerario.');zones.add(z.id);include(z.mapKey);}
  const byId=new Map(validateResourceManifest(resources).map(a=>[a.id,a]));for(const d of Object.values(documents))for(const a of validateResourceManifest(d.resources||[]))if(a.image)byId.set(a.id,a);
- const used=new Map();for(const d of Object.values(documents))d.resources=(d.resources||[]).map(a=>{const asset=byId.get(a.id);if(!asset?.image)throw Error('Falta la imagen de «'+a.name+'».');used.set(a.id,asset);const {image,...meta}=asset;return meta});
+ const used=new Map();for(const settings of Object.values(project.brotherhoodSettings||{})){if(settings.step){const asset=byId.get(settings.step.assetId);if(!asset?.image)throw Error('Falta la imagen de un paso importado.');used.set(asset.id,asset);}}for(const d of Object.values(documents))d.resources=(d.resources||[]).map(a=>{const asset=byId.get(a.id);if(!asset?.image)throw Error('Falta la imagen de «'+a.name+'».');used.set(a.id,asset);const {image,...meta}=asset;return meta});
  const configurations=Object.fromEntries(Object.entries(project.campaignItineraries||{}).map(([b,c])=>[b,{stepId:c.stepId,replace:c.replace,activatedAt:c.activatedAt,visits:c.visits.map(v=>Object.fromEntries(['id','zoneId','crowd','mandatory','presentation','note','entryId','finishId','name'].filter(k=>v[k]!==undefined).map(k=>[k,clone(v[k])]))) }]));
- const p={schema:CITY_SCHEMA,revision:project.revision||1,maps:project.maps.filter(m=>keys.has(m.key)).map(({key,name,type,barrio})=>({key,name,type,barrio})),zones:project.zones.filter(z=>zones.has(z.id)||(z.whole&&keys.has(z.mapKey))).map(z=>Object.fromEntries(['id','mapKey','name','bounds','streets','whole','startPose'].filter(k=>z[k]!==undefined).map(k=>[k,clone(z[k])]))),streets:[],itineraries:{},campaignItineraries:configurations,disabledCampaignBrotherhoods:clone(project.disabledCampaignBrotherhoods||[]),archiveLegacy:!!project.archiveLegacy};
+ const p={schema:CITY_SCHEMA,revision:project.revision||1,maps:project.maps.filter(m=>keys.has(m.key)).map(({key,name,type,barrio})=>({key,name,type,barrio})),zones:project.zones.filter(z=>zones.has(z.id)||(z.whole&&keys.has(z.mapKey))).map(z=>Object.fromEntries(['id','mapKey','name','bounds','streets','whole','startPose'].filter(k=>z[k]!==undefined).map(k=>[k,clone(z[k])]))),streets:[],itineraries:{},campaignItineraries:configurations,disabledCampaignBrotherhoods:clone(project.disabledCampaignBrotherhoods||[]),archiveLegacy:!!project.archiveLegacy,brotherhoodSettings:clone(project.brotherhoodSettings||{})};
  for(const [b,c]of Object.entries(p.campaignItineraries))p.itineraries[b]=clone(c.visits);
  const bundle={schema:PLAYABLE_CITY_SCHEMA,formatVersion:1,publishedAt:new Date().toISOString(),project:p,documents,resources:[...used.values()].map(clone)};validatePlayableCity(bundle);return bundle;
 }
@@ -114,7 +115,7 @@ export async function loadPlayableCampaign(base,storage,fetcher=fetch){
   }
  }catch(error){warnings.push('El itinerario local no se ha activado: '+error.message);}
  for(const source of sources){
-  try{for(const d of Object.values(source.documents))await loadDocumentAssets({...d,resources:(d.resources||[]).map(a=>source.resources.find(r=>r.id===a.id)||a)});data=compileCityCampaign(data,source.project,k=>source.documents[k]);loaded.push(source);}catch(error){warnings.push('No se pudo cargar un itinerario: '+error.message);}
+  try{await loadDocumentAssets({resources:source.resources});for(const d of Object.values(source.documents))await loadDocumentAssets({...d,resources:(d.resources||[]).map(a=>source.resources.find(r=>r.id===a.id)||a)});data=compileCityCampaign(data,source.project,k=>source.documents[k]);loaded.push(source);}catch(error){warnings.push('No se pudo cargar un itinerario: '+error.message);}
  }
  installCampaignSources([...loaded].reverse());return{data,warnings};
 }

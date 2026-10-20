@@ -33,7 +33,8 @@ export function newUrbanElement(type,point,options={}){
  const width=clamp(finite(options.width)?options.width:3,1.5,12);
  const depth=clamp(finite(options.depth)?options.depth:2.6,1,6);
  if(overheadType(type)){const defaults=overheadDefaultSize(type);return{type,point:point.slice(0,2).map(round),angle,size:[options.width??defaults[0],options.depth??defaults[1]],clearance:options.clearance??3.5,pier:options.pier??.3};}
- return{type,point:point.slice(0,2).map(round),angle:round(((angle%360)+360)%360),width:round(width),depth:round(depth)};
+ if(options.size&&(!Array.isArray(options.size)||options.size.length!==2||!options.size.every(n=>Number.isFinite(n)&&n>=.02&&n<=100)))throw Error('Las medidas deben estar entre 0,02 y 100 metros.');
+ return{type,point:point.slice(0,2).map(round),angle:round(((angle%360)+360)%360),width:round(width),depth:round(depth),...(options.size?{size:[...options.size]}:{})};
 }
 export function crosswalkFromDrag(type,start,end,depth=2.6){
  if(!urbanIsMarking(type))throw Error('Tipo de marca vial no válido.');
@@ -47,7 +48,7 @@ const sizes={
  'traffic-light':[.30,.22],'pedestrian-light':[.24,.24],
  'crossing-sign':[.23,.23],'bollard':[.12,.12],
  'bench':[1.15,.43],'bin':[.36,.36],'planter':[.76,.52],
- 'bike-rack':[.84,.45],'bus-shelter':[1.95,.53],
+ 'bike-rack':[.55,.30],'bus-shelter':[1.95,.53],
  'tree-grille':[.90,.90]
 };
 export function urbanCollisionSize(item){
@@ -152,11 +153,11 @@ export function drawUrbanElement(ctx,item,pixel,zoom,selected=false){
   rect(-.28,-.16,.56,.32,'#665641');
   for(const [cx,cy,r]of [[-.17,-.07,.14],[.10,.04,.17],[.23,-.08,.105],[-.08,.13,.12]])disk(cx,cy,r,'#466d46','#2d5039');
  }else if(t==='bike-rack'){
-  for(const xx of [-.29,0,.29]){
-   ctx.beginPath();ctx.ellipse(xx,0,.105,.26,0,0,2*Math.PI);
-   ctx.strokeStyle='#929a98';ctx.lineWidth=.057;ctx.stroke();
+  for(const xx of [-.19,0,.19]){
+   ctx.beginPath();ctx.ellipse(xx,0,.065,.125,0,0,2*Math.PI);
+   ctx.strokeStyle='#929a98';ctx.lineWidth=.022;ctx.stroke();
   }
-  rect(-.41,-.025,.82,.05,'#5c6461');
+  rect(-.26,-.014,.52,.028,'#5c6461');
  }else if(t==='bus-shelter'){
   rect(-.96,-.29,1.92,.58,'rgba(102,151,167,.60)');outline(-.96,-.29,1.92,.58,'#35434a',.045);
   rect(-.88,-.22,1.76,.09,'#d0d4c7');rect(-.88,.17,1.76,.055,'#526265');

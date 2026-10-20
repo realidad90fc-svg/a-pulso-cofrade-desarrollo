@@ -11,7 +11,7 @@ app.getAppPath=()=>desktop;
 let finished=false;
 function fail(error){if(finished)return;finished=true;console.error('FAIL Windows photo import:',error?.stack||error);app.exit(1)}
 process.on('unhandledRejection',fail);
-setTimeout(()=>fail(Error('Timed out waiting for the desktop photo import')),120000).unref();
+setTimeout(()=>fail(Error('Timed out waiting for the desktop photo import')),180000).unref();
 require('../desktop/main.cjs');
 const delay=()=>new Promise(resolve=>setTimeout(resolve,100));
 async function waitFor(window,expression){
@@ -77,5 +77,21 @@ app.whenReady().then(async()=>{
   const rect=modal.getBoundingClientRect();if(rect.left<0||rect.right>innerWidth+1||rect.bottom>innerHeight+1)throw Error('Map dialog must fit mobile viewport');
   modal.close();
  })()`);
- finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; map library create/assign/apply/rename/delete/restore, readable contrast and mobile layout; native selection, visual order, undo/redo/reset; no browser prompt.');app.exit(0);
+ window.setSize(1500,950);await delay();
+ await window.webContents.executeJavaScript(`(async()=>{
+  const $=id=>document.getElementById(id),assert=(value,message)=>{if(!value)throw Error(message)};
+  await $('wb-help').onclick();document.querySelector('[data-city-tab=maps]').click();const create=$('city-create-map');create.querySelector('[name=name]').value='Cortejo Windows';await create.onsubmit({preventDefault(){}});window.__cofradiaMap=$('map-select').value;
+  const key='apulso-universal-editor-v2:'+window.__cofradiaMap,doc=JSON.parse(localStorage.getItem(key)),{defaultGameplay,newRouteEvent}=await import('./map-gameplay.mjs');doc.roads=[{poly:[[0,0],[40,0],[40,40],[0,40]]}];doc.startPose={x:20,y:20,angle:0};doc.gameplay=defaultGameplay();doc.gameplay.route.enabled=true;doc.gameplay.route.events=[newRouteEvent('finish',[30,30])];
+  const transfer=new DataTransfer();transfer.items.add(new File([JSON.stringify(doc)],'Cortejo.json',{type:'application/json'}));$('import').files=transfer.files;await $('import').onchange({target:$('import')});$('save').click();
+  $('wb-mode-route').click();document.querySelector('[data-wb-panel=procession-panel]').click();$('procession-enabled').checked=true;$('procession-count').value='8';$('procession-columns').value='2';$('procession-apply').click();$('save').click();assert(JSON.parse(localStorage.getItem(key)).procession.nazarenes.count===8,'Cortejo formation persisted');
+  await $('wb-help').onclick();document.querySelector('[data-city-tab=brotherhoods]').click();const {BROTHERHOODS,CONTENT_STEPS}=await import('./content-catalogue.mjs'),b=BROTHERHOODS.find(b=>!CONTENT_STEPS.some(s=>s.brotherhoodId===b.id));$('city-brotherhood').value=b.id;$('city-brotherhood').onchange();$('uniform-robe').value='#7b184b';await $('brotherhood-save-uniform').onclick();assert(JSON.parse(localStorage.getItem('apulso-city-project-v1')).brotherhoodSettings[b.id].uniform.robe==='#7b184b','Clothing saved by brotherhood');
+  const binary=atob(${JSON.stringify(bytes)}),png=Uint8Array.from(binary,c=>c.charCodeAt(0)),files=new DataTransfer();files.items.add(new File([png],'Paso-aereo.png',{type:'image/png'}));$('brotherhood-step-file').files=files.files;await $('brotherhood-step-file').onchange();$('brotherhood-step-name').value='Paso Windows';$('brotherhood-step-width').value='1.1';$('brotherhood-step-length').value='2.4';await $('brotherhood-save-step').onclick();assert(JSON.parse(localStorage.getItem('apulso-city-project-v1')).brotherhoodSettings[b.id].step.width===1.1,'Real image imported and assigned');await $('brotherhood-preview-step').onclick();assert(!$('city-dialog').open&&$('pinned-paso-on').checked,'Imported paso stays pinned');
+  $('wb-mode-build').click();$('wb-category-urban').click();$('placement-preview-gallery').querySelector('[data-preview-item=bike-rack]').click();$('urban-item-width').value='.22';$('urban-item-depth').value='.12';const canvas=$('editor-canvas'),r=canvas.getBoundingClientRect();for(const type of ['pointerdown','pointerup'])canvas.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:r.left+r.width*.75,clientY:r.top+r.height*.5,pointerId:5,pointerType:'mouse',button:0,buttons:type==='pointerdown'?1:0}));$('save').click();assert(JSON.parse(localStorage.getItem(key)).urban.at(-1).size[0]===.22,'Bike rack uses requested size');assert($('pinned-paso-on').checked,'Another tool keeps paso visible');assert($('reference-overlay').disabled,'Reference layering is fixed above map');
+ })()`);
+ await waitFor(window,"document.getElementById('paso-test')?.dataset.ok === 'yes'");
+ await window.webContents.executeJavaScript(`(()=>{const $=id=>document.getElementById(id);document.querySelector('[data-tool=house]').click();const c=$('editor-canvas'),r=c.getBoundingClientRect();for(const [x,y]of [[-.06,-.06],[.06,-.06],[.06,.06],[-.06,.06]])for(const type of ['pointerdown','pointerup'])c.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:r.left+r.width*(.5+x),clientY:r.top+r.height*(.5+y),pointerId:5,pointerType:'mouse',button:0,buttons:type==='pointerdown'?1:0}));$('finish-shape').click();})()`);
+ await waitFor(window,"document.getElementById('paso-test')?.dataset.ok === 'no'");
+ await window.webContents.executeJavaScript("document.getElementById('undo').click()");
+ await waitFor(window,"document.getElementById('paso-test')?.dataset.ok === 'yes'");
+ finished=true;console.log('PASS Windows Electron: secure desktop origin, file input, HTML height dialog, real image decode, calibrated photo persistence and reload; map library create/assign/apply/rename/delete/restore, readable contrast and mobile layout; native selection, visual order, undo/redo/reset; clothed cortejo, actual paso image import, resized bike rack, always-overlay photos and persistent real-engine fit; no browser prompt.');app.exit(0);
 }).catch(fail);

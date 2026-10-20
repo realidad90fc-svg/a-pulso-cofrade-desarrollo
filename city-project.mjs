@@ -1,3 +1,5 @@
+import {validateProcession} from './procession-model.mjs';
+import {validateBrotherhoodSettings,validateImportedStep} from './brotherhood-content.mjs';
 import {validateOverhead} from './overhead-elements.mjs';
 import {validateGameplay} from './map-gameplay.mjs';
 // Canonical maps and zones are referenced by stable IDs. A procession owns
@@ -17,6 +19,7 @@ const poly=p=>Array.isArray(p)&&p.length>=3&&p.length<=10000&&p.every(point);
 export function polygonBounds(p){const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);return[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]}
 const intersects=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 export function validateMapDocument(doc){
+ validateProcession(doc?.procession);if(doc?.stepAppearance)validateImportedStep(doc.stepAppearance);
  if(!doc||typeof doc!=='object'||typeof doc.metadata?.mapKey!=='string'||!doc.metadata.mapKey||doc.metadata.mapKey.length>150)throw Error('El mapa necesita un identificador válido.');
  validateGameplay(doc.gameplay);
  const resources=validateResourceManifest(doc.resources||[]),resourceIds=new Set(resources.map(a=>a.id));
@@ -63,6 +66,7 @@ export function readCityProject(storage,catalog=[]){
  return p;
 }
 export function validateProject(p){
+ validateBrotherhoodSettings(p?.brotherhoodSettings);
  if(p?.schema!==CITY_SCHEMA||!Array.isArray(p.maps)||!Array.isArray(p.zones)||!Array.isArray(p.streets)||!p.itineraries||typeof p.itineraries!=='object')throw Error('El archivo no es un proyecto de ciudad compatible.');
  if(p.maps.length>500||p.zones.length>3000||p.streets.length>15000)throw Error('El proyecto supera el tamaño permitido.');
  for(const [items,field]of [[p.maps,'key'],[p.zones,'id'],[p.streets,'id']]){const ids=items.map(x=>x?.[field]);if(ids.some(x=>typeof x!=='string'||!x||x.length>180)||new Set(ids).size!==ids.length)throw Error('Hay identificadores de mapa, calle o zona repetidos o no válidos.');}
@@ -152,6 +156,7 @@ export function transformMapDocument(doc,offset=[0,0],angle=0){
  if(out.gameplay){for(const z of out.gameplay.collision?.zones||[]){z.poly=z.poly.map(move);if(z.holes)z.holes=z.holes.map(r=>r.map(move));}for(const e of out.gameplay.route?.events||[]){e.position=move(e.position);if(e.heading!==null)e.heading+=angle;}}
  if(doc.bounds)out.bounds=polygonBounds([[doc.bounds[0],doc.bounds[1]],[doc.bounds[2],doc.bounds[1]],[doc.bounds[2],doc.bounds[3]],[doc.bounds[0],doc.bounds[3]]].map(move));
  for(const key of ['paso','startPose'])if(doc[key]){const q=move([doc[key].x,doc[key].y]);out[key]={...doc[key],x:q[0],y:q[1],angle:doc[key].angle+angle};}
+ if(out.procession)for(const role of ['nazarenes','acolytes'])out.procession[role].points=out.procession[role].points.map(move);
  return out;
 }
 export function resolveCityMap(p,mapKey,getDocument,trail=new Set()){

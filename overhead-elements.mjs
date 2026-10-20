@@ -12,7 +12,7 @@ export function validateHeightProfiles(profiles){
  if(profiles===undefined)return;if(!Array.isArray(profiles)||profiles.length>100)throw Error('Perfiles de altura no válidos.');
  const ids=new Set();for(const p of profiles){if(!p||typeof p.id!=='string'||!p.id||p.id.length>100||ids.has(p.id)||!['standing','crouched','lowered'].every(k=>Number.isFinite(p[k])&&p[k]>=.1&&p[k]<=20)||p.crouched>p.standing||p.lowered>p.crouched)throw Error('Alturas no válidas: normal ≥ agachado ≥ arriado, entre 0,1 y 20 m.');ids.add(p.id)}
 }
-export function heightProfile(sim){const id=sim?.step?.variant?.key||sim?.step?.code;return(sim?.gameplay?.config?.heightProfiles||sim?.editorHeightProfiles||[]).find(p=>p.id===id)||DEFAULT_HEIGHTS}
+export function heightProfile(sim){if(sim?.step?.imported)return sim.step.imported;const id=sim?.step?.variant?.key||sim?.step?.code;return(sim?.gameplay?.config?.heightProfiles||sim?.editorHeightProfiles||[]).find(p=>p.id===id)||DEFAULT_HEIGHTS}
 export function pasoHeight(sim){const p=heightProfile(sim),state=sim?.controller?.animator?.state;return ['pasoBajado','prelevanta'].includes(state)?p.lowered:sim?.controller?.flex?p.crouched:p.standing}
 export const obstacleApplies=(obstacle,sim)=>obstacle.clearance===undefined||pasoHeight(sim)>obstacle.clearance+1e-6;
 export function overheadDefaultSize(type){return[3,overheadType(type)?.kind==='canopy'?1.2:type==='arch-postigo'?.55:type==='lintel-cathedral'?.32:.24]}

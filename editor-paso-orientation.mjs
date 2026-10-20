@@ -15,8 +15,8 @@ export function pasoFootprint(pose,width=1.0386,length=2.15){
  if(!pose||![pose.x,pose.y].every(Number.isFinite))return[];
  return[[-width/2,-length/2],[width/2,-length/2],[width/2,length/2],[-width/2,length/2]].map(([x,y])=>pasoPoint(pose,x,y));
 }
-export function pasoRotationHandle(pose,zoom,pixel){
- return pixel(...pasoPoint(pose,0,Math.max(1.8,52/Math.max(.1,zoom))));
+export function pasoRotationHandle(pose,zoom,pixel,length=2.15){
+ return pixel(...pasoPoint(pose,0,Math.max(1.8,length/2+.7,52/Math.max(.1,zoom))));
 }
 export function pasoFacingName(angle=0){
  const labels=['norte','noroeste','oeste','suroeste','sur','sureste','este','noreste'];

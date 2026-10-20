@@ -111,6 +111,7 @@ export function resourceManifest(doc,embed=false){
 }
 function manifestFrom(doc,embed,catalogue){
  const ids=new Set((doc.customObjects||[]).map(o=>o.assetId));
+ if(doc.stepAppearance?.assetId)ids.add(doc.stepAppearance.assetId);
  for(const kind of ['roads','sidewalks','houses'])for(const o of doc[kind]||[])if(isAssetId(o.material))ids.add(o.material);
  return[...ids].map(id=>{
   const stored=catalogue.get(id),supplied=(doc.resources||[]).find(a=>a.id===id),source=stored?.image?stored:supplied?.image?supplied:stored||supplied;

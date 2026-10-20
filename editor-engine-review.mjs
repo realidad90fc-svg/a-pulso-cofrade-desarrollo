@@ -1,3 +1,4 @@
+import {makeImportedPaso,importedPasoChoice} from './imported-paso.mjs';
 import {OriginalSimulation} from './original-engine.mjs';
 import {prepareMap,prepareStep} from './engine.mjs';
 import {customMap} from './custom-routes.mjs';
@@ -18,8 +19,8 @@ export function makeReviewPreview(doc,baseline,meta,pose){
  return{key:doc.metadata.mapKey,name:doc.metadata.map||meta.name,document,draft,isolated,nativeId:meta.nativeId||meta.route?.mapId||1};
 }
 export function createReviewSimulation({preview,stepId,loaded}){
- validateMapDocument(preview.document);const {data,resources}=loaded,choice=CONTENT_STEPS.find(s=>s.id===stepId);if(!choice)throw Error('Selecciona uno de los ocho pasos.');registerCustomAssets(preview.document.resources||[]);
- const native=prepareMap(data.maps[preview.nativeId-1]),map=preview.isolated?{...native,name:preview.name,variant:{kind:'city',key:'city-preview:'+preview.key,document:preview.document}}:customMap(native,preview.key),step=customStep(prepareStep(data.steps[choice.engineId-1]),choice.engineVariant);
+ validateMapDocument(preview.document);const {data,resources}=loaded,choice=preview.document.stepAppearance?importedPasoChoice(preview.document.stepAppearance,stepId):CONTENT_STEPS.find(s=>s.id===stepId);if(!choice)throw Error('Selecciona uno de los ocho pasos.');registerCustomAssets(preview.document.resources||[]);
+ const native=prepareMap(data.maps[preview.nativeId-1]),map=preview.isolated?{...native,name:preview.name,variant:{kind:'city',key:'city-preview:'+preview.key,document:preview.document}}:customMap(native,preview.key),step=makeImportedPaso(customStep(prepareStep(data.steps[choice.engineId-1]),choice.engineVariant),preview.document.stepAppearance,stepId);
  const sim=new OriginalSimulation(map,step,{...resources,prefs:{}},'practice');if(!preview.isolated)attachEditorDraft(sim,preview.draft);attachMapGameplay(sim,preview.document);return sim;
 }
 export function placeReviewStep(sim,pose){

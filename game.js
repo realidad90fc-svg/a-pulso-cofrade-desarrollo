@@ -1,3 +1,6 @@
+import {carryBrotherhoodContent} from './brotherhood-content.mjs';
+import {initializeCustomAssets,loadDocumentAssets} from './custom-assets.mjs';
+import {makeImportedPaso,importedPasoChoice} from './imported-paso.mjs';
 import {readEditorTest} from './editor-test-session.mjs';
 import {setupGameReview,recordReviewEvent} from './game-review.mjs';
 import {attachMapGameplay} from './map-gameplay-runtime.mjs';
@@ -96,11 +99,16 @@ async function startGame(scene=2,snapshot=null){
   if(snapshot?.mapContext?.key)cityPreview=campaignRun?.route?.cityDocument&&snapshot.mapContext.key===campaignRun.route.mapKey?campaignCityPreview(campaignRun.route):await resolveMapConnection({targetMap:snapshot.mapContext.key,targetEntry:''},localStorage);
   const tutorial=scene===4;
   const choice=campaignRun?.route;
-  const chosenStep=CONTENT_STEPS.find(s=>s.id===choice?.stepRef);
+  const inheritedContent=choice?.cityDocument||reviewSession?.preview?.document;
+  if(inheritedContent&&cityPreview){cityPreview={...cityPreview,document:carryBrotherhoodContent(inheritedContent,cityPreview.document)};if(cityPreview.draft)cityPreview.draft={...cityPreview.draft,procession:cityPreview.document.procession};}
+  const appearance=cityPreview?.document?.stepAppearance||choice?.cityDocument?.stepAppearance;
+  if(appearance){await initializeCustomAssets();await loadDocumentAssets(cityPreview?.document||choice.cityDocument);}
+  const chosenStep=appearance?importedPasoChoice(appearance,choice?.stepRef):CONTENT_STEPS.find(s=>s.id===choice?.stepRef);
   let map=tutorial?{id:0,nodes:[],name:'Tutorial'}:customMap(maps[Math.max(0,Math.min(9,((choice?.mapId||saved.prefs.mapaElegido)||1)-1))],choice?choice.mapKey:saved.prefs.customRoute,choice),step=tutorial?{id:0,code:'Tuto',nodes:[],name:'Tutorial'}:customStep(steps[Math.max(0,Math.min(6,((chosenStep?.engineId||choice?.stepId||saved.prefs.pasoElegido)||1)-1))],choice?(chosenStep?.engineVariant||choice.stepKey):saved.prefs.customStep);
   if(cityPreview&&!tutorial){
    map=cityPreview.isolated?{...maps[cityPreview.nativeId-1],name:cityPreview.name,variant:{kind:'city',key:'city-preview:'+cityPreview.key,document:cityPreview.document}}:customMap(maps[cityPreview.nativeId-1],cityPreview.key);
   }
+  if(appearance&&!tutorial)step=makeImportedPaso(step,appearance,choice?.stepRef||'imported:preview');
   await loadSevilleTextures();
   const resources={...r,prefs:saved.prefs,audioClock:s=>sound.clock(s)};
   let next=new OriginalSimulation(map,step,resources,tutorial?'tutorial':campaignRun?'career':cityPreview?'practice':saved.prefs.libre?'practice':'career',snapshot);
@@ -239,6 +247,8 @@ async function transitionToMap(event){
  campaignRun?.clock.pause(performance.now());sound.pause();setScreen('loader');$('load-detail').textContent='Abriendo el siguiente mapa…';$('load-retry').hidden=true;
  try{
   const target=await resolveMapConnection(event,localStorage);
+  target.document=carryBrotherhoodContent(previous.map.variant?.document||previousPreview?.document,target.document,previous.step.imported);
+  if(target.draft)target.draft={...target.draft,procession:target.document.procession};
   if(sim!==previous)return;
   saved.prefs.pasoElegido=previous.step.id;saved.prefs.customStep=previous.step.variant?.key||'';
   cityPreview=target;await startGame(2);

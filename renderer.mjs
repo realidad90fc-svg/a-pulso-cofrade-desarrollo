@@ -1,3 +1,5 @@
+import {drawImportedPasoImage} from './imported-paso.mjs';
+import {updateProcession,drawProcession} from './procession-model.mjs';
 import {drawGameReview} from './game-review.mjs';
 import {drawRouteMarkers} from './route-markers.mjs';
 import {multiply} from './original-scene.mjs';
@@ -31,8 +33,10 @@ export class Renderer {
    }
   }
   if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas,'below');
+  updateProcession(sim);
   const drawable=[];
   for(const graph of sim.renderGraphs||sim.graphs)for(const node of graph.nodes.values()){
+   if(sim.processionActive&&(sim.cortejos||[]).some(e=>e.graph===graph))continue;
    // Keep the original body animator and contacts; replace only its visible art.
    if(sim.step.variant&&graph===sim.stepEntity.graph&&node.path.startsWith(graph.root.path+'/body/'))continue;
    if(!sim.tutorial&&!sim.routeAdapter&&(node.path.includes('/zonaInter')||node.path.includes('/zonaParada')))continue;
@@ -55,7 +59,7 @@ export class Renderer {
   }
   if(sim.step.variant){
    const graph=sim.stepEntity.graph,body=graph.find('body'),v=sim.step.variant,im=images.get(v.image);
-   if(im&&graph._active(body))drawable.push({graph,node:{...body,sprite:{order:5,color:[1,1,1,1]}},sprite:{pixelsToUnits:100,rectSize:v.size.map(x=>x*100),pivot:[.5,.5],crop:v.crop,rotation:v.rotation},im});
+   if(im&&graph._active(body))drawable.push({graph,node:{...body,sprite:{order:5,color:[1,1,1,1]}},sprite:{pixelsToUnits:100,rectSize:v.size.map(x=>x*100),pivot:[.5,.5],crop:v.crop,rotation:v.rotation,imageRotation:v.imageRotation},im});
   }
   drawable.sort((a,b)=>a.node.sprite.order-b.node.sprite.order);
   let markers=false,floor=false,editorDrawn=false;
@@ -72,11 +76,13 @@ export class Renderer {
    if(Math.max(...corners.map(p=>p[0]))<0||Math.min(...corners.map(p=>p[0]))>w*d||Math.max(...corners.map(p=>p[1]))<0||Math.min(...corners.map(p=>p[1]))>h*d)continue;
    if(sim.routeAdapter&&(node.name==='reference-architecture'||node.name==='extension')){sim.routeAdapter.drawArchitecture(ctx,m,im,sprite,node,images);continue;}
    ctx.save();const include=sim.routeAdapter?.spriteClip?.(graph,node);if(include){ctx.setTransform(...project);ctx.beginPath();include.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.clip();}const cutouts=sim.routeAdapter?.spriteCutouts?.(graph,node)||[];if(cutouts.length){ctx.setTransform(1,0,0,1,0,0);ctx.beginPath();ctx.rect(-1,-1,this.canvas.width+2,this.canvas.height+2);for(const poly of cutouts){poly.forEach(([x,y],i)=>{const q=[project[0]*x+project[2]*y+project[4],project[1]*x+project[3]*y+project[5]];i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.closePath();}ctx.clip('evenodd');}ctx.setTransform(...m);ctx.globalAlpha=node.sprite.color[3];ctx.filter=sim.routeAdapter?.spriteFilter?.(graph,node)||'none';
-   if(sprite.crop){ctx.imageSmoothingEnabled=false;ctx.drawImage(im,...sprite.crop,0,0,sw,sh);ctx.imageSmoothingEnabled=true;}
+   if(sprite.imageRotation!==undefined){drawImportedPasoImage(ctx,im,sw,sh,sprite.imageRotation);}
+   else if(sprite.crop){ctx.imageSmoothingEnabled=false;ctx.drawImage(im,...sprite.crop,0,0,sw,sh);ctx.imageSmoothingEnabled=true;}
    else{ctx.imageSmoothingEnabled=!sim.routeAdapter;ctx.drawImage(im,0,0,sw,sh);ctx.imageSmoothingEnabled=true;}
    ctx.filter='none';ctx.restore();
   }
   if(!editorDrawn)sim.editorDraft?.draw(ctx,project,images,this.canvas,'below');
+  if(sim.processionActive){ctx.save();ctx.setTransform(...multiply(project,[1,0,0,-1,0,0]));drawProcession(ctx,sim,(x,y)=>[x,-y],1);ctx.restore();}
   // Elevated scenery occludes the actual moving actors as well as the public.
   if(sim.map.variant?.kind==='city')sim.routeAdapter?.drawScene(ctx,project,images,this.canvas,'above');
   sim.editorDraft?.draw(ctx,project,images,this.canvas,'above');

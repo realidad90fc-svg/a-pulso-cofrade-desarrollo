@@ -1,3 +1,5 @@
+import {projectSteps} from './brotherhood-content.mjs';
+import {mountBrotherhoodContent} from './editor-brotherhood-content.mjs';
 import {BROTHERHOODS,CONTENT_STEPS} from './content-catalogue.mjs';
 import {activateCityItinerary,makePlayableCity} from './city-campaign.mjs';
 import {newId} from './map-gameplay.mjs';
@@ -8,7 +10,7 @@ import {lightweightDocument,loadDocumentAssets} from './custom-assets.mjs';
 
 const el=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n};
 function download(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}
-export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true,canWrite=()=>true,onProjectChange=()=>{},onCatalogChange=()=>{},openProject=()=>{},beforeActivation=async()=>{},publishProject=()=>{}}){
+export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocument,openMap,onRegisterMap,onNewDocument,snapshot,changed,saveLocal,show,focus,getSelection,getView,getImage,getPreviewStart,canEdit=()=>true,canWrite=()=>true,onProjectChange=()=>{},onCatalogChange=()=>{},openProject=()=>{},beforeActivation=async()=>{},publishProject=()=>{},onPreviewStep=()=>{}}){
  let project=readCityProject(localStorage,catalog),tab='maps',selectedZone=null,searchTimer;
  for(const map of project.maps)if(!catalog.some(m=>m.key===map.key))onRegisterMap(map);
  onCatalogChange(project.maps);
@@ -179,7 +181,8 @@ export function setupCityManager({catalog,getData,getBaseline,getMapKey,getDocum
   function paint(){
    modal.dataset.brotherhood=select.value;const results=$('city-results');results.replaceChildren();const visits=project.itineraries[select.value]||[];
    results.append(el('h2','',brotherhoodName(select.value)),el('p','city-small',visits.length+' tramos en preparación. Editar la geometría de una calle compartida afecta a todos sus usos.'));
-   const active=project.campaignItineraries?.[select.value],steps=CONTENT_STEPS.filter(s=>s.brotherhoodId===select.value&&s.implemented),settings=el('section','city-campaign-settings');
+   mountBrotherhoodContent({host:results,brotherhoodId:select.value,getProject:()=>project,commit:transaction,onSaved:paint,notice,onPreview:step=>{modal.close();onPreviewStep(step);}});
+   const active=project.campaignItineraries?.[select.value],steps=projectSteps(project).filter(s=>s.brotherhoodId===select.value&&s.implemented),settings=el('section','city-campaign-settings');
    const state=el('p','city-itinerary-state');state.id='city-itinerary-state';const stateLabels={empty:'Sin mapas asignados',draft:'En preparación · todavía sin aplicar al juego',pending:'Cambios pendientes · el juego conserva la última lista aplicada',live:'En el juego · asignaciones actualizadas'};const updateState=()=>{state.textContent=stateLabels[itineraryState(project,select.value)];state.dataset.state=itineraryState(project,select.value)};updateState();results.append(state);
    settings.append(el('h3','','3. Aplica el recorrido al juego'),el('p','city-small','Guardar y ordenar prepara la lista. Aplicar al juego actualiza Semana Santa; conserva los identificadores y los récords de cada tramo.'));
    const stepLabel=el('label','city-field'),stepSelect=el('select');stepSelect.id='city-campaign-step';stepSelect.setAttribute('aria-label','Paso del itinerario');for(const s of steps){const o=el('option','',s.name);o.value=s.id;stepSelect.append(o)}if(active)stepSelect.value=active.stepId;stepLabel.append(el('span','','Paso'),stepSelect);settings.append(stepLabel);

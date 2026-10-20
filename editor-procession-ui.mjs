@@ -1,0 +1,40 @@
+import {defaultProcession,validateProcession,PROCESSION_ROLES,processionPoses,drawProcessionFigure} from './procession-model.mjs';
+export function setupProcessionEditor({state,getData,snapshot,changed,show,configureTool,canWrite,pixel,requestDraw,getUniforms=()=>({})}){
+ const panel=document.createElement('details');panel.id='procession-panel';panel.innerHTML=`<summary>Acólitos y nazarenos · recorrido</summary><div class="stack">
+ <label class="flag"><input id="procession-enabled" type="checkbox"> Activar cortejo en este mapa</label>
+ <label>Grupo<select id="procession-role"><option value="nazarenes">Nazarenos</option><option value="acolytes">Acólitos</option></select></label>
+ <p class="muted">Traza en el sentido de la marcha. Los dos grupos pueden tener caminos diferentes. En cada uno, el punto más cercano al paso marca el avance de la fila.</p>
+ <div class="precision-two"><label>Personas<input id="procession-count" type="number" min="0" max="120" step="1"></label><label>Columnas<input id="procession-columns" type="number" min="1" max="4" step="1"></label><label>Separación entre filas (m)<input id="procession-spacing" type="number" min=".2" max="10" step=".05"></label><label>Separación lateral (m)<input id="procession-lane" type="number" min=".15" max="5" step=".05"></label></div>
+ <label>Distancia delante del paso (m)<input id="procession-offset" type="number" min="-200" max="200" step=".1"></label>
+ <button id="procession-apply" type="button">Guardar formación</button>
+ <button id="procession-draw" type="button">Trazar recorrido en el plano</button>
+ <div class="actions"><button id="procession-finish" type="button">Guardar trazado</button><button id="procession-cancel" type="button">Cancelar trazado</button></div>
+ <p id="procession-count-points" class="notice" role="status"></p><select id="procession-point-list" aria-label="Punto del cortejo"></select>
+ <div class="precision-two"><label>X (m)<input id="procession-x" type="number" step=".01"></label><label>Y (m)<input id="procession-y" type="number" step=".01"></label></div>
+ <button id="procession-point-save" type="button">Modificar punto seleccionado</button>
+ <div class="actions"><button id="procession-point-remove" type="button">Quitar punto seleccionado</button><button id="procession-reverse" type="button">Invertir sentido</button></div>
+ <button id="procession-clear" type="button">Quitar trazado de este grupo</button>
+ <p class="muted">Deshacer y Retroceso quitan el último punto mientras trazas. Sin trazado propio, el grupo conserva la formación recta delante del paso. Al acabar el trazado, las personas salen del mapa sin amontonarse. La ropa se elige en Mapas → Hermandades.</p>
+ </div>`;document.querySelector('.sidebar').append(panel);const $=id=>document.getElementById(id);let draft=null,signature='';
+ const role=()=>$('procession-role').value,config=()=>getData()?.procession||defaultProcession();
+ const write=(change,message)=>{try{if(!canWrite())throw Error('Recarga el proyecto antes de editar.');const next=structuredClone(config());change(next);validateProcession(next);snapshot();getData().procession=next;changed();signature='';refresh();if(message)show(message,'good');}catch(e){show(e.message,'error');}};
+ function loadPoints(){const points=config()[role()].points,list=$('procession-point-list'),selected=list.value;list.replaceChildren();for(const [i,p]of points.entries()){const o=document.createElement('option');o.value=i;o.textContent=(i+1)+'. '+p.map(v=>v.toFixed(2)).join(' · ');list.append(o);}list.value=selected||'0';loadPoint();}
+ function loadPoint(){const p=config()[role()].points[Number($('procession-point-list').value)];$('procession-x').value=p?.[0]??'';$('procession-y').value=p?.[1]??'';}
+ function refresh(){const doc=getData();if(!doc)return;const p=config(),next=JSON.stringify([doc.metadata.mapKey,p,role()]);if(next!==signature){signature=next;$('procession-enabled').checked=!!doc.procession?.enabled;for(const key of ['count','columns','spacing','lane','offset'])$('procession-'+key).value=p[role()][key];loadPoints();}
+ $('procession-count-points').textContent=draft?'Trazando: '+draft.points.length+' puntos · pulsa Guardar trazado.':p[role()].points.length+' puntos guardados para '+(role()==='nazarenes'?'nazarenos':'acólitos');}
+ $('procession-role').onchange=()=>{draft=null;signature='';refresh();};$('procession-point-list').onchange=loadPoint;
+ $('procession-enabled').onchange=()=>write(p=>{p.enabled=$('procession-enabled').checked;},'Cortejo actualizado.');
+ $('procession-apply').onclick=()=>write(p=>{for(const key of ['count','columns','spacing','lane','offset'])p[role()][key]=Number($('procession-'+key).value);p.enabled=$('procession-enabled').checked;},'Formación guardada.');
+ $('procession-draw').onclick=()=>{draft={role:role(),points:[],future:[],mapKey:getData().metadata.mapKey};configureTool('procession-path');refresh();show('Marca los puntos del camino en el sentido de avance y pulsa Guardar trazado.');};
+ $('procession-finish').onclick=()=>{if(!draft||draft.points.length<2){show('Añade al menos dos puntos al trazado.','error');return;}const copy=structuredClone(draft);write(p=>{p.enabled=true;p[copy.role].points=copy.points;draft=null;},'Recorrido del cortejo guardado.');};
+ $('procession-cancel').onclick=()=>{draft=null;refresh();requestDraw(true);};
+ $('procession-point-save').onclick=()=>write(p=>{const i=Number($('procession-point-list').value);if(!p[role()].points[i])throw Error('Selecciona un punto.');p[role()].points[i]=[Number($('procession-x').value),Number($('procession-y').value)];},'Punto del recorrido modificado.');
+ $('procession-point-remove').onclick=()=>write(p=>{const i=Number($('procession-point-list').value);if(!p[role()].points[i])throw Error('Selecciona un punto.');p[role()].points.splice(i,1);if(p[role()].points.length===1)p[role()].points=[];},'Punto eliminado.');
+ $('procession-reverse').onclick=()=>write(p=>p[role()].points.reverse(),'Sentido del recorrido invertido.');$('procession-clear').onclick=()=>write(p=>{p[role()].points=[];},'Trazado retirado; se conserva la formación.');
+ return{refresh,snapshotDraft:()=>draft&&structuredClone(draft),restoreDraft(value){draft=value&&structuredClone(value);signature='';refresh();},down(p){if(state.tool!=='procession-path')return false;if(!draft||draft.mapKey!==getData().metadata.mapKey)draft={role:role(),points:[],future:[],mapKey:getData().metadata.mapKey};const last=draft.points.at(-1);if(last&&Math.hypot(last[0]-p[0],last[1]-p[1])<.01)return true;draft.points.push(p.map(v=>Math.round(v*1000)/1000));draft.future=[];refresh();return true;},undo(){if(state.tool!=='procession-path'||!draft)return false;const p=draft.points.pop();if(p)draft.future.push(p);refresh();return true;},redo(){if(state.tool!=='procession-path'||!draft)return false;const p=draft.future.pop();if(p)draft.points.push(p);refresh();return true;},cancel(){draft=null;signature='';},overlay(ctx){
+  if(!getData())return;const active=state.tool==='procession-path'||!panel.hidden,doc=getData();if(!active)return;
+  const uniforms=getUniforms(),cfg={...(doc.procession||defaultProcession()),...(uniforms.uniform?{uniform:uniforms.uniform}:{}),...(uniforms.acolyteUniform?{acolyteUniform:uniforms.acolyteUniform}:{})};ctx.save();ctx.lineWidth=2;
+  for(const group of PROCESSION_ROLES){const points=draft?.role===group?draft.points:cfg[group].points;if(!points.length)continue;ctx.strokeStyle=group==='nazarenes'?'#3154b5':'#a44f38';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();points.forEach((p,i)=>{const q=pixel(...p);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.stroke();for(const [i,p]of points.entries()){const q=pixel(...p);ctx.beginPath();ctx.arc(...q,4,0,2*Math.PI);ctx.fill();ctx.font='bold 11px sans-serif';ctx.fillText(String(i+1),q[0]+7,q[1]-7);}}
+  const p=state.paso||doc.paso;if(p)for(const actor of processionPoses(cfg,p))drawProcessionFigure(ctx,actor,pixel,Math.hypot(pixel(1,0)[0]-pixel(0,0)[0],pixel(1,0)[1]-pixel(0,0)[1]));ctx.restore();
+ }};
+}

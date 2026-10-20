@@ -60,6 +60,10 @@ jobs:
           $env:APULSO_DOM_TEST_MODULES = $env:CODEX_PRIMARY_RUNTIME_NODE_MODULES
           node tests/edited-arenal-preview.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/brotherhood-procession.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/imported-paso-game.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/scene-depth-rendering.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/decor-rendering.mjs
